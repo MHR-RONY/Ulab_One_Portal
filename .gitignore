@@ -7,13 +7,23 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build outputs
 dist
 dist-ssr
-*.local
 
-# Local instructions
+# Environment / secrets
+*.local
+.env
+.env.local
+.env.*.local
+server/.env
+
+# Local instructions & prompts
 .instructions
+prompts/
 
 # Editor directories and files
 .vscode/*
@@ -25,3 +35,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Skills & agent customization (not needed in production)
+.github/skills/
+.github/agents/
+.github/hooks/
+
+# OS files
+Thumbs.db
+
+.github/copilot-instructions.md
+CLAUDE.md
+prompts/
+.instructions
