@@ -494,6 +494,6 @@ This project is licensed under the [MIT License](LICENSE).
 
 <div align="center">
 
-Made with ❤️ for ULAB by [Mhr Rony](https://mhrrony.com)
+Designed & Developed for ULAB by [Mhr Rony](https://mhrrony.com)
 
 </div>
