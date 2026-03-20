@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
-	registerStudent,
+	sendStudentOtp,
+	verifyStudentOtp,
 	loginStudent,
 	loginTeacher,
 	loginAdmin,
@@ -11,7 +12,8 @@ import { protect } from "../middleware/auth.middleware";
 
 const router = Router();
 
-router.post("/register/student", registerStudent);
+router.post("/register/student/send-otp", sendStudentOtp);
+router.post("/register/student/verify-otp", verifyStudentOtp);
 router.post("/login/student", loginStudent);
 router.post("/login/teacher", loginTeacher);
 router.post("/login/admin", loginAdmin);

@@ -6,13 +6,30 @@ import { AdminModel } from "../models/Admin.model";
 import { IJwtPayload } from "../types";
 import { generateAccessToken, generateRefreshToken } from "../utils/generateToken";
 import { sendResponse } from "../utils/apiResponse";
+import {
+	generateOtp,
+	storePendingRegistration,
+	getPendingRegistration,
+	deletePendingRegistration,
+} from "../utils/otp";
+import { sendOtpEmail } from "../utils/emailService";
 
-export const registerStudent: RequestHandler = async (req, res, next) => {
+export const sendStudentOtp: RequestHandler = async (req, res, next) => {
 	try {
-		const { name, email, password, studentId, department, semester } = req.body;
+		const { name, email, password, studentId, department } = req.body;
 
 		if (!name || !email || !password || !studentId || !department) {
 			sendResponse(res, 400, false, "All fields are required");
+			return;
+		}
+
+		if (!email.endsWith("@ulab.edu.bd")) {
+			sendResponse(res, 400, false, "Email must end with @ulab.edu.bd");
+			return;
+		}
+
+		if (password.length < 6) {
+			sendResponse(res, 400, false, "Password must be at least 6 characters");
 			return;
 		}
 
@@ -22,14 +39,69 @@ export const registerStudent: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
-		const student = await StudentModel.create({
+		const existingStudentId = await StudentModel.findOne({ studentId });
+		if (existingStudentId) {
+			sendResponse(res, 409, false, "Student ID already registered");
+			return;
+		}
+
+		const otp = generateOtp();
+
+		storePendingRegistration(email, {
 			name,
 			email,
 			password,
 			studentId,
 			department,
-			semester: semester || 1,
+			otp,
 		});
+
+		await sendOtpEmail(email, name, otp);
+
+		sendResponse(res, 200, true, "OTP sent to your email");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const verifyStudentOtp: RequestHandler = async (req, res, next) => {
+	try {
+		const { email, otp } = req.body;
+
+		if (!email || !otp) {
+			sendResponse(res, 400, false, "Email and OTP are required");
+			return;
+		}
+
+		const pending = getPendingRegistration(email);
+		if (!pending) {
+			sendResponse(res, 400, false, "OTP expired or no pending registration. Please try again.");
+			return;
+		}
+
+		if (pending.otp !== otp) {
+			sendResponse(res, 400, false, "Invalid OTP");
+			return;
+		}
+
+		// Double-check uniqueness before creating
+		const existingUser = await StudentModel.findOne({ email });
+		if (existingUser) {
+			deletePendingRegistration(email);
+			sendResponse(res, 409, false, "Email already registered");
+			return;
+		}
+
+		const student = await StudentModel.create({
+			name: pending.name,
+			email: pending.email,
+			password: pending.password,
+			studentId: pending.studentId,
+			department: pending.department,
+			semester: pending.semester || 1,
+		});
+
+		deletePendingRegistration(email);
 
 		const payload: IJwtPayload = {
 			id: student._id.toString(),
@@ -44,7 +116,7 @@ export const registerStudent: RequestHandler = async (req, res, next) => {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "strict",
-			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+			maxAge: 7 * 24 * 60 * 60 * 1000,
 		});
 
 		sendResponse(res, 201, true, "Student registered successfully", {
