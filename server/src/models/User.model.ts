@@ -36,8 +36,8 @@ const userSchema = new Schema<IUserDocument>(
 		discriminatorKey: "role",
 		toJSON: {
 			transform(_doc, ret) {
-				delete ret.password;
-				return ret;
+				const { password: _pw, ...rest } = ret;
+				return rest;
 			},
 		},
 	}
