@@ -5,6 +5,11 @@ export interface IStudentDocument extends IUserDocument {
 	studentId: string;
 	department: string;
 	semester: number;
+	phone?: string;
+	emailAlerts: boolean;
+	pushNotifications: boolean;
+	language: string;
+	twoFactorEnabled: boolean;
 	enrolledCourses: Schema.Types.ObjectId[];
 }
 
@@ -23,6 +28,27 @@ const studentSchema = new Schema<IStudentDocument>({
 	semester: {
 		type: Number,
 		default: 1,
+	},
+	phone: {
+		type: String,
+		trim: true,
+		default: "",
+	},
+	emailAlerts: {
+		type: Boolean,
+		default: true,
+	},
+	pushNotifications: {
+		type: Boolean,
+		default: true,
+	},
+	language: {
+		type: String,
+		default: "English (US)",
+	},
+	twoFactorEnabled: {
+		type: Boolean,
+		default: false,
 	},
 	enrolledCourses: [
 		{
