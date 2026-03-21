@@ -2,6 +2,7 @@ import { BookOpen, Calendar, FileText, MessageSquare, Users, ClipboardCheck, Use
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useRole } from "@/contexts/RoleContext";
+import api from "@/lib/api";
 
 const navItems = [
   { icon: BookOpen, label: "Dashboard", href: "/" },
@@ -28,6 +29,17 @@ const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
   const handleSwitchToTeacher = () => {
     switchRole("teacher");
     navigate("/teacher");
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // ignore errors — still clear local session
+    }
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("ulab-role");
+    navigate("/login");
   };
 
   return (
@@ -98,7 +110,7 @@ const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
           <ArrowLeftRight className="w-4 h-4" />
           <span>Switch to Teacher</span>
         </button>
-        <button className="flex w-full items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/5 transition-all duration-200 hover:translate-x-0.5">
+        <button className="flex w-full items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/5 transition-all duration-200 hover:translate-x-0.5" onClick={handleLogout}>
           <LogOut className="w-5 h-5" />
           <span className="text-sm font-medium">Logout</span>
         </button>

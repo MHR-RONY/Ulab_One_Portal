@@ -11,8 +11,13 @@ import MobileAcademicOverview from "@/components/student/MobileAcademicOverview"
 import MobileSchedule from "@/components/student/MobileSchedule";
 import MobileTasks from "@/components/student/MobileTasks";
 import { motion } from "framer-motion";
+import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 
 const Index = () => {
+  const { data, loading } = useStudentDashboard();
+
+  const firstName = data?.student.name?.split(" ")[0] ?? "there";
+
   return (
     <div className="flex h-screen overflow-hidden premium-bg">
       {/* Desktop sidebar */}
@@ -23,7 +28,7 @@ const Index = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Desktop header */}
         <div className="hidden md:block">
-          <Header />
+          <Header student={data?.student ?? null} />
         </div>
 
         {/* Mobile header */}
@@ -37,27 +42,39 @@ const Index = () => {
 
           {/* Desktop-only content */}
           <div className="hidden md:block p-8 space-y-8">
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              <h2 className="text-3xl font-black text-foreground tracking-tight">Welcome back, Alex! 👋</h2>
-              <p className="text-muted-foreground mt-1 font-medium">
-                You have 3 assignments due this week and 2 classes remaining today.
-              </p>
-            </motion.div>
-            <StatsGrid />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
-                <AttendanceSummary />
-                <ClassesToday />
+            {loading ? (
+              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
+                Loading dashboard...
               </div>
-              <div className="space-y-8">
-                <RecentResources />
-                <QuickTasks />
-              </div>
-            </div>
+            ) : (
+              <>
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <h2 className="text-3xl font-black text-foreground tracking-tight">
+                    Welcome back, {firstName}!
+                  </h2>
+                  <p className="text-muted-foreground mt-1 font-medium">
+                    {data?.stats.upcomingClassesCount
+                      ? `You have ${data.stats.upcomingClassesCount} class${data.stats.upcomingClassesCount > 1 ? "es" : ""} remaining today.`
+                      : "You have no more classes today."}
+                  </p>
+                </motion.div>
+                <StatsGrid stats={data?.stats ?? null} />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-8">
+                    <AttendanceSummary attendance={data?.attendance ?? []} />
+                    <ClassesToday classes={data?.todaysClasses ?? []} />
+                  </div>
+                  <div className="space-y-8">
+                    <RecentResources />
+                    <QuickTasks />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </main>
       </div>

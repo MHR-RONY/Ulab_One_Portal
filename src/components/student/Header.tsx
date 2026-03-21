@@ -1,6 +1,20 @@
 import { Search, Bell, HelpCircle } from "lucide-react";
+import { DashboardStudent } from "@/hooks/useStudentDashboard";
 
-const Header = () => {
+interface HeaderProps {
+  student: DashboardStudent | null;
+}
+
+const Header = ({ student }: HeaderProps) => {
+  const initials = student?.name
+    ? student.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "??";
+
   return (
     <header className="h-20 bg-card/80 backdrop-blur-xl border-b border-border flex items-center justify-between px-8 flex-shrink-0">
       <div className="flex-1 max-w-xl">
@@ -26,11 +40,11 @@ const Header = () => {
         <div className="h-8 w-px bg-border" />
         <div className="flex items-center gap-3 cursor-pointer hover:bg-secondary/70 p-2 rounded-xl transition-all duration-200">
           <div className="text-right">
-            <p className="text-sm font-bold text-foreground">Alex Thompson</p>
-            <p className="text-[11px] text-muted-foreground font-medium">ID: 21-0423-1</p>
+            <p className="text-sm font-bold text-foreground">{student?.name ?? "—"}</p>
+            <p className="text-[11px] text-muted-foreground font-medium">ID: {student?.studentId ?? "—"}</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm ring-2 ring-primary/10">
-            AT
+            {initials}
           </div>
         </div>
       </div>
