@@ -22,7 +22,46 @@ export interface IStudent extends IUser {
 	studentId: string;
 	department: string;
 	semester: number;
+	phone?: string;
+	emailAlerts: boolean;
+	pushNotifications: boolean;
+	language: string;
+	twoFactorEnabled: boolean;
 	enrolledCourses: string[];
+}
+
+export interface IStudentSettings {
+	name: string;
+	email: string;
+	studentId: string;
+	department: string;
+	semester: number;
+	emailAlerts: boolean;
+	pushNotifications: boolean;
+	language: string;
+	twoFactorEnabled: boolean;
+}
+
+export interface IProfileCourse {
+	courseCode: string;
+	courseName: string;
+	credits: number;
+	teacher: string;
+	attendedClasses: number;
+	totalClasses: number;
+	attendancePercentage: number;
+}
+
+export interface IProfileData {
+	name: string;
+	studentId: string;
+	department: string;
+	semester: number;
+	email: string;
+	phone: string;
+	enrolledCourses: IProfileCourse[];
+	overallAttendancePercentage: number;
+	totalCredits: number;
 }
 
 export interface ITeacher extends IUser {
@@ -55,6 +94,53 @@ export interface ISchedule {
 	isConflictFree: boolean;
 	createdAt: Date;
 	updatedAt: Date;
+}
+
+export interface IAttendance {
+	_id: string;
+	student: string;
+	course: string;
+	attendedClasses: number;
+	totalClasses: number;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface IDashboardClass {
+	courseCode: string;
+	courseName: string;
+	startTime: string;
+	endTime: string;
+	room: string;
+	teacher: string;
+	status: "COMPLETED" | "NOW" | "UPCOMING";
+}
+
+export interface IDashboardStats {
+	upcomingClassesCount: number;
+	nextClass: { code: string; time: string } | null;
+	totalSessionsToday: number;
+	completedSessionsToday: number;
+}
+
+export interface IAttendanceSummary {
+	courseCode: string;
+	courseName: string;
+	attendedClasses: number;
+	totalClasses: number;
+	percentage: number;
+}
+
+export interface IDashboardData {
+	student: {
+		name: string;
+		studentId: string;
+		department: string;
+		semester: number;
+	};
+	todaysClasses: IDashboardClass[];
+	stats: IDashboardStats;
+	attendance: IAttendanceSummary[];
 }
 
 export interface IJwtPayload {
