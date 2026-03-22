@@ -14,6 +14,74 @@ import {
 } from "../utils/otp";
 import { sendOtpEmail } from "../utils/emailService";
 
+// ─── Admin Setup ──────────────────────────────────────────────
+
+export const checkAdminSetup: RequestHandler = async (_req, res, next) => {
+	try {
+		const adminCount = await AdminModel.countDocuments();
+		sendResponse(res, 200, true, "Admin setup status", {
+			isSetup: adminCount > 0,
+		});
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const setupAdmin: RequestHandler = async (req, res, next) => {
+	try {
+		const adminCount = await AdminModel.countDocuments();
+		if (adminCount > 0) {
+			sendResponse(res, 403, false, "Admin account already exists. Please login.");
+			return;
+		}
+
+		const { name, email, password } = req.body;
+
+		if (!name || !email || !password) {
+			sendResponse(res, 400, false, "Name, email, and password are required");
+			return;
+		}
+
+		if (password.length < 6) {
+			sendResponse(res, 400, false, "Password must be at least 6 characters");
+			return;
+		}
+
+		const admin = await AdminModel.create({
+			name,
+			email,
+			password,
+			role: "admin",
+			permissions: ["all"],
+		});
+
+		const payload: IJwtPayload = {
+			id: admin._id.toString(),
+			role: "admin",
+			email: admin.email,
+		};
+
+		const accessToken = generateAccessToken(payload);
+		const refreshToken = generateRefreshToken(payload);
+
+		res.cookie("refreshToken", refreshToken, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "strict",
+			maxAge: 7 * 24 * 60 * 60 * 1000,
+		});
+
+		sendResponse(res, 201, true, "Admin account created successfully", {
+			accessToken,
+			admin: admin.toJSON(),
+		});
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ─── Student Registration ─────────────────────────────────────
+
 export const sendStudentOtp: RequestHandler = async (req, res, next) => {
 	try {
 		const { name, email, password, studentId, department } = req.body;
@@ -48,6 +116,7 @@ export const sendStudentOtp: RequestHandler = async (req, res, next) => {
 		const otp = generateOtp();
 
 		storePendingRegistration(email, {
+			type: "student",
 			name,
 			email,
 			password,
@@ -76,6 +145,11 @@ export const verifyStudentOtp: RequestHandler = async (req, res, next) => {
 		const pending = getPendingRegistration(email);
 		if (!pending) {
 			sendResponse(res, 400, false, "OTP expired or no pending registration. Please try again.");
+			return;
+		}
+
+		if (pending.type !== "student") {
+			sendResponse(res, 400, false, "Invalid registration type");
 			return;
 		}
 
@@ -127,6 +201,8 @@ export const verifyStudentOtp: RequestHandler = async (req, res, next) => {
 		next(error);
 	}
 };
+
+// ─── Login ────────────────────────────────────────────────────
 
 export const loginStudent: RequestHandler = async (req, res, next) => {
 	try {
