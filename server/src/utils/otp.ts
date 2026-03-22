@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
-interface PendingRegistration {
+export interface PendingRegistration {
+	type: "student";
 	name: string;
 	email: string;
 	password: string;
