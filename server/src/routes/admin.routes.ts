@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+	createTeacher,
 	getAllStudents,
 	getAllTeachers,
 	deleteStudent,
@@ -10,6 +11,7 @@ const router = Router();
 
 router.use(protect, authorizeRole("admin"));
 
+router.post("/teacher", createTeacher);
 router.get("/students", getAllStudents);
 router.get("/teachers", getAllTeachers);
 router.delete("/student/:id", deleteStudent);
