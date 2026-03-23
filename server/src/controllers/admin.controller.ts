@@ -75,3 +75,80 @@ export const deleteStudent: RequestHandler = async (req, res, next) => {
 		next(error);
 	}
 };
+
+export const getTeacherById: RequestHandler = async (req, res, next) => {
+	try {
+		const teacher = await TeacherModel.findById(req.params.id).select("-password");
+
+		if (!teacher) {
+			sendResponse(res, 404, false, "Teacher not found");
+			return;
+		}
+
+		sendResponse(res, 200, true, "Teacher fetched", teacher);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const updateTeacher: RequestHandler = async (req, res, next) => {
+	try {
+		const { name, email, teacherId, department } = req.body;
+
+		if (!name && !email && !teacherId && !department) {
+			sendResponse(res, 400, false, "At least one field is required to update");
+			return;
+		}
+
+		if (email) {
+			const existing = await TeacherModel.findOne({ email, _id: { $ne: req.params.id } });
+			if (existing) {
+				sendResponse(res, 409, false, "Email already in use by another teacher");
+				return;
+			}
+		}
+
+		if (teacherId) {
+			const existing = await TeacherModel.findOne({ teacherId, _id: { $ne: req.params.id } });
+			if (existing) {
+				sendResponse(res, 409, false, "Teacher ID already in use");
+				return;
+			}
+		}
+
+		const updated = await TeacherModel.findByIdAndUpdate(
+			req.params.id,
+			{
+				...(name && { name }),
+				...(email && { email }),
+				...(teacherId && { teacherId }),
+				...(department && { department }),
+			},
+			{ new: true, runValidators: true }
+		).select("-password");
+
+		if (!updated) {
+			sendResponse(res, 404, false, "Teacher not found");
+			return;
+		}
+
+		sendResponse(res, 200, true, "Teacher updated successfully", updated);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const deleteTeacher: RequestHandler = async (req, res, next) => {
+	try {
+		const teacher = await TeacherModel.findByIdAndDelete(req.params.id);
+
+		if (!teacher) {
+			sendResponse(res, 404, false, "Teacher not found");
+			return;
+		}
+
+		sendResponse(res, 200, true, "Teacher deleted successfully");
+	} catch (error) {
+		next(error);
+	}
+};
