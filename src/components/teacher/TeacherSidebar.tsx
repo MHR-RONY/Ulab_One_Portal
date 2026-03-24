@@ -5,6 +5,13 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useRole } from "@/contexts/RoleContext";
+import { useTeacherProfile } from "@/hooks/useTeacherProfile";
+
+const getInitials = (name: string) => {
+  const parts = name.trim().split(" ");
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/teacher" },
@@ -23,6 +30,7 @@ interface TeacherSidebarProps {
 const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
   const { switchRole } = useRole();
   const navigate = useNavigate();
+  const { profile } = useTeacherProfile();
 
   const handleSwitchToStudent = () => {
     switchRole("student");
@@ -64,15 +72,19 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
       <div className="p-4 border-t border-border space-y-3">
         <div className="flex items-center gap-3 px-2">
           <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-xs ring-2 ring-primary/10">
-            AI
+            {profile ? getInitials(profile.name) : "--"}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-bold text-foreground truncate">Dr. Ariful Islam</span>
-            <span className="text-xs text-muted-foreground">Senior Lecturer</span>
+            <span className="text-sm font-bold text-foreground truncate">{profile?.name ?? "Loading..."}</span>
+            <span className="text-xs text-muted-foreground">{profile?.department ?? "Faculty"}</span>
           </div>
         </div>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => {
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("ulab-role");
+            navigate("/teacher/login");
+          }}
           className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200 text-sm font-semibold"
         >
           <LogOut className="w-4 h-4" />

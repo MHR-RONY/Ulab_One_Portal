@@ -59,9 +59,11 @@ const alerts = [
 ];
 
 
-const MobileTeacherDashboard = () => {
-  
+interface Props {
+  teacherName?: string;
+}
 
+const MobileTeacherDashboard = ({ teacherName }: Props) => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -96,7 +98,7 @@ const MobileTeacherDashboard = () => {
             transition={{ duration: 0.4 }}
             className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-lg shadow-primary/20"
           >
-            <h2 className="text-xl font-bold">Good morning, Dr. Rahim</h2>
+            <h2 className="text-xl font-bold">Good morning, {teacherName || "Professor"}</h2>
             <p className="text-primary-foreground/80 text-sm mt-1">
               You have 3 classes today and 18 pending grades.
             </p>
