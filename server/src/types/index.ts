@@ -78,10 +78,12 @@ export interface ICourse {
 	_id: string;
 	courseCode: string;
 	name: string;
+	section: string;
 	credits: number;
 	department: string;
 	teacher: string;
 	scheduleSlots: IScheduleSlot[];
+	enrolledStudents: string[];
 	createdAt: Date;
 	updatedAt: Date;
 }
