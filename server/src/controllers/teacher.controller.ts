@@ -2,6 +2,8 @@ import { RequestHandler } from "express";
 import { TeacherModel } from "../models/Teacher.model";
 import { CourseModel } from "../models/Course.model";
 import { StudentModel } from "../models/Student.model";
+import { AttendanceModel } from "../models/Attendance.model";
+import { TAttendanceStatus } from "../types";
 import { sendResponse } from "../utils/apiResponse";
 
 export const getTeacherProfile: RequestHandler = async (req, res, next) => {
@@ -189,6 +191,131 @@ export const searchStudents: RequestHandler = async (req, res, next) => {
 			.limit(20);
 
 		sendResponse(res, 200, true, "Students fetched successfully", students);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getAttendanceForDate: RequestHandler = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		const { date } = req.query;
+
+		if (!date || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+			sendResponse(res, 400, false, "date query param is required (YYYY-MM-DD)");
+			return;
+		}
+
+		const course = await CourseModel.findOne({ _id: id, teacher: req.user?.id }).populate(
+			"enrolledStudents",
+			"name studentId email department semester"
+		);
+
+		if (!course) {
+			sendResponse(res, 404, false, "Course not found");
+			return;
+		}
+
+		const enrolledStudents = course.enrolledStudents as unknown as Array<{
+			_id: { toString(): string };
+			name: string;
+			studentId: string;
+			email: string;
+			department: string;
+			semester: number;
+		}>;
+
+		const [dateRecords, allRecords] = await Promise.all([
+			AttendanceModel.find({ course: id, date }),
+			AttendanceModel.find({ course: id }),
+		]);
+
+		const dateMap = new Map<string, TAttendanceStatus>();
+		dateRecords.forEach((r) => {
+			dateMap.set(r.student.toString(), r.status as TAttendanceStatus);
+		});
+
+		const statsMap = new Map<string, { attended: number; total: number }>();
+		allRecords.forEach((r) => {
+			const sid = r.student.toString();
+			const prev = statsMap.get(sid) ?? { attended: 0, total: 0 };
+			prev.total++;
+			if (r.status === "present") prev.attended++;
+			statsMap.set(sid, prev);
+		});
+
+		const students = enrolledStudents.map((s) => {
+			const sid = s._id.toString();
+			const stats = statsMap.get(sid);
+			return {
+				_id: sid,
+				name: s.name,
+				studentId: s.studentId,
+				email: s.email,
+				department: s.department,
+				semester: s.semester,
+				status: dateMap.get(sid) ?? "not-marked",
+				attended: stats?.attended ?? 0,
+				total: stats?.total ?? 0,
+				percentage: stats && stats.total > 0 ? Math.round((stats.attended / stats.total) * 100) : null,
+			};
+		});
+
+		sendResponse(res, 200, true, "Attendance fetched successfully", {
+			course: {
+				_id: course._id,
+				name: course.name,
+				courseCode: course.courseCode,
+				section: course.section,
+			},
+			date,
+			students,
+		});
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const saveAttendance: RequestHandler = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		const { date, records } = req.body as {
+			date: string;
+			records: Array<{ student: string; status: TAttendanceStatus }>;
+		};
+
+		if (!date || !Array.isArray(records)) {
+			sendResponse(res, 400, false, "date and records array are required");
+			return;
+		}
+
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+			sendResponse(res, 400, false, "date must be in YYYY-MM-DD format");
+			return;
+		}
+
+		const course = await CourseModel.findOne({ _id: id, teacher: req.user?.id });
+		if (!course) {
+			sendResponse(res, 404, false, "Course not found");
+			return;
+		}
+
+		if (records.length === 0) {
+			sendResponse(res, 200, true, "No records to save");
+			return;
+		}
+
+		const ops = records.map(({ student, status }) => ({
+			updateOne: {
+				filter: { student, course: id, date },
+				update: { $set: { student, course: id, date, status } },
+				upsert: true,
+			},
+		}));
+
+		await AttendanceModel.bulkWrite(ops);
+
+		sendResponse(res, 200, true, "Attendance saved successfully");
 	} catch (error) {
 		next(error);
 	}
