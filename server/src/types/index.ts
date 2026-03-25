@@ -98,6 +98,18 @@ export interface ISchedule {
 	updatedAt: Date;
 }
 
+export type TAttendanceStatus = "present" | "absent";
+
+export interface IAttendanceRecord {
+	_id: string;
+	student: string;
+	course: string;
+	date: string;
+	status: TAttendanceStatus;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
 export interface IAttendance {
 	_id: string;
 	student: string;
