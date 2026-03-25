@@ -35,10 +35,11 @@ export const getStudentProfile: RequestHandler = async (req, res, next) => {
 
 		const attendanceMap = new Map<string, { attended: number; total: number }>();
 		for (const record of attendanceRecords) {
-			attendanceMap.set(String(record.course), {
-				attended: record.attendedClasses,
-				total: record.totalClasses,
-			});
+			const courseId = String(record.course);
+			const prev = attendanceMap.get(courseId) ?? { attended: 0, total: 0 };
+			prev.total++;
+			if (record.status === "present") prev.attended++;
+			attendanceMap.set(courseId, prev);
 		}
 
 		let totalAttended = 0;
@@ -173,19 +174,26 @@ export const getDashboardData: RequestHandler = async (req, res, next) => {
 		const attendanceRecords = await AttendanceModel.find({
 			student: req.user?.id,
 			course: { $in: enrolledIds },
-		}).populate<{ course: ICourseDocument }>("course", "courseCode name");
+		});
 
-		const attendance: IAttendanceSummary[] = attendanceRecords.map((record) => {
+		const statsMap = new Map<string, { attended: number; total: number }>();
+		for (const record of attendanceRecords) {
+			const courseId = String(record.course);
+			const prev = statsMap.get(courseId) ?? { attended: 0, total: 0 };
+			prev.total++;
+			if (record.status === "present") prev.attended++;
+			statsMap.set(courseId, prev);
+		}
+
+		const attendance: IAttendanceSummary[] = student.enrolledCourses.map((course) => {
+			const stats = statsMap.get(String(course._id)) ?? { attended: 0, total: 0 };
 			const percentage =
-				record.totalClasses > 0
-					? Math.round((record.attendedClasses / record.totalClasses) * 100)
-					: 0;
-			const course = record.course as ICourseDocument;
+				stats.total > 0 ? Math.round((stats.attended / stats.total) * 100) : 0;
 			return {
 				courseCode: course.courseCode,
 				courseName: course.name,
-				attendedClasses: record.attendedClasses,
-				totalClasses: record.totalClasses,
+				attendedClasses: stats.attended,
+				totalClasses: stats.total,
 				percentage,
 			};
 		});
