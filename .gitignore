@@ -25,6 +25,9 @@ server/.env
 .instructions
 prompts/
 
+# Seed scripts (local DB seeding only, not for production)
+server/src/seed/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
