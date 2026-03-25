@@ -39,6 +39,11 @@ const courseSchema = new Schema<ICourseDocument>(
 			required: [true, "Course name is required"],
 			trim: true,
 		},
+		section: {
+			type: String,
+			required: [true, "Section is required"],
+			trim: true,
+		},
 		credits: {
 			type: Number,
 			required: [true, "Credits are required"],
@@ -53,6 +58,12 @@ const courseSchema = new Schema<ICourseDocument>(
 			ref: "User",
 		} as unknown as string,
 		scheduleSlots: [scheduleSlotSchema],
+		enrolledStudents: [
+			{
+				type: Schema.Types.ObjectId,
+				ref: "User",
+			},
+		],
 	},
 	{ timestamps: true }
 );

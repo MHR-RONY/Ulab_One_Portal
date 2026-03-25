@@ -78,10 +78,12 @@ export interface ICourse {
 	_id: string;
 	courseCode: string;
 	name: string;
+	section: string;
 	credits: number;
 	department: string;
 	teacher: string;
 	scheduleSlots: IScheduleSlot[];
+	enrolledStudents: string[];
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -92,6 +94,18 @@ export interface ISchedule {
 	courses: string[];
 	semester: string;
 	isConflictFree: boolean;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export type TAttendanceStatus = "present" | "absent";
+
+export interface IAttendanceRecord {
+	_id: string;
+	student: string;
+	course: string;
+	date: string;
+	status: TAttendanceStatus;
 	createdAt: Date;
 	updatedAt: Date;
 }

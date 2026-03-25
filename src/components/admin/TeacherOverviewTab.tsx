@@ -90,7 +90,7 @@ const TeacherOverviewTab = ({ teacher }: TeacherOverviewTabProps) => {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <span className="text-primary">📚</span> Current Courses
+                Current Courses
               </h3>
               <button className="text-sm font-semibold text-primary hover:underline">View Schedule</button>
             </div>
@@ -132,7 +132,7 @@ const TeacherOverviewTab = ({ teacher }: TeacherOverviewTabProps) => {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <span className="text-primary">🕐</span> Past Records & History
+                Past Records & History
               </h3>
               <button className="text-sm font-semibold text-muted-foreground hover:text-foreground">Export CSV</button>
             </div>

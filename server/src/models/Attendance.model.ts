@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import { IAttendance } from "../types";
+import { IAttendanceRecord } from "../types";
 
-export interface IAttendanceDocument extends Omit<IAttendance, "_id">, Document {}
+export interface IAttendanceDocument extends Omit<IAttendanceRecord, "_id">, Document { }
 
 const attendanceSchema = new Schema<IAttendanceDocument>(
 	{
@@ -15,21 +15,21 @@ const attendanceSchema = new Schema<IAttendanceDocument>(
 			ref: "Course",
 			required: true,
 		} as unknown as string,
-		attendedClasses: {
-			type: Number,
-			default: 0,
-			min: 0,
+		date: {
+			type: String,
+			required: true,
+			match: /^\d{4}-\d{2}-\d{2}$/,
 		},
-		totalClasses: {
-			type: Number,
-			default: 0,
-			min: 0,
+		status: {
+			type: String,
+			enum: ["present", "absent"],
+			required: true,
 		},
 	},
 	{ timestamps: true }
 );
 
-attendanceSchema.index({ student: 1, course: 1 }, { unique: true });
+attendanceSchema.index({ student: 1, course: 1, date: 1 }, { unique: true });
 
 export const AttendanceModel: Model<IAttendanceDocument> =
 	mongoose.model<IAttendanceDocument>("Attendance", attendanceSchema);

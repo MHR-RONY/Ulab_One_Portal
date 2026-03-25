@@ -107,7 +107,11 @@ const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
           </div>
         </div>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => {
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("ulab-role");
+            navigate("/admin/login");
+          }}
           className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200 text-sm font-semibold"
         >
           <LogOut className="w-4 h-4" />

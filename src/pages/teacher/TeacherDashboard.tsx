@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useTeacherProfile } from "@/hooks/useTeacherProfile";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 import TeacherSidebar from "@/components/teacher/TeacherSidebar";
 import TeacherHeader from "@/components/teacher/TeacherHeader";
@@ -73,6 +74,7 @@ const TeacherDashboard = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { profile } = useTeacherProfile();
 
   const mainContent = (
     <div className="p-4 md:p-8 space-y-8">
@@ -85,7 +87,7 @@ const TeacherDashboard = () => {
       >
         <div>
           <h2 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">Academic Overview</h2>
-          <p className="text-muted-foreground text-sm mt-0.5">Spring Semester 2024 • Computer Science Department</p>
+          <p className="text-muted-foreground text-sm mt-0.5">Spring Semester 2024 • {profile?.department ?? "Department"}</p>
         </div>
         <div className="flex gap-2">
           <button className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary transition-all">
@@ -310,7 +312,7 @@ const TeacherDashboard = () => {
   );
 
   if (isMobile) {
-    return <MobileTeacherDashboard />;
+    return <MobileTeacherDashboard teacherName={profile?.name ?? ""} />;
   }
 
   return (
