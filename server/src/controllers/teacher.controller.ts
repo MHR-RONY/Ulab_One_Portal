@@ -208,7 +208,7 @@ export const getAttendanceForDate: RequestHandler = async (req, res, next) => {
 
 		const course = await CourseModel.findOne({ _id: id, teacher: req.user?.id }).populate(
 			"enrolledStudents",
-			"name studentId email department semester"
+			"name studentId email department semester role"
 		);
 
 		if (!course) {

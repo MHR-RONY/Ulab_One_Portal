@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
 	ArrowLeft, Search, CheckCheck, Save, Users, UserX,
 	CalendarDays, Check, BookOpen, ChevronRight,
@@ -63,6 +63,18 @@ const formatDate = (dateStr: string) => {
 	return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 };
 
+const formatDayLabel = (dateStr: string, todayStr: string) => {
+	const d = new Date(dateStr + "T12:00:00");
+	const month = d.toLocaleDateString("en-US", { month: "short" });
+	const day = d.getDate();
+	const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+	const isToday = dateStr === todayStr;
+	const tomorrowDate = new Date(todayStr + "T12:00:00");
+	tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+	const isTomorrow = dateStr === tomorrowDate.toISOString().slice(0, 10);
+	return { month, day, weekday, isToday, isTomorrow };
+};
+
 const enrolledCount = (c: ICourseOption) =>
 	Array.isArray(c.enrolledStudents) ? c.enrolledStudents.length : 0;
 
@@ -76,13 +88,28 @@ const TeacherAttendance = () => {
 
 	const [courses, setCourses] = useState<ICourseOption[]>([]);
 	const [selectedCourse, setSelectedCourse] = useState<ICourseOption | null>(null);
+	// Mobile: single-day state
 	const [selectedDate, setSelectedDate] = useState<string>(todayString());
 	const [students, setStudents] = useState<IAttendanceStudent[]>([]);
-	const [loadingCourses, setLoadingCourses] = useState(true);
 	const [loadingStudents, setLoadingStudents] = useState(false);
 	const [saving, setSaving] = useState(false);
+	// Desktop: multi-day state
+	const [baseStudents, setBaseStudents] = useState<IAttendanceStudent[]>([]);
+	const [dayStatuses, setDayStatuses] = useState<Record<string, Record<string, TAttendanceStatus>>>({});
+	const [loadingDays, setLoadingDays] = useState(false);
+	const [savingAll, setSavingAll] = useState(false);
+	const [loadingCourses, setLoadingCourses] = useState(true);
 	const [search, setSearch] = useState("");
 	const [currentPage, setCurrentPage] = useState(1);
+	// 5-day window: today-3, today-2, today-1, today, tomorrow
+	const dayWindow = useMemo(() => {
+		const today = new Date();
+		return Array.from({ length: 5 }, (_, i) => {
+			const d = new Date(today);
+			d.setDate(today.getDate() + (i - 3));
+			return d.toISOString().slice(0, 10);
+		});
+	}, []);
 
 	useEffect(() => {
 		const fetchCourses = async () => {
@@ -111,11 +138,43 @@ const TeacherAttendance = () => {
 		}
 	}, []);
 
+	const fetchMultiDay = useCallback(async (course: ICourseOption) => {
+		setLoadingDays(true);
+		try {
+			const results = await Promise.all(
+				dayWindow.map((date) => api.get(`/teacher/courses/${course._id}/attendance?date=${date}`))
+			);
+			const todayStr = todayString();
+			const todayIdx = dayWindow.indexOf(todayStr);
+			setBaseStudents(results[todayIdx >= 0 ? todayIdx : 3].data.data.students);
+			const newDayStatuses: Record<string, Record<string, TAttendanceStatus>> = {};
+			dayWindow.forEach((date, i) => {
+				const sts: IAttendanceStudent[] = results[i].data.data.students;
+				const map: Record<string, TAttendanceStatus> = {};
+				sts.forEach((s) => { map[s._id] = s.status; });
+				newDayStatuses[date] = map;
+			});
+			setDayStatuses(newDayStatuses);
+		} catch {
+			toast({ title: "Failed to load attendance", variant: "destructive" });
+		} finally {
+			setLoadingDays(false);
+		}
+	}, [dayWindow]);
+
+	// Mobile: re-fetch when date changes
 	useEffect(() => {
-		if (selectedCourse) {
+		if (selectedCourse && isMobile) {
 			fetchAttendance(selectedCourse, selectedDate);
 		}
-	}, [selectedCourse, selectedDate, fetchAttendance]);
+	}, [selectedCourse, selectedDate, isMobile, fetchAttendance]);
+
+	// Desktop: fetch 5-day window on course select
+	useEffect(() => {
+		if (selectedCourse && !isMobile) {
+			fetchMultiDay(selectedCourse);
+		}
+	}, [selectedCourse, isMobile, fetchMultiDay]);
 
 	const toggleStatus = (studentId: string) => {
 		setStudents((prev) =>
@@ -127,12 +186,39 @@ const TeacherAttendance = () => {
 		);
 	};
 
+	const toggleCell = (date: string, studentId: string) => {
+		setDayStatuses((prev) => {
+			const dateMap = { ...(prev[date] ?? {}) };
+			const current = dateMap[studentId] ?? "not-marked";
+			dateMap[studentId] = current === "present" ? "absent" : "present";
+			return { ...prev, [date]: dateMap };
+		});
+	};
+
 	const markAllPresent = () => {
-		setStudents((prev) => prev.map((s) => ({ ...s, status: "present" as TAttendanceStatus })));
+		if (isMobile) {
+			setStudents((prev) => prev.map((s) => ({ ...s, status: "present" as TAttendanceStatus })));
+		} else {
+			const today = todayString();
+			setDayStatuses((prev) => {
+				const dateMap = { ...(prev[today] ?? {}) };
+				baseStudents.forEach((s) => { dateMap[s._id] = "present"; });
+				return { ...prev, [today]: dateMap };
+			});
+		}
 	};
 
 	const markAllAbsent = () => {
-		setStudents((prev) => prev.map((s) => ({ ...s, status: "absent" as TAttendanceStatus })));
+		if (isMobile) {
+			setStudents((prev) => prev.map((s) => ({ ...s, status: "absent" as TAttendanceStatus })));
+		} else {
+			const today = todayString();
+			setDayStatuses((prev) => {
+				const dateMap = { ...(prev[today] ?? {}) };
+				baseStudents.forEach((s) => { dateMap[s._id] = "absent"; });
+				return { ...prev, [today]: dateMap };
+			});
+		}
 	};
 
 	const handleSave = async () => {
@@ -156,24 +242,56 @@ const TeacherAttendance = () => {
 		}
 	};
 
+	const handleSaveAll = async () => {
+		if (!selectedCourse) return;
+		try {
+			setSavingAll(true);
+			await Promise.all(
+				dayWindow.map((date) => {
+					const statuses = dayStatuses[date] ?? {};
+					const records = baseStudents.map((s) => ({
+						student: s._id,
+						status: statuses[s._id] === "present" ? "present" : "absent",
+					}));
+					return api.post(`/teacher/courses/${selectedCourse._id}/attendance`, { date, records });
+				})
+			);
+			await fetchMultiDay(selectedCourse);
+			toast({ title: "Attendance saved successfully" });
+		} catch {
+			toast({ title: "Failed to save attendance", variant: "destructive" });
+		} finally {
+			setSavingAll(false);
+		}
+	};
+
 	const handleBack = () => {
 		setSelectedCourse(null);
 		setStudents([]);
+		setBaseStudents([]);
+		setDayStatuses({});
 		setSearch("");
 		setCurrentPage(1);
 	};
 
-	const presentCount = students.filter((s) => s.status === "present").length;
-	const absentCount = students.filter((s) => s.status !== "present").length;
-	const totalStudents = students.length;
+	const todayStr = todayString();
+	const todaySts = dayStatuses[todayStr] ?? {};
+	const presentCount = isMobile
+		? students.filter((s) => s.status === "present").length
+		: baseStudents.filter((s) => todaySts[s._id] === "present").length;
+	const absentCount = isMobile
+		? students.filter((s) => s.status !== "present").length
+		: baseStudents.filter((s) => todaySts[s._id] !== "present").length;
+	const totalStudents = isMobile ? students.length : baseStudents.length;
 
-	const validPctStudents = students.filter((s) => s.percentage !== null);
+	const activeStudents = isMobile ? students : baseStudents;
+	const validPctStudents = activeStudents.filter((s) => s.percentage !== null);
 	const avgPercent =
 		validPctStudents.length > 0
 			? Math.round(validPctStudents.reduce((sum, s) => sum + (s.percentage ?? 0), 0) / validPctStudents.length)
 			: 0;
 
-	const filteredStudents = students.filter(
+	const filteredStudents = activeStudents.filter(
 		(s) =>
 			s.name.toLowerCase().includes(search.toLowerCase()) ||
 			s.studentId.includes(search)
@@ -517,30 +635,18 @@ const TeacherAttendance = () => {
 										<p className="text-sm text-muted-foreground mt-0.5">
 											{selectedCourse.courseCode} · {selectedCourse.name} · Section {selectedCourse.section}
 										</p>
-										<p className="text-xs text-muted-foreground mt-1">{formatDate(selectedDate)}</p>
+										<p className="text-xs text-muted-foreground mt-1">Showing last 3 days · today · tomorrow</p>
 									</div>
 									<div className="flex items-center gap-3 flex-wrap">
-										<div className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2">
-											<CalendarDays className="w-4 h-4 text-muted-foreground" />
-											<input
-												type="date"
-												value={selectedDate}
-												onChange={(e) => {
-													setSelectedDate(e.target.value);
-													setCurrentPage(1);
-												}}
-												className="text-sm font-semibold bg-transparent border-none outline-none text-foreground cursor-pointer"
-											/>
-										</div>
 										<Button variant="outline" onClick={markAllPresent} className="gap-2">
-											<CheckCheck className="w-4 h-4" /> All Present
+											<CheckCheck className="w-4 h-4" /> All Present Today
 										</Button>
 										<Button variant="outline" onClick={markAllAbsent} className="gap-2">
-											<UserX className="w-4 h-4" /> All Absent
+											<UserX className="w-4 h-4" /> All Absent Today
 										</Button>
-										<Button onClick={handleSave} disabled={saving || loadingStudents} className="gap-2">
+										<Button onClick={handleSaveAll} disabled={savingAll || loadingDays} className="gap-2">
 											<Save className="w-4 h-4" />
-											{saving ? "Saving..." : "Save Attendance"}
+											{savingAll ? "Saving..." : "Save Attendance"}
 										</Button>
 									</div>
 								</div>
@@ -601,13 +707,13 @@ const TeacherAttendance = () => {
 						transition={{ delay: 0.1 }}
 					>
 						<Card>
-							{loadingStudents ? (
-								<div className="py-16 text-center text-muted-foreground text-sm">
-									Loading attendance...
-								</div>
-							) : filteredStudents.length === 0 ? (
-								<div className="py-16 text-center text-muted-foreground text-sm">
-									{students.length === 0
+					{loadingDays ? (
+							<div className="py-16 text-center text-muted-foreground text-sm">
+								Loading attendance...
+							</div>
+						) : filteredStudents.length === 0 ? (
+							<div className="py-16 text-center text-muted-foreground text-sm">
+								{baseStudents.length === 0
 										? "No students enrolled in this course."
 										: "No students match your search."}
 								</div>
@@ -619,9 +725,27 @@ const TeacherAttendance = () => {
 												<th className="text-left px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
 													Student
 												</th>
-												<th className="text-center px-6 py-4 text-xs font-semibold text-primary uppercase tracking-wider">
-													{selectedDate} (Toggle)
-												</th>
+												{dayWindow.map((date) => {
+													const { month, day, weekday, isToday, isTomorrow } = formatDayLabel(date, todayStr);
+													return (
+														<th
+															key={date}
+															className={`text-center px-3 py-4 text-xs font-semibold uppercase tracking-wider ${
+																isToday ? "text-primary" : "text-muted-foreground"
+															}`}
+														>
+															<span className="block">{month} {day}</span>
+															<span className="block font-normal normal-case opacity-70">{weekday}</span>
+															{(isToday || isTomorrow) && (
+																<span className={`block text-[10px] font-bold ${
+																	isToday ? "text-primary" : "text-muted-foreground/60"
+																}`}>
+																	{isToday ? "Today" : "Tmrw"}
+																</span>
+															)}
+														</th>
+													);
+												})}
 												<th className="text-center px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
 													Classes Attended
 												</th>
@@ -633,8 +757,6 @@ const TeacherAttendance = () => {
 										<tbody>
 											{paginatedStudents.map((student, idx) => {
 												const globalIdx = (currentPage - 1) * PER_PAGE + idx;
-												const isPresent = student.status === "present";
-												const isAbsent = student.status === "absent";
 												return (
 													<motion.tr
 														key={student._id}
@@ -660,24 +782,32 @@ const TeacherAttendance = () => {
 																</div>
 															</div>
 														</td>
-														<td className="text-center px-6 py-4">
-															<button
-																onClick={() => toggleStatus(student._id)}
-																title={`Mark ${isPresent ? "absent" : "present"}`}
-																className={`w-8 h-8 rounded-full border-2 flex items-center justify-center mx-auto transition-all duration-200 ${isPresent
-																		? "bg-primary border-primary text-primary-foreground"
-																		: isAbsent
-																			? "bg-destructive/10 border-destructive/50 text-destructive"
-																			: "border-muted-foreground/30 bg-transparent hover:border-muted-foreground/60"
-																	}`}
-															>
-																{isPresent ? (
-																	<Check className="w-4 h-4" />
-																) : isAbsent ? (
-																	<span className="text-xs font-bold leading-none">✕</span>
-																) : null}
-															</button>
-														</td>
+														{dayWindow.map((date) => {
+															const status = dayStatuses[date]?.[student._id] ?? "not-marked";
+															const isPresent = status === "present";
+															const isAbsent = status === "absent";
+															return (
+																<td key={date} className="text-center px-3 py-4">
+																	<button
+																		onClick={() => toggleCell(date, student._id)}
+																		title={`${date}: Mark ${isPresent ? "absent" : "present"}`}
+																		className={`w-7 h-7 rounded-full border-2 flex items-center justify-center mx-auto transition-all duration-200 ${
+																			isPresent
+																				? "bg-primary border-primary text-primary-foreground"
+																				: isAbsent
+																					? "bg-destructive/10 border-destructive/50 text-destructive"
+																					: "border-muted-foreground/30 bg-transparent hover:border-muted-foreground/60"
+																		}`}
+																	>
+																		{isPresent ? (
+																			<Check className="w-3 h-3" />
+																		) : isAbsent ? (
+																			<span className="text-[10px] font-bold leading-none">✕</span>
+																		) : null}
+																	</button>
+																</td>
+															);
+														})}
 														<td className="text-center px-4 py-4 text-sm text-muted-foreground">
 															{student.total > 0 ? `${student.attended} / ${student.total}` : "—"}
 														</td>
