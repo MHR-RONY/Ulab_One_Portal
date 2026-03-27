@@ -58,16 +58,20 @@ const TeacherLogin = () => {
 	};
 
 	return (
-		<div className="flex min-h-screen w-full flex-col lg:flex-row bg-background">
+		<div className="teacher-theme flex min-h-screen w-full flex-col lg:flex-row bg-background">
 			{/* Left Side: Image & Branding */}
-			<div className="relative hidden lg:flex lg:w-1/2 xl:w-3/5 overflow-hidden" style={{ backgroundColor: "hsl(220 85% 55%)" }}>
-				<div className="absolute inset-0 z-10 bg-gradient-to-tr from-[hsl(220_85%_45%/0.9)] to-[hsl(220_85%_55%/0.2)]" />
+			<div className="relative hidden lg:flex lg:w-1/2 xl:w-3/5 overflow-hidden bg-primary">
+				<div className="absolute inset-0 z-10 bg-gradient-to-tr from-primary/95 via-primary/70 to-primary/30" />
 				<div
-					className="absolute inset-0 bg-center bg-cover opacity-40"
+					className="absolute inset-0 bg-center bg-cover opacity-20 mix-blend-luminosity"
 					style={{
-						backgroundImage: "url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1200&q=80')",
+						backgroundImage: "url('https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1200&q=80')",
 					}}
 				/>
+				{/* Decorative circles */}
+				<div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/3" />
+				<div className="absolute bottom-0 left-0 w-72 h-72 rounded-full bg-black/10 translate-y-1/2 -translate-x-1/4" />
+
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -76,7 +80,7 @@ const TeacherLogin = () => {
 				>
 					<div className="max-w-xl">
 						<div className="mb-8 flex items-center gap-3">
-							<div className="bg-white/15 backdrop-blur-md p-2.5 rounded-xl border border-white/20">
+							<div className="bg-white/15 backdrop-blur-md p-2.5 rounded-xl border border-white/20 shadow-lg">
 								<GraduationCap className="w-7 h-7 text-white" />
 							</div>
 							<span className="text-white text-xl font-extrabold tracking-tight">ULAB One Portal</span>
@@ -87,6 +91,19 @@ const TeacherLogin = () => {
 						<p className="text-lg text-white/80 font-medium leading-relaxed mb-8">
 							Access your courses, manage student progress, and collaborate with faculty peers in one unified, secure environment designed for the modern academic landscape.
 						</p>
+						{/* Stats pills */}
+						<div className="flex flex-wrap gap-3 mb-8">
+							{[
+								{ label: "Active Courses", value: "120+" },
+								{ label: "Faculty Members", value: "500+" },
+								{ label: "Students Enrolled", value: "4,200+" },
+							].map((s) => (
+								<div key={s.label} className="flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl px-4 py-2.5">
+									<span className="text-white font-black text-sm">{s.value}</span>
+									<span className="text-white/70 text-xs">{s.label}</span>
+								</div>
+							))}
+						</div>
 						<div className="flex items-center gap-4">
 							<div className="flex -space-x-3">
 								{["AI", "NK", "RS"].map((initials, i) => (
@@ -114,10 +131,24 @@ const TeacherLogin = () => {
 					transition={{ delay: 0.2, duration: 0.5 }}
 					className="max-w-md w-full"
 				>
-					<h2 className="text-3xl font-black text-foreground tracking-tight mb-2">Faculty Login</h2>
-					<p className="text-muted-foreground mb-10">Welcome back! Please enter your credentials to access your dashboard.</p>
+					{/* Mobile logo */}
+					<div className="flex lg:hidden items-center gap-2 mb-8">
+						<div className="p-2 rounded-xl bg-primary/10">
+							<GraduationCap className="w-5 h-5 text-primary" />
+						</div>
+						<span className="text-sm font-extrabold text-foreground tracking-tight">ULAB One Portal</span>
+					</div>
 
-					<form onSubmit={handleLogin} className="space-y-6">
+					<div className="mb-8">
+						<div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
+							<div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+							<span className="text-xs font-bold text-primary">Faculty Portal</span>
+						</div>
+						<h2 className="text-3xl font-black text-foreground tracking-tight mb-2">Welcome back</h2>
+						<p className="text-muted-foreground">Please enter your credentials to access your dashboard.</p>
+					</div>
+
+					<form onSubmit={handleLogin} className="space-y-5">
 						{/* Inline error alert */}
 						<AnimatePresence>
 							{formError && (
@@ -126,10 +157,10 @@ const TeacherLogin = () => {
 									animate={{ opacity: 1, y: 0 }}
 									exit={{ opacity: 0, y: -6 }}
 									transition={{ duration: 0.2 }}
-									className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/50 dark:bg-red-900/20"
+									className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3"
 								>
-									<AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-									<p className="text-sm text-red-600 dark:text-red-400">{formError}</p>
+									<AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+									<p className="text-sm text-destructive">{formError}</p>
 								</motion.div>
 							)}
 						</AnimatePresence>
@@ -142,19 +173,19 @@ const TeacherLogin = () => {
 								<Input
 									type="email"
 									placeholder="name@ulab.edu.bd"
-									className={`rounded-xl h-14 pl-11 text-base border-border ${errors.email ? "border-red-500" : ""}`}
+									className={`rounded-xl h-14 pl-11 text-base border-border bg-secondary/30 focus-visible:ring-primary/30 ${errors.email ? "border-destructive" : ""}`}
 									value={email}
 									onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
 								/>
 							</div>
-							{errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
+							{errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
 						</div>
 
 						{/* Password */}
 						<div className="space-y-2">
 							<div className="flex justify-between items-center">
 								<label className="text-sm font-semibold text-foreground">Password</label>
-								<button type="button" className="text-xs font-bold hover:underline" style={{ color: "hsl(220 85% 55%)" }}>
+								<button type="button" className="text-xs font-bold text-primary hover:text-primary/80 transition-colors hover:underline">
 									Forgot Password?
 								</button>
 							</div>
@@ -163,24 +194,24 @@ const TeacherLogin = () => {
 								<Input
 									type={showPassword ? "text" : "password"}
 									placeholder="Enter your password"
-									className={`rounded-xl h-14 pl-11 pr-11 text-base border-border ${errors.password ? "border-red-500" : ""}`}
+									className={`rounded-xl h-14 pl-11 pr-11 text-base border-border bg-secondary/30 focus-visible:ring-primary/30 ${errors.password ? "border-destructive" : ""}`}
 									value={password}
 									onChange={(e) => { setPassword(e.target.value); clearFieldError("password"); }}
 								/>
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword)}
-									className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+									className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
 								>
 									{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
 								</button>
 							</div>
-							{errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
+							{errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
 						</div>
 
 						{/* Remember */}
 						<div className="flex items-center gap-3">
-							<Checkbox />
+							<Checkbox className="data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
 							<span className="text-sm text-foreground">Remember my login for 30 days</span>
 						</div>
 
@@ -188,8 +219,7 @@ const TeacherLogin = () => {
 						<button
 							type="submit"
 							disabled={loading}
-							className="w-full h-14 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-							style={{ backgroundColor: "hsl(220 85% 55%)" }}
+							className="w-full h-14 rounded-xl text-base font-bold flex items-center justify-center gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
 						>
 							{loading ? (
 								<><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</>
@@ -205,9 +235,9 @@ const TeacherLogin = () => {
 							Your account is created by the admin. Contact the administrator if you don't have access.
 						</p>
 						<div className="flex justify-center gap-6 text-xs text-muted-foreground">
-							<a href="#" className="hover:text-foreground">Privacy Policy</a>
-							<a href="#" className="hover:text-foreground">Terms of Service</a>
-							<a href="#" className="hover:text-foreground">Help Center</a>
+							<a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
+							<a href="#" className="hover:text-primary transition-colors">Terms of Service</a>
+							<a href="#" className="hover:text-primary transition-colors">Help Center</a>
 						</div>
 					</div>
 				</motion.div>
