@@ -7,6 +7,7 @@ interface ITeacherProfile {
   email: string;
   teacherId: string;
   department: string;
+  accentColorIndex: number;
 }
 
 export const useTeacherProfile = () => {

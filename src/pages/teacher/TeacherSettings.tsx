@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   User, Lock, Bell, Palette, Camera, ShieldCheck, KeyRound,
@@ -13,6 +13,8 @@ import TeacherHeader from "@/components/teacher/TeacherHeader";
 import TeacherBottomNav from "@/components/teacher/TeacherBottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTheme } from "@/contexts/ThemeContext";
+import api from "@/lib/api";
+import { useTeacherProfile } from "@/hooks/useTeacherProfile";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
@@ -26,11 +28,17 @@ const tabs = [
 type TabId = (typeof tabs)[number]["id"];
 
 const accentColors = [
-  { name: "Blue", value: "hsl(222, 85%, 50%)", class: "bg-primary" },
-  { name: "Emerald", value: "hsl(160, 84%, 39%)", class: "bg-stat-emerald" },
-  { name: "Purple", value: "hsl(262, 83%, 58%)", class: "bg-stat-purple" },
-  { name: "Rose", value: "hsl(350, 89%, 60%)", class: "bg-destructive" },
-  { name: "Amber", value: "hsl(38, 92%, 50%)", class: "bg-stat-amber" },
+  { name: "Amber",    hsl: "38 92% 50%",   value: "hsl(38, 92%, 50%)" },
+  { name: "Blue",     hsl: "217 91% 60%",  value: "hsl(217, 91%, 60%)" },
+  { name: "Emerald",  hsl: "160 84% 39%",  value: "hsl(160, 84%, 39%)" },
+  { name: "Purple",   hsl: "262 83% 58%",  value: "hsl(262, 83%, 58%)" },
+  { name: "Rose",     hsl: "350 89% 60%",  value: "hsl(350, 89%, 60%)" },
+  { name: "Teal",     hsl: "180 72% 42%",  value: "hsl(180, 72%, 42%)" },
+  { name: "Indigo",   hsl: "243 75% 59%",  value: "hsl(243, 75%, 59%)" },
+  { name: "Sky Blue", hsl: "199 89% 48%",  value: "hsl(199, 89%, 48%)" },
+  { name: "Coral",    hsl: "16 90% 55%",   value: "hsl(16, 90%, 55%)" },
+  { name: "Cyan",     hsl: "192 91% 43%",  value: "hsl(192, 91%, 43%)" },
+  { name: "Lime",     hsl: "84 75% 42%",   value: "hsl(84, 75%, 42%)" },
 ];
 
 const TeacherSettings = () => {
@@ -50,10 +58,41 @@ const TeacherSettings = () => {
   const [studentMessages, setStudentMessages] = useState(true);
   const [gradeAlerts, setGradeAlerts] = useState(true);
   const [attendanceAlerts, setAttendanceAlerts] = useState(true);
-  const [selectedAccent, setSelectedAccent] = useState(0);
+  const [selectedAccent, setSelectedAccent] = useState(() => {
+    const stored = localStorage.getItem("teacher-accent-index");
+    return stored !== null ? parseInt(stored, 10) : 0;
+  });
 
-  const handleSave = () => {
-    toast.success("Settings saved successfully!");
+  const { profile } = useTeacherProfile();
+
+  // Sync from DB once profile loads
+  useEffect(() => {
+    if (profile && typeof profile.accentColorIndex === "number") {
+      setSelectedAccent(profile.accentColorIndex);
+      localStorage.setItem("teacher-accent-index", String(profile.accentColorIndex));
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>(".teacher-theme");
+    if (!el) return;
+    const { hsl } = accentColors[selectedAccent];
+    el.style.setProperty("--primary", hsl);
+    el.style.setProperty("--ring", hsl);
+    el.style.setProperty("--sidebar-primary", hsl);
+    el.style.setProperty("--sidebar-accent", hsl);
+    el.style.setProperty("--sidebar-accent-foreground", hsl);
+    el.style.setProperty("--teacher-glow", hsl);
+  }, [selectedAccent]);
+
+  const handleSave = async () => {
+    try {
+      await api.patch("/teacher/settings", { accentColorIndex: selectedAccent });
+      localStorage.setItem("teacher-accent-index", String(selectedAccent));
+      toast.success("Settings saved successfully!");
+    } catch {
+      toast.error("Failed to save settings. Please try again.");
+    }
   };
 
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
@@ -271,13 +310,14 @@ const TeacherSettings = () => {
         {/* Accent Color */}
         <div className="space-y-3">
           <p className="text-sm font-medium text-foreground">Accent Color</p>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-3">
             {accentColors.map((c, i) => (
               <button
                 key={c.name}
                 onClick={() => setSelectedAccent(i)}
-                className={`w-8 h-8 rounded-full ${c.class} transition-all ${
-                  selectedAccent === i ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110" : "hover:scale-105"
+                style={{ backgroundColor: c.value }}
+                className={`w-8 h-8 rounded-full transition-all ${
+                  selectedAccent === i ? "ring-2 ring-offset-2 ring-offset-background scale-110" : "hover:scale-105 opacity-80 hover:opacity-100"
                 }`}
                 title={c.name}
               />
@@ -384,7 +424,7 @@ const TeacherSettings = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden premium-bg">
+    <div className="flex h-screen overflow-hidden premium-bg teacher-theme">
       <div className="hidden md:block">
         <TeacherSidebar activePage="Settings" />
       </div>
