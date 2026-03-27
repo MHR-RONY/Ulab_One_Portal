@@ -17,6 +17,7 @@ const TeacherLogin = () => {
 	const [loading, setLoading] = useState(false);
 	const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 	const [formError, setFormError] = useState("");
+	const [showForgotNotice, setShowForgotNotice] = useState(false);
 	const navigate = useNavigate();
 	const { switchRole } = useRole();
 
@@ -63,9 +64,9 @@ const TeacherLogin = () => {
 			<div className="relative hidden lg:flex lg:w-1/2 xl:w-3/5 overflow-hidden bg-primary">
 				<div className="absolute inset-0 z-10 bg-gradient-to-tr from-primary/95 via-primary/70 to-primary/30" />
 				<div
-					className="absolute inset-0 bg-center bg-cover opacity-20 mix-blend-luminosity"
+					className="absolute inset-0 bg-center bg-cover opacity-30"
 					style={{
-						backgroundImage: "url('https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1200&q=80')",
+						backgroundImage: "url('https://res.cloudinary.com/dreby3qi3/image/upload/v1774648057/ULAB-GED-f43d0ebb97796c509db641adde6c12eb_srbxwz.webp')",
 					}}
 				/>
 				{/* Decorative circles */}
@@ -185,7 +186,11 @@ const TeacherLogin = () => {
 						<div className="space-y-2">
 							<div className="flex justify-between items-center">
 								<label className="text-sm font-semibold text-foreground">Password</label>
-								<button type="button" className="text-xs font-bold text-primary hover:text-primary/80 transition-colors hover:underline">
+								<button
+									type="button"
+									onClick={() => setShowForgotNotice(true)}
+									className="text-xs font-bold text-primary hover:text-primary/80 transition-colors hover:underline"
+								>
 									Forgot Password?
 								</button>
 							</div>
@@ -207,6 +212,26 @@ const TeacherLogin = () => {
 								</button>
 							</div>
 							{errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+						<AnimatePresence>
+							{showForgotNotice && (
+								<motion.div
+									initial={{ opacity: 0, y: -4 }}
+									animate={{ opacity: 1, y: 0 }}
+									exit={{ opacity: 0, y: -4 }}
+									transition={{ duration: 0.2 }}
+									className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/8 px-4 py-3 mt-1"
+								>
+									<AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+									<div className="flex-1">
+										<p className="text-sm font-semibold text-primary">Password reset not available</p>
+										<p className="text-xs text-muted-foreground mt-0.5">Please contact the system administrator to reset your password.</p>
+									</div>
+									<button onClick={() => setShowForgotNotice(false)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+										<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+									</button>
+								</motion.div>
+							)}
+						</AnimatePresence>
 						</div>
 
 						{/* Remember */}
