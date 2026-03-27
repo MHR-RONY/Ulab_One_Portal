@@ -12,18 +12,32 @@ interface RoleContextType {
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
-export const RoleProvider = ({ children }: { children: ReactNode }) => {
-  const [role, setRole] = useState<UserRole>(() => {
-    const saved = localStorage.getItem("ulab-role");
-    if (saved === "teacher") return "teacher";
-    if (saved === "admin") return "admin";
+function getRoleFromToken(): UserRole {
+  const token = localStorage.getItem("accessToken");
+  if (!token) return "student";
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.role === "teacher" || payload.role === "admin") return payload.role;
     return "student";
-  });
+  } catch {
+    return "student";
+  }
+}
 
-  const switchRole = useCallback((newRole: UserRole) => {
-    setRole(newRole);
-    localStorage.setItem("ulab-role", newRole);
+export const RoleProvider = ({ children }: { children: ReactNode }) => {
+  // Force re-render counter — incremented by switchRole after login sets the token
+  const [tick, setTick] = useState(0);
+  // Derive role from the JWT token, not from a user-controllable localStorage key
+  const role: UserRole = getRoleFromToken();
+
+  // switchRole is called by login pages after they store the accessToken.
+  // Its only job is to trigger a re-render so the role is re-derived from the new token.
+  const switchRole = useCallback((_newRole: UserRole) => {
+    setTick((n) => n + 1);
   }, []);
+
+  // tick is consumed to satisfy the linter — the value itself drives re-renders
+  void tick;
 
   return (
     <RoleContext.Provider

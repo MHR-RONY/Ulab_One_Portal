@@ -35,7 +35,15 @@ api.interceptors.response.use(
 				return api(originalRequest);
 			} catch {
 				localStorage.removeItem("accessToken");
-				window.location.href = "/login";
+				// Redirect to the correct login portal based on the current path
+				const path = window.location.pathname;
+				if (path.startsWith("/admin")) {
+					window.location.href = "/admin/login";
+				} else if (path.startsWith("/teacher")) {
+					window.location.href = "/teacher/login";
+				} else {
+					window.location.href = "/login";
+				}
 			}
 		}
 

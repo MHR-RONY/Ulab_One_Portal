@@ -1,7 +1,6 @@
-import { BookOpen, Calendar, FileText, MessageSquare, Users, ClipboardCheck, User, Settings, LogOut, GraduationCap, ArrowLeftRight } from "lucide-react";
+import { BookOpen, Calendar, FileText, MessageSquare, Users, ClipboardCheck, User, Settings, LogOut, GraduationCap } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useRole } from "@/contexts/RoleContext";
 import api from "@/lib/api";
 
 const navItems = [
@@ -23,13 +22,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
-  const { switchRole } = useRole();
   const navigate = useNavigate();
-
-  const handleSwitchToTeacher = () => {
-    switchRole("teacher");
-    navigate("/teacher");
-  };
 
   const handleLogout = async () => {
     try {
@@ -38,7 +31,6 @@ const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
       // ignore errors — still clear local session
     }
     localStorage.removeItem("accessToken");
-    localStorage.removeItem("ulab-role");
     navigate("/login");
   };
 
@@ -103,13 +95,6 @@ const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
       </nav>
 
       <div className="p-4 border-t border-border space-y-2">
-        <button
-          onClick={handleSwitchToTeacher}
-          className="flex w-full items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all duration-200 text-sm font-semibold"
-        >
-          <ArrowLeftRight className="w-4 h-4" />
-          <span>Switch to Teacher</span>
-        </button>
         <button className="flex w-full items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/5 transition-all duration-200 hover:translate-x-0.5" onClick={handleLogout}>
           <LogOut className="w-5 h-5" />
           <span className="text-sm font-medium">Logout</span>

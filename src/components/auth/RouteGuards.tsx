@@ -1,25 +1,37 @@
 import { Navigate, Outlet } from "react-router-dom";
 
-const getToken = () => localStorage.getItem("accessToken");
-const getRole = () => localStorage.getItem("ulab-role");
+type TRole = "student" | "teacher" | "admin";
+
+// Decode the JWT payload to read the role field.
+// The signature is verified server-side on every request — this is only used for UI routing.
+function getJwtRole(): TRole | null {
+  const token = localStorage.getItem("accessToken");
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.role === "student" || payload.role === "teacher" || payload.role === "admin") {
+      return payload.role as TRole;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export const StudentRoute = () => {
-  if (!getToken() || getRole() !== "student") {
-    return <Navigate to="/login" replace />;
-  }
+  const role = getJwtRole();
+  if (role !== "student") return <Navigate to="/login" replace />;
   return <Outlet />;
 };
 
 export const TeacherRoute = () => {
-  if (!getToken() || getRole() !== "teacher") {
-    return <Navigate to="/teacher/login" replace />;
-  }
+  const role = getJwtRole();
+  if (role !== "teacher") return <Navigate to="/teacher/login" replace />;
   return <Outlet />;
 };
 
 export const AdminRoute = () => {
-  if (!getToken() || getRole() !== "admin") {
-    return <Navigate to="/admin/login" replace />;
-  }
+  const role = getJwtRole();
+  if (role !== "admin") return <Navigate to="/admin/login" replace />;
   return <Outlet />;
 };
