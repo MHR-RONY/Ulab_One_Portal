@@ -164,6 +164,31 @@ export interface IJwtPayload {
 	email: string;
 }
 
+export type TChatGroupType = "class" | "custom";
+
+export interface IChatGroup {
+	_id: string;
+	name: string;
+	type: TChatGroupType;
+	course?: string;
+	createdBy: string;
+	members: string[];
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface IMessage {
+	_id: string;
+	chatGroup?: string;
+	sender: string;
+	receiver?: string;
+	content: string;
+	isGroupMessage: boolean;
+	readBy: string[];
+	createdAt: Date;
+	updatedAt: Date;
+}
+
 export interface IApiResponse<T = unknown> {
 	success: boolean;
 	message: string;
