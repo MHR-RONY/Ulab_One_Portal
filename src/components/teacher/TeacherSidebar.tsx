@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard, BookOpen, UserCheck, Star, BarChart3,
-  LogOut, GraduationCap, Settings, MessageSquare
+  LogOut, GraduationCap, Settings, MessageSquare,
+  ChevronDown, Users, User
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRole } from "@/contexts/RoleContext";
 import { useTeacherProfile } from "@/hooks/useTeacherProfile";
 
@@ -20,8 +21,12 @@ const navItems = [
   { icon: BookOpen, label: "My Classes", href: "/teacher/classes" },
   { icon: Star, label: "Assignments", href: "/teacher" },
   { icon: BarChart3, label: "Analytics", href: "/teacher/analytics" },
-  { icon: MessageSquare, label: "Messages", href: "/teacher/chat" },
   { icon: Settings, label: "Settings", href: "/teacher/settings" },
+];
+
+const messageSubItems = [
+  { icon: User, label: "Personal", href: "/teacher/chat?tab=personal", badge: 3 },
+  { icon: Users, label: "Groups", href: "/teacher/chat?tab=groups", badge: 12 },
 ];
 
 interface TeacherSidebarProps {
@@ -45,7 +50,11 @@ const accentColorMap: Record<number, string> = {
 const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
   const { switchRole } = useRole();
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile } = useTeacherProfile();
+  const [messagesOpen, setMessagesOpen] = useState(
+    activePage === "Messages" || location.pathname.startsWith("/teacher/chat")
+  );
 
   useEffect(() => {
     const stored = localStorage.getItem("teacher-accent-index");
@@ -102,37 +111,116 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
       </div>
 
       <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto relative z-10">
-        {navItems.map((item, i) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.04, duration: 0.3 }}
-          >
-            <Link
-              to={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm ${
-                activePage === item.label
-                  ? "teacher-nav-active text-primary font-semibold"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
-            >
+        {navItems.map((item, i) => {
+          const insertMessagesAfter = item.label === "Analytics";
+          return (
+            <div key={item.label}>
               <motion.div
-                whileHover={{ scale: 1.15 }}
-                transition={{ type: "spring", stiffness: 400 }}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.04, duration: 0.3 }}
               >
-                <item.icon className="w-5 h-5" />
+                <Link
+                  to={item.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm ${
+                    activePage === item.label
+                      ? "teacher-nav-active text-primary font-semibold"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  <motion.div
+                    whileHover={{ scale: 1.15 }}
+                    transition={{ type: "spring", stiffness: 400 }}
+                  >
+                    <item.icon className="w-5 h-5" />
+                  </motion.div>
+                  <span>{item.label}</span>
+                  {activePage === item.label && (
+                    <motion.div
+                      layoutId="teacher-active-dot"
+                      className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_hsl(38_92%_50%/0.5)]"
+                    />
+                  )}
+                </Link>
               </motion.div>
-              <span>{item.label}</span>
-              {activePage === item.label && (
+
+              {insertMessagesAfter && (
                 <motion.div
-                  layoutId="teacher-active-dot"
-                  className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_hsl(38_92%_50%/0.5)]"
-                />
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: (i + 1) * 0.04, duration: 0.3 }}
+                  className="mt-1"
+                >
+                  <button
+                    onClick={() => setMessagesOpen(!messagesOpen)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm w-full ${
+                      activePage === "Messages"
+                        ? "teacher-nav-active text-primary font-semibold"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    }`}
+                  >
+                    <motion.div
+                      whileHover={{ scale: 1.15 }}
+                      transition={{ type: "spring", stiffness: 400 }}
+                    >
+                      <MessageSquare className="w-5 h-5" />
+                    </motion.div>
+                    <span>Messages</span>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <span className="flex items-center justify-center min-w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold px-1.5">
+                        15
+                      </span>
+                      <motion.div
+                        animate={{ rotate: messagesOpen ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </motion.div>
+                    </div>
+                  </button>
+
+                  <AnimatePresence>
+                    {messagesOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="ml-4 pl-3 border-l-2 border-primary/20 mt-1 space-y-0.5">
+                          {messageSubItems.map((sub) => {
+                            const isActive = location.pathname === "/teacher/chat" &&
+                              location.search.includes(`tab=${sub.label.toLowerCase()}`);
+                            return (
+                              <Link
+                                key={sub.label}
+                                to={sub.href}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                                  isActive
+                                    ? "bg-primary/10 text-primary font-semibold"
+                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                }`}
+                              >
+                                <sub.icon className="w-4 h-4" />
+                                <span>{sub.label}</span>
+                                {sub.badge > 0 && (
+                                  <span className="ml-auto flex items-center justify-center min-w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">
+                                    {sub.badge}
+                                  </span>
+                                )}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               )}
-            </Link>
-          </motion.div>
-        ))}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="p-4 border-t border-border space-y-3 relative z-10">
