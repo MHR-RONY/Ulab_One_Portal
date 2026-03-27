@@ -426,7 +426,7 @@ const TeacherAnalytics = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden premium-bg">
+    <div className="flex h-screen overflow-hidden premium-bg teacher-theme">
       <div className="hidden md:block">
         <TeacherSidebar activePage="Analytics" />
       </div>

@@ -66,6 +66,22 @@
     --gradient-card-shine: linear-gradient(135deg, hsl(0 0% 100% / 0.9) 0%, hsl(0 0% 100% / 0.6) 100%);
   }
 
+  /* Teacher theme — premium amber/orange */
+  .teacher-theme {
+    --primary: 38 92% 50%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 38 92% 50%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 38 92% 50%;
+    --sidebar-accent-foreground: 38 92% 50%;
+    --sidebar-ring: 38 92% 55%;
+    --teacher-glow: 38 92% 50%;
+    --shadow-premium: 0 4px 24px -4px hsl(38 92% 50% / 0.15);
+    --shadow-premium-hover: 0 8px 32px -4px hsl(38 92% 50% / 0.28);
+    --gradient-page: linear-gradient(135deg, hsl(38 30% 97%) 0%, hsl(42 35% 96%) 50%, hsl(36 25% 97%) 100%);
+  }
+
   .dark {
     --background: 240 6% 6%;
     --foreground: 210 20% 90%;
@@ -123,6 +139,23 @@
     --shadow-premium-hover: 0 8px 32px -4px hsl(0 0% 0% / 0.5);
     --gradient-page: linear-gradient(135deg, hsl(240 6% 6%) 0%, hsl(240 6% 8%) 100%);
     --gradient-card-shine: linear-gradient(135deg, hsl(240 5% 12% / 0.9) 0%, hsl(240 5% 10% / 0.6) 100%);
+  }
+
+  /* Teacher theme dark overrides */
+  .dark .teacher-theme,
+  .teacher-theme.dark {
+    --primary: 38 92% 55%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 38 92% 55%;
+    --sidebar-primary: 38 92% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 38 92% 55%;
+    --sidebar-accent-foreground: 38 92% 55%;
+    --sidebar-ring: 38 92% 55%;
+    --teacher-glow: 38 92% 55%;
+    --shadow-premium: 0 4px 24px -4px hsl(38 92% 50% / 0.25);
+    --shadow-premium-hover: 0 8px 32px -4px hsl(38 92% 50% / 0.4);
+    --gradient-page: linear-gradient(135deg, hsl(38 8% 6%) 0%, hsl(42 8% 8%) 100%);
   }
 }
 
@@ -201,6 +234,77 @@
   .btn-glow:hover::after {
     opacity: 1;
   }
+
+  /* Teacher glossy sidebar */
+  .teacher-sidebar-glossy {
+    background: linear-gradient(180deg, hsl(38 92% 50% / 0.03) 0%, transparent 40%, hsl(38 92% 50% / 0.02) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .teacher-sidebar-glossy::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, hsl(38 92% 50% / 0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Teacher glossy nav item */
+  .teacher-nav-active {
+    background: linear-gradient(135deg, hsl(38 92% 50% / 0.12) 0%, hsl(38 92% 50% / 0.06) 100%);
+    border: 1px solid hsl(38 92% 50% / 0.15);
+    box-shadow: 0 0 12px hsl(38 92% 50% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.05);
+  }
+
+  /* Shimmer sweep animation */
+  .teacher-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .teacher-shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, hsl(38 92% 55% / 0.08), transparent);
+    transform: skewX(-15deg);
+    animation: teacher-shimmer-sweep 4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Teacher avatar ring glow */
+  .teacher-avatar-glow {
+    box-shadow: 0 0 0 3px hsl(38 92% 50% / 0.15), 0 0 16px hsl(38 92% 50% / 0.1);
+  }
+
+  /* Teacher card glossy effect */
+  .teacher-card-glossy {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid hsl(38 92% 50% / 0.08);
+  }
+  .teacher-card-glossy::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(38 92% 50% / 0.3), transparent);
+    z-index: 1;
+  }
+}
+
+@keyframes teacher-shimmer-sweep {
+  0%, 100% { left: -100%; }
+  50% { left: 150%; }
 }
 
 @keyframes skeleton-wave {

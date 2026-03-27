@@ -9,7 +9,7 @@ const TeacherChat = () => {
   const [showThread, setShowThread] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden teacher-theme">
       <div className="hidden md:block">
         <TeacherSidebar activePage="Messages" />
       </div>

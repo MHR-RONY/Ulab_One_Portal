@@ -317,7 +317,7 @@ const TeacherAttendance = () => {
 	if (!selectedCourse) {
 		if (isMobile) {
 			return (
-				<div className="min-h-screen bg-background flex flex-col">
+				<div className="min-h-screen bg-background flex flex-col teacher-theme">
 					<div className="sticky top-0 z-20 bg-card border-b border-border px-4 py-4">
 						<div className="flex items-center gap-3">
 							<button
@@ -375,7 +375,7 @@ const TeacherAttendance = () => {
 
 		// Desktop course selection
 		return (
-			<div className="flex min-h-screen bg-background">
+			<div className="flex min-h-screen bg-background teacher-theme">
 				<TeacherSidebar activePage="Attendance" />
 				<div className="flex-1 p-8">
 					<div className="mb-8">
@@ -443,7 +443,7 @@ const TeacherAttendance = () => {
 
 	if (isMobile) {
 		return (
-			<div className="min-h-screen bg-background flex flex-col">
+			<div className="min-h-screen bg-background flex flex-col teacher-theme">
 				{/* Header */}
 				<div className="sticky top-0 z-20 bg-card border-b border-border">
 					<div className="flex items-center justify-between px-4 py-3.5">
@@ -591,7 +591,7 @@ const TeacherAttendance = () => {
 	// ═══════════════════════════════════════════════════════════
 
 	return (
-		<div className="flex min-h-screen bg-background">
+		<div className="flex min-h-screen bg-background teacher-theme">
 			<TeacherSidebar activePage="Attendance" />
 			<div className="flex-1">
 				{/* Sticky header */}
