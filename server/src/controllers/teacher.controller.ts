@@ -3,6 +3,7 @@ import { TeacherModel } from "../models/Teacher.model";
 import { CourseModel } from "../models/Course.model";
 import { StudentModel } from "../models/Student.model";
 import { AttendanceModel } from "../models/Attendance.model";
+import { ChatGroupModel } from "../models/ChatGroup.model";
 import { TAttendanceStatus } from "../types";
 import { sendResponse } from "../utils/apiResponse";
 
@@ -66,6 +67,15 @@ export const createCourse: RequestHandler = async (req, res, next) => {
 
 		await TeacherModel.findByIdAndUpdate(req.user?.id, {
 			$addToSet: { assignedCourses: course._id },
+		});
+
+		// Auto-create chat group for this class
+		await ChatGroupModel.create({
+			name: `${courseCode} - Section ${section}`,
+			type: "class",
+			course: course._id,
+			createdBy: req.user?.id,
+			members: [req.user?.id],
 		});
 
 		sendResponse(res, 201, true, "Course created successfully", course);
@@ -144,6 +154,12 @@ export const addStudentToCourse: RequestHandler = async (req, res, next) => {
 			$addToSet: { enrolledCourses: id },
 		});
 
+		// Auto-add student to the course chat group
+		await ChatGroupModel.findOneAndUpdate(
+			{ course: id, type: "class" },
+			{ $addToSet: { members: studentMongoId } }
+		);
+
 		sendResponse(res, 200, true, "Student added to course successfully");
 	} catch (error) {
 		next(error);
@@ -167,6 +183,12 @@ export const removeStudentFromCourse: RequestHandler = async (req, res, next) =>
 		await StudentModel.findByIdAndUpdate(studentMongoId, {
 			$pull: { enrolledCourses: id },
 		});
+
+		// Auto-remove student from the course chat group
+		await ChatGroupModel.findOneAndUpdate(
+			{ course: id, type: "class" },
+			{ $pull: { members: studentMongoId } }
+		);
 
 		sendResponse(res, 200, true, "Student removed from course successfully");
 	} catch (error) {
