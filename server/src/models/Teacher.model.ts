@@ -5,6 +5,7 @@ export interface ITeacherDocument extends IUserDocument {
 	teacherId: string;
 	department: string;
 	assignedCourses: Schema.Types.ObjectId[];
+	accentColorIndex: number;
 }
 
 const teacherSchema = new Schema<ITeacherDocument>({
@@ -25,6 +26,12 @@ const teacherSchema = new Schema<ITeacherDocument>({
 			ref: "Course",
 		},
 	],
+	accentColorIndex: {
+		type: Number,
+		default: 0,
+		min: 0,
+		max: 10,
+	},
 });
 
 export const TeacherModel = UserModel.discriminator<ITeacherDocument>(

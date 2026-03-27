@@ -68,6 +68,7 @@ export interface ITeacher extends IUser {
 	teacherId: string;
 	department: string;
 	assignedCourses: string[];
+	accentColorIndex: number;
 }
 
 export interface IAdmin extends IUser {

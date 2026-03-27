@@ -320,3 +320,29 @@ export const saveAttendance: RequestHandler = async (req, res, next) => {
 		next(error);
 	}
 };
+
+export const updateTeacherSettings: RequestHandler = async (req, res, next) => {
+	try {
+		const { accentColorIndex } = req.body;
+
+		if (typeof accentColorIndex !== "number" || accentColorIndex < 0 || accentColorIndex > 10) {
+			sendResponse(res, 400, false, "Invalid accentColorIndex");
+			return;
+		}
+
+		const teacher = await TeacherModel.findByIdAndUpdate(
+			req.user?.id,
+			{ accentColorIndex },
+			{ new: true, runValidators: true }
+		).select("-password");
+
+		if (!teacher) {
+			sendResponse(res, 404, false, "Teacher not found");
+			return;
+		}
+
+		sendResponse(res, 200, true, "Settings updated successfully", { accentColorIndex: teacher.accentColorIndex });
+	} catch (error) {
+		next(error);
+	}
+};
