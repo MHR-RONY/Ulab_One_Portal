@@ -496,7 +496,7 @@ const ScheduleBuilder = () => {
       ) : (
         // ========== DESKTOP STEP 2 (Reference Design) ==========
         <>
-          <div className="flex-1 overflow-y-auto px-10 lg:px-20 xl:px-40 py-8 pb-32">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-10 lg:px-16 xl:px-32 py-8 pb-32">
             {/* Multi-step Progress Bar */}
             <div className="w-full max-w-4xl mx-auto flex items-center justify-between relative mb-10">
               <div className="absolute top-5 left-0 w-full h-0.5 bg-border -z-10" />
@@ -516,9 +516,9 @@ const ScheduleBuilder = () => {
               ))}
             </div>
 
-            <div className="flex gap-8 items-start">
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
               {/* Left Sidebar: Your Selection */}
-              <aside className="w-80 flex flex-col gap-4 bg-card p-6 rounded-xl border border-border shadow-sm shrink-0">
+              <aside className="w-full lg:w-72 xl:w-80 flex flex-col gap-4 bg-card p-5 rounded-xl border border-border shadow-sm lg:shrink-0">
                 <div className="flex flex-col mb-2">
                   <h3 className="text-lg font-bold text-foreground">Your Selection</h3>
                   <p className="text-sm text-muted-foreground">{selectedCourses.length - sectionsSelectedCount} courses remaining</p>
@@ -538,14 +538,14 @@ const ScheduleBuilder = () => {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded flex items-center justify-center ${
+                          <div className={`w-8 h-8 rounded flex items-center justify-center shrink-0 ${
                             isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                           }`}>
                             <BookOpen className="w-4 h-4" />
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <p className="text-sm font-bold text-foreground">{course.code}</p>
-                            <p className="text-xs text-muted-foreground">{course.title.length > 18 ? course.title.substring(0, 18) + "…" : course.title}</p>
+                            <p className="text-xs text-muted-foreground truncate">{course.title.length > 22 ? course.title.substring(0, 22) + "…" : course.title}</p>
                           </div>
                         </div>
                         {isActive ? (
@@ -620,20 +620,20 @@ const ScheduleBuilder = () => {
                           </div>
                         )}
 
-                        <div className="flex items-start justify-between gap-6">
-                          <div className="flex gap-4 flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                          <div className="flex gap-4 flex-1 min-w-0">
                             {/* Professor Avatar */}
-                            <div className="w-16 h-16 rounded-xl overflow-hidden border border-border shrink-0 bg-muted flex items-center justify-center">
-                              <User className="w-8 h-8 text-muted-foreground" />
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border border-border shrink-0 bg-muted flex items-center justify-center">
+                              <User className="w-7 h-7 sm:w-8 sm:h-8 text-muted-foreground" />
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold px-2 py-0.5 bg-muted text-muted-foreground rounded uppercase tracking-wider">
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-bold px-2 py-0.5 bg-muted text-muted-foreground rounded uppercase tracking-wider shrink-0">
                                   SEC-{sectionNum.padStart(3, "0")}
                                 </span>
-                                <h4 className="text-lg font-bold text-foreground">{instructor?.name || section.instructor}</h4>
+                                <h4 className="text-base sm:text-lg font-bold text-foreground">{instructor?.name || section.instructor}</h4>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                   <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
                                   <span className="font-bold text-foreground">{instructor?.rating || "4.0"}</span>
@@ -647,23 +647,26 @@ const ScheduleBuilder = () => {
                             </div>
                           </div>
 
-                          {/* Schedule Info */}
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <p className="text-sm font-bold text-foreground">{section.days}</p>
-                            <p className="text-xs text-muted-foreground">{section.time}</p>
-                            <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
-                              <Building2 className="w-3.5 h-3.5" />
-                              <span>{section.room}, {section.building}</span>
+                          {/* Schedule Info + Seats row on mobile, column on larger */}
+                          <div className="flex items-center justify-between sm:items-start sm:gap-6">
+                            {/* Schedule Info */}
+                            <div className="flex flex-col items-start sm:items-end gap-1">
+                              <p className="text-sm font-bold text-foreground">{section.days}</p>
+                              <p className="text-xs text-muted-foreground">{section.time}</p>
+                              <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
+                                <Building2 className="w-3.5 h-3.5" />
+                                <span>{section.room}, {section.building}</span>
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Seats */}
-                          <div className="flex flex-col items-center justify-center px-4 border-l border-border shrink-0">
-                            <div className={`font-bold text-xl leading-none ${isFull ? "text-destructive" : "text-primary"}`}>
-                              {section.seats}
-                            </div>
-                            <div className={`text-[10px] uppercase font-bold ${isFull ? "text-destructive" : "text-muted-foreground"}`}>
-                              {isFull ? "FULL" : "Seats Left"}
+                            {/* Seats */}
+                            <div className="flex flex-col items-center justify-center px-4 border-l border-border shrink-0">
+                              <div className={`font-bold text-xl leading-none ${isFull ? "text-destructive" : "text-primary"}`}>
+                                {section.seats}
+                              </div>
+                              <div className={`text-[10px] uppercase font-bold ${isFull ? "text-destructive" : "text-muted-foreground"}`}>
+                                {isFull ? "FULL" : "Seats Left"}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -690,30 +693,30 @@ const ScheduleBuilder = () => {
           </div>
 
           {/* Floating Bottom Summary Bar */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-40">
-            <div className="bg-foreground text-background rounded-2xl shadow-2xl p-4 flex items-center justify-between border border-border/10">
-              <div className="flex items-center gap-6 px-4">
+          <div className="fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 w-full max-w-4xl px-3 sm:px-4 z-40">
+            <div className="bg-foreground text-background rounded-2xl shadow-2xl p-3 sm:p-4 flex items-center justify-between gap-3 border border-border/10">
+              <div className="flex items-center gap-3 sm:gap-6 px-2 sm:px-4">
                 <div className="flex flex-col">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Credits</span>
-                  <span className="text-lg font-bold">{totalCredits.toFixed(1)}</span>
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Credits</span>
+                  <span className="text-base sm:text-lg font-bold">{totalCredits.toFixed(1)}</span>
                 </div>
                 <div className="h-8 w-px bg-muted-foreground/20" />
                 <div className="flex flex-col">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Schedule Conflict</span>
-                  <span className="text-lg font-bold text-green-400">None</span>
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Schedule Conflict</span>
+                  <span className="text-base sm:text-lg font-bold text-green-400">None</span>
                 </div>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-2 sm:gap-4 shrink-0">
                 <Button
                   variant="ghost"
                   onClick={() => setStep(1)}
-                  className="px-6 py-2 rounded-xl bg-muted-foreground/10 hover:bg-muted-foreground/20 text-background font-bold"
+                  className="px-4 sm:px-6 py-2 rounded-xl bg-muted-foreground/10 hover:bg-muted-foreground/20 text-background font-bold text-sm"
                 >
                   Save Draft
                 </Button>
                 <Button
                   onClick={() => setStep(3)}
-                  className="px-8 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20"
+                  className="px-5 sm:px-8 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 text-sm"
                 >
                   Review All
                 </Button>
