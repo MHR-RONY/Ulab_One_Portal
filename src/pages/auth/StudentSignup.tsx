@@ -167,7 +167,7 @@ const StudentSignup = () => {
 	};
 
 	return (
-		<div className="min-h-screen flex flex-col bg-secondary/30">
+		<div className="student-theme min-h-screen flex flex-col bg-secondary/30">
 			{/* Top Nav */}
 			<header className="w-full bg-card border-b border-border">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
