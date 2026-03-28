@@ -1,4 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+@import "@fontsource/geist-sans/400.css";
+@import "@fontsource/geist-sans/500.css";
+@import "@fontsource/geist-sans/600.css";
+@import "@fontsource/geist-sans/700.css";
 
 @tailwind base;
 @tailwind components;
@@ -60,10 +64,19 @@
     /* Premium tokens */
     --glass-bg: 0 0% 100% / 0.7;
     --glass-border: 220 20% 90% / 0.6;
-    --shadow-premium: 0 4px 24px -4px hsl(217 91% 60% / 0.10);
+    --shadow-premium: 0 4px 24px -4px hsl(217 91% 60% / 0.1);
     --shadow-premium-hover: 0 8px 32px -4px hsl(217 91% 60% / 0.18);
-    --gradient-page: linear-gradient(135deg, hsl(220 30% 97%) 0%, hsl(225 40% 96%) 50%, hsl(230 25% 97%) 100%);
-    --gradient-card-shine: linear-gradient(135deg, hsl(0 0% 100% / 0.9) 0%, hsl(0 0% 100% / 0.6) 100%);
+    --gradient-page: linear-gradient(
+      135deg,
+      hsl(220 30% 97%) 0%,
+      hsl(225 40% 96%) 50%,
+      hsl(230 25% 97%) 100%
+    );
+    --gradient-card-shine: linear-gradient(
+      135deg,
+      hsl(0 0% 100% / 0.9) 0%,
+      hsl(0 0% 100% / 0.6) 100%
+    );
   }
 
   /* Teacher theme — premium amber/orange */
@@ -79,7 +92,12 @@
     --teacher-glow: 38 92% 50%;
     --shadow-premium: 0 4px 24px -4px hsl(38 92% 50% / 0.15);
     --shadow-premium-hover: 0 8px 32px -4px hsl(38 92% 50% / 0.28);
-    --gradient-page: linear-gradient(135deg, hsl(38 30% 97%) 0%, hsl(42 35% 96%) 50%, hsl(36 25% 97%) 100%);
+    --gradient-page: linear-gradient(
+      135deg,
+      hsl(38 30% 97%) 0%,
+      hsl(42 35% 96%) 50%,
+      hsl(36 25% 97%) 100%
+    );
   }
 
   .dark {
@@ -137,8 +155,61 @@
     --glass-border: 240 4% 20% / 0.6;
     --shadow-premium: 0 4px 24px -4px hsl(0 0% 0% / 0.3);
     --shadow-premium-hover: 0 8px 32px -4px hsl(0 0% 0% / 0.5);
-    --gradient-page: linear-gradient(135deg, hsl(240 6% 6%) 0%, hsl(240 6% 8%) 100%);
-    --gradient-card-shine: linear-gradient(135deg, hsl(240 5% 12% / 0.9) 0%, hsl(240 5% 10% / 0.6) 100%);
+    --gradient-page: linear-gradient(
+      135deg,
+      hsl(240 6% 6%) 0%,
+      hsl(240 6% 8%) 100%
+    );
+    --gradient-card-shine: linear-gradient(
+      135deg,
+      hsl(240 5% 12% / 0.9) 0%,
+      hsl(240 5% 10% / 0.6) 100%
+    );
+  }
+
+  /* Student theme — orange-red #f45c25 = hsl(16 90% 55%) */
+  .student-theme {
+    --primary: 16 90% 55%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 16 90% 55%;
+    --sidebar-primary: 16 90% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 16 90% 55%;
+    --sidebar-accent-foreground: 16 90% 55%;
+    --sidebar-ring: 16 90% 60%;
+    --student-glow: 16 90% 55%;
+    --schedule-accent: 16 90% 55%;
+    --shadow-premium: 0 4px 24px -4px hsl(16 90% 55% / 0.15);
+    --shadow-premium-hover: 0 8px 32px -4px hsl(16 90% 55% / 0.28);
+    --gradient-page: linear-gradient(
+      135deg,
+      hsl(16 40% 97%) 0%,
+      hsl(20 45% 96%) 50%,
+      hsl(14 30% 97%) 100%
+    );
+    font-family: "Geist Sans", "Inter", sans-serif;
+  }
+
+  /* Student theme — dark mode */
+  .dark .student-theme,
+  .student-theme.dark {
+    --primary: 16 90% 60%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 16 90% 60%;
+    --sidebar-primary: 16 90% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 16 90% 60%;
+    --sidebar-accent-foreground: 16 90% 60%;
+    --sidebar-ring: 16 90% 60%;
+    --student-glow: 16 90% 60%;
+    --schedule-accent: 16 90% 60%;
+    --shadow-premium: 0 4px 24px -4px hsl(16 90% 55% / 0.25);
+    --shadow-premium-hover: 0 8px 32px -4px hsl(16 90% 55% / 0.4);
+    --gradient-page: linear-gradient(
+      135deg,
+      hsl(16 8% 6%) 0%,
+      hsl(20 8% 8%) 100%
+    );
   }
 
   /* Teacher theme dark overrides */
@@ -155,7 +226,11 @@
     --teacher-glow: 38 92% 55%;
     --shadow-premium: 0 4px 24px -4px hsl(38 92% 50% / 0.25);
     --shadow-premium-hover: 0 8px 32px -4px hsl(38 92% 50% / 0.4);
-    --gradient-page: linear-gradient(135deg, hsl(38 8% 6%) 0%, hsl(42 8% 8%) 100%);
+    --gradient-page: linear-gradient(
+      135deg,
+      hsl(38 8% 6%) 0%,
+      hsl(42 8% 8%) 100%
+    );
   }
 }
 
@@ -165,7 +240,7 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: "Inter", sans-serif;
   }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
@@ -182,7 +257,9 @@
     @apply bg-card border border-border;
     backdrop-filter: blur(20px);
     box-shadow: var(--shadow-premium);
-    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    transition:
+      box-shadow 0.3s ease,
+      transform 0.3s ease;
   }
   .glass-card:hover {
     box-shadow: var(--shadow-premium-hover);
@@ -200,13 +277,18 @@
     overflow: hidden;
   }
   .glossy-shine::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: -50%;
     width: 50%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.04), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(0 0% 100% / 0.04),
+      transparent
+    );
     transform: skewX(-20deg);
     transition: left 0.6s ease;
     pointer-events: none;
@@ -221,7 +303,7 @@
     position: relative;
   }
   .btn-glow::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: -1px;
     border-radius: inherit;
@@ -237,27 +319,42 @@
 
   /* Teacher glossy sidebar */
   .teacher-sidebar-glossy {
-    background: linear-gradient(180deg, hsl(38 92% 50% / 0.03) 0%, transparent 40%, hsl(38 92% 50% / 0.02) 100%);
+    background: linear-gradient(
+      180deg,
+      hsl(38 92% 50% / 0.03) 0%,
+      transparent 40%,
+      hsl(38 92% 50% / 0.02) 100%
+    );
     position: relative;
     overflow: hidden;
   }
   .teacher-sidebar-glossy::before {
-    content: '';
+    content: "";
     position: absolute;
     top: -50%;
     left: -50%;
     width: 200%;
     height: 200%;
-    background: radial-gradient(ellipse at 30% 20%, hsl(38 92% 50% / 0.06) 0%, transparent 50%);
+    background: radial-gradient(
+      ellipse at 30% 20%,
+      hsl(38 92% 50% / 0.06) 0%,
+      transparent 50%
+    );
     pointer-events: none;
     z-index: 0;
   }
 
   /* Teacher glossy nav item */
   .teacher-nav-active {
-    background: linear-gradient(135deg, hsl(38 92% 50% / 0.12) 0%, hsl(38 92% 50% / 0.06) 100%);
+    background: linear-gradient(
+      135deg,
+      hsl(38 92% 50% / 0.12) 0%,
+      hsl(38 92% 50% / 0.06) 100%
+    );
     border: 1px solid hsl(38 92% 50% / 0.15);
-    box-shadow: 0 0 12px hsl(38 92% 50% / 0.08), inset 0 1px 0 hsl(0 0% 100% / 0.05);
+    box-shadow:
+      0 0 12px hsl(38 92% 50% / 0.08),
+      inset 0 1px 0 hsl(0 0% 100% / 0.05);
   }
 
   /* Shimmer sweep animation */
@@ -266,13 +363,18 @@
     overflow: hidden;
   }
   .teacher-shimmer::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: -100%;
     width: 60%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, hsl(38 92% 55% / 0.08), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(38 92% 55% / 0.08),
+      transparent
+    );
     transform: skewX(-15deg);
     animation: teacher-shimmer-sweep 4s ease-in-out infinite;
     pointer-events: none;
@@ -281,7 +383,9 @@
 
   /* Teacher avatar ring glow */
   .teacher-avatar-glow {
-    box-shadow: 0 0 0 3px hsl(38 92% 50% / 0.15), 0 0 16px hsl(38 92% 50% / 0.1);
+    box-shadow:
+      0 0 0 3px hsl(38 92% 50% / 0.15),
+      0 0 16px hsl(38 92% 50% / 0.1);
   }
 
   /* Teacher card glossy effect */
@@ -291,28 +395,47 @@
     border: 1px solid hsl(38 92% 50% / 0.08);
   }
   .teacher-card-glossy::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, hsl(38 92% 50% / 0.3), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(38 92% 50% / 0.3),
+      transparent
+    );
     z-index: 1;
   }
 }
 
 @keyframes teacher-shimmer-sweep {
-  0%, 100% { left: -100%; }
-  50% { left: 150%; }
+  0%,
+  100% {
+    left: -100%;
+  }
+  50% {
+    left: 150%;
+  }
 }
 
 @keyframes skeleton-wave {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes skeleton-sweep {
-  0%, 100% { transform: translateX(-100%); }
-  50% { transform: translateX(300%); }
+  0%,
+  100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(300%);
+  }
 }
