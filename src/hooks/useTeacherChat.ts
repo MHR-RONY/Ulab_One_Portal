@@ -68,8 +68,8 @@ export const useTeacherChat = () => {
 	const [loading, setLoading] = useState(false);
 	const socketRef = useRef<Socket | null>(null);
 	const typingTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
-	const refreshConversationsRef = useRef<() => void>(() => {});
-	const refreshGroupsRef = useRef<() => void>(() => {});
+	const refreshConversationsRef = useRef<() => void>(() => { });
+	const refreshGroupsRef = useRef<() => void>(() => { });
 
 	// Connect socket on mount
 	useEffect(() => {

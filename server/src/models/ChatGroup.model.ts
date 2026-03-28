@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { IChatGroup } from "../types";
 
-export interface IChatGroupDocument extends Omit<IChatGroup, "_id">, Document {}
+export interface IChatGroupDocument extends Omit<IChatGroup, "_id">, Document { }
 
 const chatGroupSchema = new Schema<IChatGroupDocument>(
 	{

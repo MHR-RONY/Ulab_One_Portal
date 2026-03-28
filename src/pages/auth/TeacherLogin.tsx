@@ -212,26 +212,26 @@ const TeacherLogin = () => {
 								</button>
 							</div>
 							{errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
-						<AnimatePresence>
-							{showForgotNotice && (
-								<motion.div
-									initial={{ opacity: 0, y: -4 }}
-									animate={{ opacity: 1, y: 0 }}
-									exit={{ opacity: 0, y: -4 }}
-									transition={{ duration: 0.2 }}
-									className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/8 px-4 py-3 mt-1"
-								>
-									<AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-									<div className="flex-1">
-										<p className="text-sm font-semibold text-primary">Password reset not available</p>
-										<p className="text-xs text-muted-foreground mt-0.5">Please contact the system administrator to reset your password.</p>
-									</div>
-									<button onClick={() => setShowForgotNotice(false)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
-										<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-									</button>
-								</motion.div>
-							)}
-						</AnimatePresence>
+							<AnimatePresence>
+								{showForgotNotice && (
+									<motion.div
+										initial={{ opacity: 0, y: -4 }}
+										animate={{ opacity: 1, y: 0 }}
+										exit={{ opacity: 0, y: -4 }}
+										transition={{ duration: 0.2 }}
+										className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/8 px-4 py-3 mt-1"
+									>
+										<AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+										<div className="flex-1">
+											<p className="text-sm font-semibold text-primary">Password reset not available</p>
+											<p className="text-xs text-muted-foreground mt-0.5">Please contact the system administrator to reset your password.</p>
+										</div>
+										<button onClick={() => setShowForgotNotice(false)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+											<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+										</button>
+									</motion.div>
+								)}
+							</AnimatePresence>
 						</div>
 
 						{/* Remember */}
