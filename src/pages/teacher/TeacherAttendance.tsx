@@ -317,7 +317,7 @@ const TeacherAttendance = () => {
 	if (!selectedCourse) {
 		if (isMobile) {
 			return (
-				<div className="min-h-screen bg-background flex flex-col">
+				<div className="min-h-screen bg-background flex flex-col teacher-theme">
 					<div className="sticky top-0 z-20 bg-card border-b border-border px-4 py-4">
 						<div className="flex items-center gap-3">
 							<button
@@ -375,7 +375,7 @@ const TeacherAttendance = () => {
 
 		// Desktop course selection
 		return (
-			<div className="flex min-h-screen bg-background">
+			<div className="flex min-h-screen bg-background teacher-theme">
 				<TeacherSidebar activePage="Attendance" />
 				<div className="flex-1 p-8">
 					<div className="mb-8">
@@ -443,7 +443,7 @@ const TeacherAttendance = () => {
 
 	if (isMobile) {
 		return (
-			<div className="min-h-screen bg-background flex flex-col">
+			<div className="min-h-screen bg-background flex flex-col teacher-theme">
 				{/* Header */}
 				<div className="sticky top-0 z-20 bg-card border-b border-border">
 					<div className="flex items-center justify-between px-4 py-3.5">
@@ -528,8 +528,8 @@ const TeacherAttendance = () => {
 									transition={{ delay: idx * 0.03 }}
 									onClick={() => toggleStatus(student._id)}
 									className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border transition-all duration-200 ${isPresent
-											? "bg-card border-primary/20 shadow-sm"
-											: "bg-card border-border"
+										? "bg-card border-primary/20 shadow-sm"
+										: "bg-card border-border"
 										}`}
 								>
 									<Avatar className="h-10 w-10 flex-shrink-0">
@@ -550,8 +550,8 @@ const TeacherAttendance = () => {
 									)}
 									<div
 										className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${isPresent
-												? "bg-primary border-primary text-primary-foreground"
-												: "border-muted-foreground/30 bg-transparent"
+											? "bg-primary border-primary text-primary-foreground"
+											: "border-muted-foreground/30 bg-transparent"
 											}`}
 									>
 										{isPresent && <Check className="w-4 h-4" />}
@@ -591,7 +591,7 @@ const TeacherAttendance = () => {
 	// ═══════════════════════════════════════════════════════════
 
 	return (
-		<div className="flex min-h-screen bg-background">
+		<div className="flex min-h-screen bg-background teacher-theme">
 			<TeacherSidebar activePage="Attendance" />
 			<div className="flex-1">
 				{/* Sticky header */}
@@ -707,13 +707,13 @@ const TeacherAttendance = () => {
 						transition={{ delay: 0.1 }}
 					>
 						<Card>
-					{loadingDays ? (
-							<div className="py-16 text-center text-muted-foreground text-sm">
-								Loading attendance...
-							</div>
-						) : filteredStudents.length === 0 ? (
-							<div className="py-16 text-center text-muted-foreground text-sm">
-								{baseStudents.length === 0
+							{loadingDays ? (
+								<div className="py-16 text-center text-muted-foreground text-sm">
+									Loading attendance...
+								</div>
+							) : filteredStudents.length === 0 ? (
+								<div className="py-16 text-center text-muted-foreground text-sm">
+									{baseStudents.length === 0
 										? "No students enrolled in this course."
 										: "No students match your search."}
 								</div>
@@ -730,16 +730,14 @@ const TeacherAttendance = () => {
 													return (
 														<th
 															key={date}
-															className={`text-center px-3 py-4 text-xs font-semibold uppercase tracking-wider ${
-																isToday ? "text-primary" : "text-muted-foreground"
-															}`}
+															className={`text-center px-3 py-4 text-xs font-semibold uppercase tracking-wider ${isToday ? "text-primary" : "text-muted-foreground"
+																}`}
 														>
 															<span className="block">{month} {day}</span>
 															<span className="block font-normal normal-case opacity-70">{weekday}</span>
 															{(isToday || isTomorrow) && (
-																<span className={`block text-[10px] font-bold ${
-																	isToday ? "text-primary" : "text-muted-foreground/60"
-																}`}>
+																<span className={`block text-[10px] font-bold ${isToday ? "text-primary" : "text-muted-foreground/60"
+																	}`}>
 																	{isToday ? "Today" : "Tmrw"}
 																</span>
 															)}
@@ -791,13 +789,12 @@ const TeacherAttendance = () => {
 																	<button
 																		onClick={() => toggleCell(date, student._id)}
 																		title={`${date}: Mark ${isPresent ? "absent" : "present"}`}
-																		className={`w-7 h-7 rounded-full border-2 flex items-center justify-center mx-auto transition-all duration-200 ${
-																			isPresent
+																		className={`w-7 h-7 rounded-full border-2 flex items-center justify-center mx-auto transition-all duration-200 ${isPresent
 																				? "bg-primary border-primary text-primary-foreground"
 																				: isAbsent
 																					? "bg-destructive/10 border-destructive/50 text-destructive"
 																					: "border-muted-foreground/30 bg-transparent hover:border-muted-foreground/60"
-																		}`}
+																			}`}
 																	>
 																		{isPresent ? (
 																			<Check className="w-3 h-3" />
@@ -847,8 +844,8 @@ const TeacherAttendance = () => {
 												key={i}
 												onClick={() => setCurrentPage(i + 1)}
 												className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${currentPage === i + 1
-														? "bg-primary text-primary-foreground"
-														: "hover:bg-secondary text-muted-foreground"
+													? "bg-primary text-primary-foreground"
+													: "hover:bg-secondary text-muted-foreground"
 													}`}
 											>
 												{i + 1}

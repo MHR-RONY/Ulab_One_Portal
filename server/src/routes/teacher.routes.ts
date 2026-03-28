@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
 	getTeacherProfile,
 	updateTeacherProfile,
+	updateTeacherSettings,
 	createCourse,
 	getTeacherCourses,
 	getCourseStudents,
@@ -19,6 +20,7 @@ router.use(protect, authorizeRole("teacher"));
 
 router.get("/profile", getTeacherProfile);
 router.put("/profile", updateTeacherProfile);
+router.patch("/settings", updateTeacherSettings);
 
 router.get("/courses", getTeacherCourses);
 router.post("/courses", createCourse);

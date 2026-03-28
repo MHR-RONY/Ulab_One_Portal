@@ -53,9 +53,9 @@ const StudentLogin = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col lg:flex-row bg-background">
+    <div className="student-theme flex min-h-screen w-full flex-col lg:flex-row bg-background">
       {/* Left Side: Image & Branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden" style={{ backgroundColor: "hsl(220 85% 55%)" }}>
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden bg-primary">
         <div className="absolute inset-0 z-0">
           <img
             alt="University library"
