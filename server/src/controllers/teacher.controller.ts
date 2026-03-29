@@ -7,6 +7,7 @@ import { HolidayModel } from "../models/Holiday.model";
 import { ChatGroupModel } from "../models/ChatGroup.model";
 import { TAttendanceStatus } from "../types";
 import { sendResponse } from "../utils/apiResponse";
+import { getIO } from "../socket/chat.socket";
 
 export const getTeacherProfile: RequestHandler = async (req, res, next) => {
 	try {
@@ -156,10 +157,24 @@ export const addStudentToCourse: RequestHandler = async (req, res, next) => {
 		});
 
 		// Auto-add student to the course chat group
-		await ChatGroupModel.findOneAndUpdate(
+		const chatGroup = await ChatGroupModel.findOneAndUpdate(
 			{ course: id, type: "class" },
-			{ $addToSet: { members: studentMongoId } }
+			{ $addToSet: { members: studentMongoId } },
+			{ new: true }
 		);
+
+		// Notify the student's socket to join the new group room
+		if (chatGroup) {
+			try {
+				const io = getIO();
+				io.to(`user:${studentMongoId}`).emit("group:joined", {
+					groupId: chatGroup._id,
+					groupName: chatGroup.name,
+				});
+			} catch {
+				// Socket not initialized yet, skip notification
+			}
+		}
 
 		sendResponse(res, 200, true, "Student added to course successfully");
 	} catch (error) {
@@ -186,10 +201,23 @@ export const removeStudentFromCourse: RequestHandler = async (req, res, next) =>
 		});
 
 		// Auto-remove student from the course chat group
-		await ChatGroupModel.findOneAndUpdate(
+		const chatGroup = await ChatGroupModel.findOneAndUpdate(
 			{ course: id, type: "class" },
-			{ $pull: { members: studentMongoId } }
+			{ $pull: { members: studentMongoId } },
+			{ new: true }
 		);
+
+		// Notify the student's socket to leave the group room
+		if (chatGroup) {
+			try {
+				const io = getIO();
+				io.to(`user:${studentMongoId}`).emit("group:removed", {
+					groupId: chatGroup._id,
+				});
+			} catch {
+				// Socket not initialized yet, skip notification
+			}
+		}
 
 		sendResponse(res, 200, true, "Student removed from course successfully");
 	} catch (error) {

@@ -9,6 +9,14 @@ interface AuthSocket extends Socket {
 	user: IJwtPayload;
 }
 
+// Singleton io instance accessible by controllers
+let ioInstance: Server | null = null;
+
+export const getIO = (): Server => {
+	if (!ioInstance) throw new Error("Socket.io not initialized");
+	return ioInstance;
+};
+
 // Track online users: userId -> Set<socketId>
 const onlineUsers = new Map<string, Set<string>>();
 
@@ -37,6 +45,8 @@ export const initSocketServer = (httpServer: HttpServer): Server => {
 		pingTimeout: 60000,
 		pingInterval: 25000,
 	});
+
+	ioInstance = io;
 
 	// JWT authentication middleware
 	io.use((socket, next) => {
@@ -75,6 +85,16 @@ export const initSocketServer = (httpServer: HttpServer): Server => {
 
 		// Broadcast online status
 		io.emit("user:online", { userId });
+
+		// ---- Join a group room (called after group:joined event) ----
+		socket.on("group:join-room", (data: { groupId: string }) => {
+			socket.join(`group:${data.groupId}`);
+		});
+
+		// ---- Leave a group room (called after group:removed event) ----
+		socket.on("group:leave-room", (data: { groupId: string }) => {
+			socket.leave(`group:${data.groupId}`);
+		});
 
 		// ---- Direct Message ----
 		socket.on("dm:send", async (data: { receiverId: string; content: string }, callback?: (res: { success: boolean; message?: unknown; error?: string }) => void) => {
