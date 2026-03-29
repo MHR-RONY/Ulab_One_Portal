@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useCallback, useMemo } from "react";
 import {
 	ArrowLeft, Search, CheckCheck, Save, Users, UserX,
-	CalendarDays, Check, BookOpen, ChevronRight,
+	CalendarDays, Check, BookOpen, ChevronRight, Ban,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -101,15 +101,18 @@ const TeacherAttendance = () => {
 	const [loadingCourses, setLoadingCourses] = useState(true);
 	const [search, setSearch] = useState("");
 	const [currentPage, setCurrentPage] = useState(1);
-	// 5-day window: today-3, today-2, today-1, today, tomorrow
+	const [holidayDates, setHolidayDates] = useState<Set<string>>(new Set());
+	const [isDateHoliday, setIsDateHoliday] = useState(false);
+	const [togglingHoliday, setTogglingHoliday] = useState<string | null>(null);
+	const [viewDate, setViewDate] = useState<string>(todayString());
+	// 5-day window: viewDate-4 ... viewDate (no tomorrow)
 	const dayWindow = useMemo(() => {
-		const today = new Date();
 		return Array.from({ length: 5 }, (_, i) => {
-			const d = new Date(today);
-			d.setDate(today.getDate() + (i - 3));
-			return d.toISOString().slice(0, 10);
+			const base = new Date(viewDate + "T12:00:00");
+			base.setDate(base.getDate() - (4 - i));
+			return base.toISOString().slice(0, 10);
 		});
-	}, []);
+	}, [viewDate]);
 
 	useEffect(() => {
 		const fetchCourses = async () => {
@@ -130,7 +133,16 @@ const TeacherAttendance = () => {
 		try {
 			setLoadingStudents(true);
 			const { data } = await api.get(`/teacher/courses/${course._id}/attendance?date=${date}`);
-			setStudents(data.data.students);
+			const today = todayString();
+			const rawStudents: IAttendanceStudent[] = data.data.students;
+			const mapped = rawStudents.map((s) => ({
+				...s,
+				status: (s.status === "not-marked" && date === today)
+					? ("absent" as TAttendanceStatus)
+					: s.status,
+			}));
+			setStudents(mapped);
+			setIsDateHoliday(data.data.isHoliday === true);
 		} catch {
 			toast({ title: "Failed to load attendance", variant: "destructive" });
 		} finally {
@@ -144,17 +156,27 @@ const TeacherAttendance = () => {
 			const results = await Promise.all(
 				dayWindow.map((date) => api.get(`/teacher/courses/${course._id}/attendance?date=${date}`))
 			);
-			const todayStr = todayString();
-			const todayIdx = dayWindow.indexOf(todayStr);
-			setBaseStudents(results[todayIdx >= 0 ? todayIdx : 3].data.data.students);
+			setBaseStudents(results[4].data.data.students);
 			const newDayStatuses: Record<string, Record<string, TAttendanceStatus>> = {};
+			// Use allHolidayDates from any response (all calls return the same list)
+			const allHolidayDates: string[] = results[0].data.data.allHolidayDates ?? [];
+			const newHolidayDates = new Set<string>(allHolidayDates);
 			dayWindow.forEach((date, i) => {
-				const sts: IAttendanceStudent[] = results[i].data.data.students;
+				const responseData = results[i].data.data;
+				if (responseData.isHoliday) newHolidayDates.add(date);
+				const sts: IAttendanceStudent[] = responseData.students;
 				const map: Record<string, TAttendanceStatus> = {};
-				sts.forEach((s) => { map[s._id] = s.status; });
+				sts.forEach((s) => {
+					const effectiveStatus =
+						s.status === "not-marked" && date === viewDate && !responseData.isHoliday
+							? ("absent" as TAttendanceStatus)
+							: s.status;
+					map[s._id] = effectiveStatus;
+				});
 				newDayStatuses[date] = map;
 			});
 			setDayStatuses(newDayStatuses);
+			setHolidayDates(newHolidayDates);
 		} catch {
 			toast({ title: "Failed to load attendance", variant: "destructive" });
 		} finally {
@@ -187,6 +209,7 @@ const TeacherAttendance = () => {
 	};
 
 	const toggleCell = (date: string, studentId: string) => {
+		if (holidayDates.has(date)) return;
 		setDayStatuses((prev) => {
 			const dateMap = { ...(prev[date] ?? {}) };
 			const current = dateMap[studentId] ?? "not-marked";
@@ -197,32 +220,34 @@ const TeacherAttendance = () => {
 
 	const markAllPresent = () => {
 		if (isMobile) {
+			if (isDateHoliday) return;
 			setStudents((prev) => prev.map((s) => ({ ...s, status: "present" as TAttendanceStatus })));
 		} else {
-			const today = todayString();
+			if (holidayDates.has(viewDate)) return;
 			setDayStatuses((prev) => {
-				const dateMap = { ...(prev[today] ?? {}) };
+				const dateMap = { ...(prev[viewDate] ?? {}) };
 				baseStudents.forEach((s) => { dateMap[s._id] = "present"; });
-				return { ...prev, [today]: dateMap };
+				return { ...prev, [viewDate]: dateMap };
 			});
 		}
 	};
 
 	const markAllAbsent = () => {
 		if (isMobile) {
+			if (isDateHoliday) return;
 			setStudents((prev) => prev.map((s) => ({ ...s, status: "absent" as TAttendanceStatus })));
 		} else {
-			const today = todayString();
+			if (holidayDates.has(viewDate)) return;
 			setDayStatuses((prev) => {
-				const dateMap = { ...(prev[today] ?? {}) };
+				const dateMap = { ...(prev[viewDate] ?? {}) };
 				baseStudents.forEach((s) => { dateMap[s._id] = "absent"; });
-				return { ...prev, [today]: dateMap };
+				return { ...prev, [viewDate]: dateMap };
 			});
 		}
 	};
 
 	const handleSave = async () => {
-		if (!selectedCourse) return;
+		if (!selectedCourse || isDateHoliday) return;
 		try {
 			setSaving(true);
 			const records = students.map((s) => ({
@@ -244,18 +269,18 @@ const TeacherAttendance = () => {
 
 	const handleSaveAll = async () => {
 		if (!selectedCourse) return;
+		if (holidayDates.has(viewDate)) {
+			toast({ title: "Selected date is a holiday. No attendance to save.", variant: "destructive" });
+			return;
+		}
 		try {
 			setSavingAll(true);
-			await Promise.all(
-				dayWindow.map((date) => {
-					const statuses = dayStatuses[date] ?? {};
-					const records = baseStudents.map((s) => ({
-						student: s._id,
-						status: statuses[s._id] === "present" ? "present" : "absent",
-					}));
-					return api.post(`/teacher/courses/${selectedCourse._id}/attendance`, { date, records });
-				})
-			);
+			const statuses = dayStatuses[viewDate] ?? {};
+			const records = baseStudents.map((s) => ({
+				student: s._id,
+				status: statuses[s._id] === "present" ? "present" : "absent",
+			}));
+			await api.post(`/teacher/courses/${selectedCourse._id}/attendance`, { date: viewDate, records });
 			await fetchMultiDay(selectedCourse);
 			toast({ title: "Attendance saved successfully" });
 		} catch {
@@ -270,18 +295,44 @@ const TeacherAttendance = () => {
 		setStudents([]);
 		setBaseStudents([]);
 		setDayStatuses({});
+		setHolidayDates(new Set());
+		setIsDateHoliday(false);
 		setSearch("");
 		setCurrentPage(1);
 	};
 
+	const toggleHoliday = async (date: string) => {
+		if (!selectedCourse) return;
+		const isHoliday = isMobile ? isDateHoliday : holidayDates.has(date);
+		try {
+			setTogglingHoliday(date);
+			if (isHoliday) {
+				await api.delete(`/teacher/courses/${selectedCourse._id}/holiday/${date}`);
+			} else {
+				await api.post(`/teacher/courses/${selectedCourse._id}/holiday`, { date });
+			}
+			if (isMobile) {
+				await fetchAttendance(selectedCourse, date);
+			} else {
+				await fetchMultiDay(selectedCourse);
+			}
+			toast({ title: isHoliday ? "Holiday removed" : "Day marked as holiday" });
+		} catch {
+			toast({ title: "Failed to update holiday status", variant: "destructive" });
+		} finally {
+			setTogglingHoliday(null);
+		}
+	};
+
 	const todayStr = todayString();
-	const todaySts = dayStatuses[todayStr] ?? {};
+	const viewDateSts = dayStatuses[viewDate] ?? {};
+	const viewDateIsHoliday = holidayDates.has(viewDate);
 	const presentCount = isMobile
-		? students.filter((s) => s.status === "present").length
-		: baseStudents.filter((s) => todaySts[s._id] === "present").length;
+		? (isDateHoliday ? 0 : students.filter((s) => s.status === "present").length)
+		: (viewDateIsHoliday ? 0 : baseStudents.filter((s) => viewDateSts[s._id] === "present").length);
 	const absentCount = isMobile
-		? students.filter((s) => s.status !== "present").length
-		: baseStudents.filter((s) => todaySts[s._id] !== "present").length;
+		? (isDateHoliday ? 0 : students.filter((s) => s.status !== "present").length)
+		: (viewDateIsHoliday ? 0 : baseStudents.filter((s) => viewDateSts[s._id] !== "present").length);
 	const totalStudents = isMobile ? students.length : baseStudents.length;
 
 	const activeStudents = isMobile ? students : baseStudents;
@@ -471,15 +522,27 @@ const TeacherAttendance = () => {
 							<CalendarDays className="w-4 h-4 text-muted-foreground" />
 							<span className="text-xs font-semibold text-foreground">{formatDate(selectedDate)}</span>
 						</div>
-						<input
-							type="date"
-							value={selectedDate}
-							onChange={(e) => {
-								setSelectedDate(e.target.value);
-								setCurrentPage(1);
-							}}
-							className="text-xs h-8 px-2 rounded-lg border border-border bg-background text-foreground cursor-pointer"
-						/>
+						<div className="flex items-center gap-2">
+							<button
+								onClick={() => toggleHoliday(selectedDate)}
+								disabled={togglingHoliday === selectedDate}
+								className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${isDateHoliday
+										? "border-amber-400/50 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+										: "border-border text-muted-foreground hover:text-foreground"
+									}`}
+							>
+								{isDateHoliday ? "Holiday ✓" : "Mark Holiday"}
+							</button>
+							<input
+								type="date"
+								value={selectedDate}
+								onChange={(e) => {
+									setSelectedDate(e.target.value);
+									setCurrentPage(1);
+								}}
+								className="text-xs h-8 px-2 rounded-lg border border-border bg-background text-foreground cursor-pointer"
+							/>
+						</div>
 					</div>
 				</div>
 
@@ -507,6 +570,13 @@ const TeacherAttendance = () => {
 					</Button>
 				</div>
 
+				{/* Holiday banner */}
+				{isDateHoliday && (
+					<div className="mx-4 mt-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+						<Ban className="w-4 h-4 flex-shrink-0" />
+						<span>This day is a holiday. Attendance not required.</span>
+					</div>
+				)}
 				{/* Student list */}
 				<div className="flex-1 px-4 pb-28 space-y-2.5">
 					{loadingStudents ? (
@@ -526,7 +596,7 @@ const TeacherAttendance = () => {
 									initial={{ opacity: 0, y: 8 }}
 									animate={{ opacity: 1, y: 0 }}
 									transition={{ delay: idx * 0.03 }}
-									onClick={() => toggleStatus(student._id)}
+									onClick={() => !isDateHoliday && toggleStatus(student._id)}
 									className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border transition-all duration-200 ${isPresent
 										? "bg-card border-primary/20 shadow-sm"
 										: "bg-card border-border"
@@ -575,10 +645,10 @@ const TeacherAttendance = () => {
 						<Button
 							className="flex-1 h-11 rounded-full gap-2 font-semibold"
 							onClick={handleSave}
-							disabled={saving || loadingStudents}
+							disabled={saving || loadingStudents || isDateHoliday}
 						>
 							<Save className="w-4 h-4" />
-							{saving ? "Saving..." : "Save Attendance"}
+							{saving ? "Saving..." : isDateHoliday ? "Holiday  No Save" : "Save Attendance"}
 						</Button>
 					</div>
 				</div>
@@ -635,19 +705,40 @@ const TeacherAttendance = () => {
 										<p className="text-sm text-muted-foreground mt-0.5">
 											{selectedCourse.courseCode} · {selectedCourse.name} · Section {selectedCourse.section}
 										</p>
-										<p className="text-xs text-muted-foreground mt-1">Showing last 3 days · today · tomorrow</p>
+										<p className="text-xs text-muted-foreground mt-1">Showing {viewDate} and 4 previous days</p>
 									</div>
 									<div className="flex items-center gap-3 flex-wrap">
-										<Button variant="outline" onClick={markAllPresent} className="gap-2">
+										<Button variant="outline" onClick={markAllPresent} disabled={viewDateIsHoliday} className="gap-2">
 											<CheckCheck className="w-4 h-4" /> All Present Today
 										</Button>
-										<Button variant="outline" onClick={markAllAbsent} className="gap-2">
+										<Button variant="outline" onClick={markAllAbsent} disabled={viewDateIsHoliday} className="gap-2">
 											<UserX className="w-4 h-4" /> All Absent Today
 										</Button>
-										<Button onClick={handleSaveAll} disabled={savingAll || loadingDays} className="gap-2">
+										<Button onClick={handleSaveAll} disabled={savingAll || loadingDays || viewDateIsHoliday} className="gap-2">
 											<Save className="w-4 h-4" />
 											{savingAll ? "Saving..." : "Save Attendance"}
 										</Button>
+										<div className="w-px h-8 bg-border" />
+										<div className="flex items-center gap-2">
+											<input
+												type="date"
+												value={viewDate}
+												onChange={(e) => setViewDate(e.target.value)}
+												className="text-sm h-9 px-3 rounded-lg border border-border bg-background text-foreground cursor-pointer"
+											/>
+											<Button
+												variant="outline"
+												onClick={() => toggleHoliday(viewDate)}
+												disabled={togglingHoliday === viewDate}
+												className={`gap-2 ${holidayDates.has(viewDate)
+														? "border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+														: ""
+													}`}
+											>
+												<Ban className="w-4 h-4" />
+												{holidayDates.has(viewDate) ? "Remove Holiday" : "Mark Holiday"}
+											</Button>
+										</div>
 									</div>
 								</div>
 							</CardContent>
@@ -700,6 +791,19 @@ const TeacherAttendance = () => {
 						</Card>
 					</motion.div>
 
+					{/* Today is holiday banner */}
+					{viewDateIsHoliday && (
+						<motion.div
+							initial={{ opacity: 0, y: 10 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ delay: 0.08 }}
+							className="px-5 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400"
+						>
+							<Ban className="w-4 h-4 flex-shrink-0" />
+							<span>{viewDate} is marked as a holiday. No attendance required.</span>
+						</motion.div>
+					)}
+
 					{/* Table */}
 					<motion.div
 						initial={{ opacity: 0, y: 10 }}
@@ -726,19 +830,20 @@ const TeacherAttendance = () => {
 													Student
 												</th>
 												{dayWindow.map((date) => {
-													const { month, day, weekday, isToday, isTomorrow } = formatDayLabel(date, todayStr);
+													const { month, day, weekday, isToday } = formatDayLabel(date, viewDate);
 													return (
 														<th
 															key={date}
-															className={`text-center px-3 py-4 text-xs font-semibold uppercase tracking-wider ${isToday ? "text-primary" : "text-muted-foreground"
+															className={`text-center px-3 py-4 text-xs font-semibold uppercase tracking-wider ${isToday
+																	? "text-primary bg-primary/5 border-l border-r border-primary/20"
+																	: "text-muted-foreground"
 																}`}
 														>
 															<span className="block">{month} {day}</span>
 															<span className="block font-normal normal-case opacity-70">{weekday}</span>
-															{(isToday || isTomorrow) && (
-																<span className={`block text-[10px] font-bold ${isToday ? "text-primary" : "text-muted-foreground/60"
-																	}`}>
-																	{isToday ? "Today" : "Tmrw"}
+															{isToday && (
+																<span className="block text-[10px] font-bold text-primary">
+																	Today
 																</span>
 															)}
 														</th>
@@ -781,27 +886,42 @@ const TeacherAttendance = () => {
 															</div>
 														</td>
 														{dayWindow.map((date) => {
+															const isHolidayCol = holidayDates.has(date);
+															const isReadOnly = isHolidayCol;
 															const status = dayStatuses[date]?.[student._id] ?? "not-marked";
 															const isPresent = status === "present";
 															const isAbsent = status === "absent";
+															const isTodayCol = date === viewDate;
 															return (
-																<td key={date} className="text-center px-3 py-4">
-																	<button
-																		onClick={() => toggleCell(date, student._id)}
-																		title={`${date}: Mark ${isPresent ? "absent" : "present"}`}
-																		className={`w-7 h-7 rounded-full border-2 flex items-center justify-center mx-auto transition-all duration-200 ${isPresent
-																				? "bg-primary border-primary text-primary-foreground"
-																				: isAbsent
-																					? "bg-destructive/10 border-destructive/50 text-destructive"
-																					: "border-muted-foreground/30 bg-transparent hover:border-muted-foreground/60"
-																			}`}
-																	>
-																		{isPresent ? (
-																			<Check className="w-3 h-3" />
-																		) : isAbsent ? (
-																			<span className="text-[10px] font-bold leading-none">✕</span>
-																		) : null}
-																	</button>
+																<td key={date} className={`text-center px-3 py-4 ${isHolidayCol ? "bg-amber-500/5"
+																		: isTodayCol ? "bg-primary/5 border-l border-r border-primary/20"
+																			: ""
+																	}`}>
+																	{isHolidayCol ? (
+																		<div className="w-7 h-7 rounded-full border-2 border-amber-300/30 bg-amber-100/20 flex items-center justify-center mx-auto">
+																			<Ban className="w-3 h-3 text-amber-400/60" />
+																		</div>
+																	) : (
+																		<button
+																			onClick={() => toggleCell(date, student._id)}
+																			disabled={isReadOnly}
+																			title={`${date}: Mark ${isPresent ? "absent" : "present"}`}
+																			className={`w-7 h-7 rounded-full border-2 flex items-center justify-center mx-auto transition-all duration-200 ${isReadOnly
+																					? "border-muted-foreground/20 bg-transparent cursor-default opacity-40"
+																					: isPresent
+																						? "bg-primary border-primary text-primary-foreground"
+																						: isAbsent
+																							? "bg-destructive/10 border-destructive/50 text-destructive"
+																							: "border-muted-foreground/30 bg-transparent hover:border-muted-foreground/60"
+																				}`}
+																		>
+																			{!isReadOnly && isPresent ? (
+																				<Check className="w-3 h-3" />
+																			) : !isReadOnly && isAbsent ? (
+																				<span className="text-[10px] font-bold leading-none">✕</span>
+																			) : null}
+																		</button>
+																	)}
 																</td>
 															);
 														})}
