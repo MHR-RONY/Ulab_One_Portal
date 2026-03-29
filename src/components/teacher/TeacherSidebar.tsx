@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
 	LayoutDashboard, BookOpen, UserCheck, Star, BarChart3,
 	LogOut, GraduationCap, Settings, MessageSquare,
@@ -8,6 +8,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRole } from "@/contexts/RoleContext";
 import { useTeacherProfile } from "@/hooks/useTeacherProfile";
+import api from "@/lib/api";
 
 const getInitials = (name: string) => {
 	const parts = name.trim().split(" ");
@@ -25,8 +26,8 @@ const navItems = [
 ];
 
 const messageSubItems = [
-	{ icon: User, label: "Personal", href: "/teacher/chat?tab=personal", badge: 3 },
-	{ icon: Users, label: "Groups", href: "/teacher/chat?tab=groups", badge: 12 },
+	{ icon: User, label: "Personal", href: "/teacher/chat?tab=personal" },
+	{ icon: Users, label: "Groups", href: "/teacher/chat?tab=groups" },
 ];
 
 interface TeacherSidebarProps {
@@ -55,6 +56,37 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
 	const [messagesOpen, setMessagesOpen] = useState(
 		activePage === "Messages" || location.pathname.startsWith("/teacher/chat")
 	);
+	const [personalUnread, setPersonalUnread] = useState(0);
+	const [groupUnread, setGroupUnread] = useState(0);
+
+	const fetchUnreadCounts = useCallback(async () => {
+		try {
+			const [convRes, groupRes] = await Promise.all([
+				api.get("/chat/conversations"),
+				api.get("/chat/groups"),
+			]);
+			if (convRes.data.success) {
+				const total = (convRes.data.data as Array<{ unreadCount: number }>).reduce(
+					(sum, c) => sum + c.unreadCount, 0
+				);
+				setPersonalUnread(total);
+			}
+			if (groupRes.data.success) {
+				const total = (groupRes.data.data as Array<{ unreadCount: number }>).reduce(
+					(sum, g) => sum + g.unreadCount, 0
+				);
+				setGroupUnread(total);
+			}
+		} catch {
+			// Silently fail — sidebar is non-critical
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchUnreadCounts();
+		const interval = setInterval(fetchUnreadCounts, 30000);
+		return () => clearInterval(interval);
+	}, [fetchUnreadCounts]);
 
 	useEffect(() => {
 		const stored = localStorage.getItem("teacher-accent-index");
@@ -165,9 +197,11 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
 										</motion.div>
 										<span>Messages</span>
 										<div className="ml-auto flex items-center gap-1.5">
-											<span className="flex items-center justify-center min-w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold px-1.5">
-												15
-											</span>
+											{(personalUnread + groupUnread) > 0 && (
+												<span className="flex items-center justify-center min-w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold px-1.5">
+													{personalUnread + groupUnread}
+												</span>
+											)}
 											<motion.div
 												animate={{ rotate: messagesOpen ? 180 : 0 }}
 												transition={{ duration: 0.2 }}
@@ -201,11 +235,14 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
 															>
 																<sub.icon className="w-4 h-4" />
 																<span>{sub.label}</span>
-																{sub.badge > 0 && (
-																	<span className="ml-auto flex items-center justify-center min-w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">
-																		{sub.badge}
-																	</span>
-																)}
+																{(() => {
+																	const count = sub.label === "Personal" ? personalUnread : groupUnread;
+																	return count > 0 ? (
+																		<span className="ml-auto flex items-center justify-center min-w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">
+																			{count}
+																		</span>
+																	) : null;
+																})()}
 															</Link>
 														);
 													})}
