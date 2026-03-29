@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import { ChatGroupModel } from "../models/ChatGroup.model";
 import { MessageModel } from "../models/Message.model";
+import { CourseModel } from "../models/Course.model";
 import { UserModel } from "../models/User.model";
 import { StudentModel } from "../models/Student.model";
 import { sendResponse } from "../utils/apiResponse";
@@ -397,6 +398,72 @@ export const searchContacts: RequestHandler = async (req, res, next) => {
 		);
 
 		sendResponse(res, 200, true, "Contacts fetched successfully", contacts);
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ---- Sync course chat groups ----
+
+export const syncCourseGroups: RequestHandler = async (_req, res, next) => {
+	try {
+		const courses = await CourseModel.find()
+			.populate("teacher", "_id")
+			.populate("enrolledStudents", "_id");
+
+		let groupsCreated = 0;
+		let membersAdded = 0;
+
+		for (const course of courses) {
+			// Check if a class group already exists for this course
+			let group = await ChatGroupModel.findOne({ course: course._id, type: "class" });
+
+			if (!group) {
+				// Create missing group
+				group = await ChatGroupModel.create({
+					name: `${course.courseCode} - Section ${course.section}`,
+					type: "class",
+					course: course._id,
+					createdBy: course.teacher,
+					members: [course.teacher],
+				});
+				groupsCreated++;
+			}
+
+			// Build the expected member set: teacher + all enrolled students
+			const expectedMembers = new Set<string>();
+
+			if (course.teacher) {
+				expectedMembers.add(course.teacher.toString());
+			}
+
+			for (const student of course.enrolledStudents) {
+				expectedMembers.add(student.toString());
+			}
+
+			// Find members not yet in the group
+			const currentMembers = new Set(group.members.map((m) => m.toString()));
+			const toAdd: string[] = [];
+
+			for (const memberId of expectedMembers) {
+				if (!currentMembers.has(memberId)) {
+					toAdd.push(memberId);
+				}
+			}
+
+			if (toAdd.length > 0) {
+				await ChatGroupModel.findByIdAndUpdate(group._id, {
+					$addToSet: { members: { $each: toAdd } },
+				});
+				membersAdded += toAdd.length;
+			}
+		}
+
+		sendResponse(res, 200, true, "Course chat groups synced successfully", {
+			groupsCreated,
+			membersAdded,
+			totalCourses: courses.length,
+		});
 	} catch (error) {
 		next(error);
 	}
