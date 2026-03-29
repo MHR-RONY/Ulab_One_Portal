@@ -111,6 +111,14 @@ export interface IAttendanceRecord {
 	updatedAt: Date;
 }
 
+export interface IHoliday {
+	_id: string;
+	course: string;
+	date: string;
+	markedBy: string;
+	createdAt: Date;
+}
+
 export interface IAttendance {
 	_id: string;
 	student: string;
