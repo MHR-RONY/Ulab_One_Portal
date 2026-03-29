@@ -3,6 +3,7 @@ import { TeacherModel } from "../models/Teacher.model";
 import { CourseModel } from "../models/Course.model";
 import { StudentModel } from "../models/Student.model";
 import { AttendanceModel } from "../models/Attendance.model";
+import { HolidayModel } from "../models/Holiday.model";
 import { ChatGroupModel } from "../models/ChatGroup.model";
 import { TAttendanceStatus } from "../types";
 import { sendResponse } from "../utils/apiResponse";
@@ -247,10 +248,16 @@ export const getAttendanceForDate: RequestHandler = async (req, res, next) => {
 			semester: number;
 		}>;
 
-		const [dateRecords, allRecords] = await Promise.all([
+		const [dateRecords, allRecords, holidayRecord, allHolidays] = await Promise.all([
 			AttendanceModel.find({ course: id, date }),
 			AttendanceModel.find({ course: id }),
+			HolidayModel.findOne({ course: id, date }),
+			HolidayModel.find({ course: id }, { date: 1 }),
 		]);
+
+		const isHoliday = holidayRecord !== null;
+		const holidayDateSet = new Set(allHolidays.map((h) => h.date));
+		const nonHolidayRecords = allRecords.filter((r) => !holidayDateSet.has(r.date));
 
 		const dateMap = new Map<string, TAttendanceStatus>();
 		dateRecords.forEach((r) => {
@@ -258,7 +265,7 @@ export const getAttendanceForDate: RequestHandler = async (req, res, next) => {
 		});
 
 		const statsMap = new Map<string, { attended: number; total: number }>();
-		allRecords.forEach((r) => {
+		nonHolidayRecords.forEach((r) => {
 			const sid = r.student.toString();
 			const prev = statsMap.get(sid) ?? { attended: 0, total: 0 };
 			prev.total++;
@@ -291,6 +298,8 @@ export const getAttendanceForDate: RequestHandler = async (req, res, next) => {
 				section: course.section,
 			},
 			date,
+			isHoliday,
+			allHolidayDates: allHolidays.map((h) => h.date),
 			students,
 		});
 	} catch (error) {
@@ -327,17 +336,68 @@ export const saveAttendance: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
-		const ops = records.map(({ student, status }) => ({
-			updateOne: {
-				filter: { student, course: id, date },
-				update: { $set: { student, course: id, date, status } },
-				upsert: true,
-			},
-		}));
-
-		await AttendanceModel.bulkWrite(ops);
+		await Promise.all(
+			records.map(({ student, status }) =>
+				AttendanceModel.findOneAndUpdate(
+					{ student, course: id, date },
+					{ status },
+					{ upsert: true }
+				)
+			)
+		);
 
 		sendResponse(res, 200, true, "Attendance saved successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const markHoliday: RequestHandler = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		const { date } = req.body;
+
+		if (!date || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+			sendResponse(res, 400, false, "date is required in YYYY-MM-DD format");
+			return;
+		}
+
+		const course = await CourseModel.findOne({ _id: id, teacher: req.user?.id });
+		if (!course) {
+			sendResponse(res, 404, false, "Course not found");
+			return;
+		}
+
+		await HolidayModel.findOneAndUpdate(
+			{ course: id, date },
+			{ markedBy: req.user?.id },
+			{ upsert: true, new: true }
+		);
+
+		sendResponse(res, 200, true, "Holiday marked successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const unmarkHoliday: RequestHandler = async (req, res, next) => {
+	try {
+		const { id, date } = req.params;
+
+		if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+			sendResponse(res, 400, false, "date param is required in YYYY-MM-DD format");
+			return;
+		}
+
+		const course = await CourseModel.findOne({ _id: id, teacher: req.user?.id });
+		if (!course) {
+			sendResponse(res, 404, false, "Course not found");
+			return;
+		}
+
+		await HolidayModel.deleteOne({ course: id, date });
+
+		sendResponse(res, 200, true, "Holiday removed successfully");
 	} catch (error) {
 		next(error);
 	}

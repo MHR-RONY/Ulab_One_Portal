@@ -11,6 +11,8 @@ import {
 	searchStudents,
 	getAttendanceForDate,
 	saveAttendance,
+	markHoliday,
+	unmarkHoliday,
 } from "../controllers/teacher.controller";
 import { protect, authorizeRole } from "../middleware/auth.middleware";
 
@@ -31,5 +33,7 @@ router.get("/students/search", searchStudents);
 
 router.get("/courses/:id/attendance", getAttendanceForDate);
 router.post("/courses/:id/attendance", saveAttendance);
+router.post("/courses/:id/holiday", markHoliday);
+router.delete("/courses/:id/holiday/:date", unmarkHoliday);
 
 export default router;
