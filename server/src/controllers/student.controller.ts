@@ -86,11 +86,11 @@ export const getStudentProfile: RequestHandler = async (req, res, next) => {
 
 export const updateStudentProfile: RequestHandler = async (req, res, next) => {
 	try {
-		const { name, department, semester, phone } = req.body;
+		const { name, phone } = req.body;
 
 		const student = await StudentModel.findByIdAndUpdate(
 			req.user?.id,
-			{ name, department, semester, phone },
+			{ name, phone },
 			{ new: true, runValidators: true }
 		).select("-password");
 

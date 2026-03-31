@@ -234,7 +234,8 @@ export const searchStudents: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
-		const regex = new RegExp(q, "i");
+		const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const regex = new RegExp(escaped, "i");
 		const students = await StudentModel.find({
 			$or: [{ name: regex }, { studentId: regex }, { email: regex }],
 		})
@@ -361,6 +362,14 @@ export const saveAttendance: RequestHandler = async (req, res, next) => {
 
 		if (records.length === 0) {
 			sendResponse(res, 200, true, "No records to save");
+			return;
+		}
+
+		// Validate all submitted students are enrolled in this course
+		const enrolledSet = new Set(course.enrolledStudents.map((s) => s.toString()));
+		const invalidStudents = records.filter(({ student }) => !enrolledSet.has(student));
+		if (invalidStudents.length > 0) {
+			sendResponse(res, 400, false, "One or more students are not enrolled in this course");
 			return;
 		}
 
