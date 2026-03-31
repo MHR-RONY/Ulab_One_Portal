@@ -1,15 +1,19 @@
-import { BookOpen, Calendar, FileText, MessageSquare, Users, ClipboardCheck, User, Settings, LogOut, GraduationCap } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import api from "@/lib/api";
+import { useState, useEffect, useCallback } from "react";
+import { BookOpen, Calendar, FileText, MessageSquare, ClipboardCheck, User, Settings, LogOut, GraduationCap, ChevronDown, Users } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import api, { setAccessToken } from "@/lib/api";
 
 const navItems = [
 	{ icon: BookOpen, label: "Dashboard", href: "/" },
 	{ icon: Calendar, label: "Schedule Builder", href: "/schedule" },
 	{ icon: FileText, label: "Notes Library", href: "/notes" },
-	{ icon: MessageSquare, label: "Messages", href: "/chat" },
-	{ icon: Users, label: "Group Chat", href: "/chat" },
 	{ icon: ClipboardCheck, label: "Attendance Tracker", href: "/attendance" },
+];
+
+const messageSubItems = [
+	{ icon: User, label: "Personal", href: "/chat?tab=personal" },
+	{ icon: Users, label: "Groups", href: "/chat?tab=groups" },
 ];
 
 const bottomItems = [
@@ -23,6 +27,41 @@ interface SidebarProps {
 
 const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
 	const navigate = useNavigate();
+	const location = useLocation();
+	const [messagesOpen, setMessagesOpen] = useState(
+		activePage === "Messages" || location.pathname === "/chat"
+	);
+	const [personalUnread, setPersonalUnread] = useState(0);
+	const [groupUnread, setGroupUnread] = useState(0);
+
+	const fetchUnreadCounts = useCallback(async () => {
+		try {
+			const [convRes, groupRes] = await Promise.all([
+				api.get("/chat/conversations"),
+				api.get("/chat/groups"),
+			]);
+			if (convRes.data.success) {
+				const total = (convRes.data.data as Array<{ unreadCount: number }>).reduce(
+					(sum, c) => sum + c.unreadCount, 0
+				);
+				setPersonalUnread(total);
+			}
+			if (groupRes.data.success) {
+				const total = (groupRes.data.data as Array<{ unreadCount: number }>).reduce(
+					(sum, g) => sum + g.unreadCount, 0
+				);
+				setGroupUnread(total);
+			}
+		} catch {
+			// Silently fail
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchUnreadCounts();
+		const interval = setInterval(fetchUnreadCounts, 30000);
+		return () => clearInterval(interval);
+	}, [fetchUnreadCounts]);
 
 	const handleLogout = async () => {
 		try {
@@ -30,7 +69,7 @@ const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
 		} catch {
 			// ignore errors — still clear local session
 		}
-		localStorage.removeItem("accessToken");
+		setAccessToken(null);
 		navigate("/login");
 	};
 
@@ -57,8 +96,8 @@ const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
 						<Link
 							to={item.href}
 							className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm ${activePage === item.label
-									? "bg-primary/10 text-primary font-semibold shadow-sm"
-									: "text-muted-foreground hover:bg-secondary hover:text-foreground hover:translate-x-0.5"
+								? "bg-primary/10 text-primary font-semibold shadow-sm"
+								: "text-muted-foreground hover:bg-secondary hover:text-foreground hover:translate-x-0.5"
 								}`}
 						>
 							<item.icon className="w-5 h-5" />
@@ -66,6 +105,78 @@ const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
 						</Link>
 					</motion.div>
 				))}
+
+				{/* Messages collapsible */}
+				<motion.div
+					initial={{ opacity: 0, x: -10 }}
+					animate={{ opacity: 1, x: 0 }}
+					transition={{ delay: navItems.length * 0.04, duration: 0.3 }}
+				>
+					<button
+						onClick={() => setMessagesOpen(!messagesOpen)}
+						className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm w-full ${activePage === "Messages"
+							? "bg-primary/10 text-primary font-semibold shadow-sm"
+							: "text-muted-foreground hover:bg-secondary hover:text-foreground hover:translate-x-0.5"
+							}`}
+					>
+						<MessageSquare className="w-5 h-5" />
+						<span>Messages</span>
+						<div className="ml-auto flex items-center gap-1.5">
+							{(personalUnread + groupUnread) > 0 && (
+								<span className="flex items-center justify-center min-w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold px-1.5">
+									{personalUnread + groupUnread}
+								</span>
+							)}
+							<motion.div
+								animate={{ rotate: messagesOpen ? 180 : 0 }}
+								transition={{ duration: 0.2 }}
+							>
+								<ChevronDown className="w-4 h-4" />
+							</motion.div>
+						</div>
+					</button>
+
+					<AnimatePresence>
+						{messagesOpen && (
+							<motion.div
+								initial={{ height: 0, opacity: 0 }}
+								animate={{ height: "auto", opacity: 1 }}
+								exit={{ height: 0, opacity: 0 }}
+								transition={{ duration: 0.2 }}
+								className="overflow-hidden"
+							>
+								<div className="ml-4 pl-3 border-l-2 border-primary/20 mt-1 space-y-0.5">
+									{messageSubItems.map((sub) => {
+										const isActive =
+											location.pathname === "/chat" &&
+											location.search.includes(`tab=${sub.label.toLowerCase()}`);
+										return (
+											<Link
+												key={sub.label}
+												to={sub.href}
+												className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${isActive
+													? "bg-primary/10 text-primary font-semibold"
+													: "text-muted-foreground hover:bg-secondary hover:text-foreground"
+													}`}
+											>
+												<sub.icon className="w-4 h-4" />
+												<span>{sub.label}</span>
+												{(() => {
+													const count = sub.label === "Personal" ? personalUnread : groupUnread;
+													return count > 0 ? (
+														<span className="ml-auto flex items-center justify-center min-w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">
+															{count}
+														</span>
+													) : null;
+												})()}
+											</Link>
+										);
+									})}
+								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
+				</motion.div>
 
 				<div className="pt-4 pb-2">
 					<div className="h-px bg-border mx-4" />
@@ -81,8 +192,8 @@ const Sidebar = ({ activePage = "Dashboard" }: SidebarProps) => {
 						<Link
 							to={item.href}
 							className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm ${activePage === item.label
-									? "bg-primary/10 text-primary font-semibold shadow-sm"
-									: "text-muted-foreground hover:bg-secondary hover:text-foreground hover:translate-x-0.5"
+								? "bg-primary/10 text-primary font-semibold shadow-sm"
+								: "text-muted-foreground hover:bg-secondary hover:text-foreground hover:translate-x-0.5"
 								}`}
 						>
 							<item.icon className="w-5 h-5" />

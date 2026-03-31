@@ -8,7 +8,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRole } from "@/contexts/RoleContext";
 import { useTeacherProfile } from "@/hooks/useTeacherProfile";
-import api from "@/lib/api";
+import api, { setAccessToken } from "@/lib/api";
 
 const getInitials = (name: string) => {
 	const parts = name.trim().split(" ");
@@ -155,8 +155,8 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
 								<Link
 									to={item.href}
 									className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm ${activePage === item.label
-											? "teacher-nav-active text-primary font-semibold"
-											: "text-muted-foreground hover:bg-secondary hover:text-foreground"
+										? "teacher-nav-active text-primary font-semibold"
+										: "text-muted-foreground hover:bg-secondary hover:text-foreground"
 										}`}
 								>
 									<motion.div
@@ -185,8 +185,8 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
 									<button
 										onClick={() => setMessagesOpen(!messagesOpen)}
 										className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm w-full ${activePage === "Messages"
-												? "teacher-nav-active text-primary font-semibold"
-												: "text-muted-foreground hover:bg-secondary hover:text-foreground"
+											? "teacher-nav-active text-primary font-semibold"
+											: "text-muted-foreground hover:bg-secondary hover:text-foreground"
 											}`}
 									>
 										<motion.div
@@ -229,8 +229,8 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
 																key={sub.label}
 																to={sub.href}
 																className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${isActive
-																		? "bg-primary/10 text-primary font-semibold"
-																		: "text-muted-foreground hover:bg-secondary hover:text-foreground"
+																	? "bg-primary/10 text-primary font-semibold"
+																	: "text-muted-foreground hover:bg-secondary hover:text-foreground"
 																	}`}
 															>
 																<sub.icon className="w-4 h-4" />
@@ -271,9 +271,9 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
 					</div>
 				</div>
 				<motion.button
-					onClick={() => {
-						localStorage.removeItem("accessToken");
-						localStorage.removeItem("ulab-role");
+					onClick={async () => {
+						try { await api.post("/auth/logout"); } catch { /* ignore */ }
+						setAccessToken(null);
 						navigate("/teacher/login");
 					}}
 					className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200 text-sm font-semibold"
