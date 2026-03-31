@@ -1,8 +1,10 @@
 import { RequestHandler } from "express";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { StudentModel } from "../models/Student.model";
 import { TeacherModel } from "../models/Teacher.model";
 import { AdminModel } from "../models/Admin.model";
+import { UserModel } from "../models/User.model";
 import { IJwtPayload } from "../types";
 import { generateAccessToken, generateRefreshToken } from "../utils/generateToken";
 import { sendResponse } from "../utils/apiResponse";
@@ -11,8 +13,12 @@ import {
 	storePendingRegistration,
 	getPendingRegistration,
 	deletePendingRegistration,
+	incrementOtpAttempts,
 } from "../utils/otp";
 import { sendOtpEmail } from "../utils/emailService";
+
+const hashToken = (token: string): string =>
+	crypto.createHash("sha256").update(token).digest("hex");
 
 // ─── Admin Setup ──────────────────────────────────────────────
 
@@ -62,9 +68,11 @@ export const setupAdmin: RequestHandler = async (req, res, next) => {
 		};
 
 		const accessToken = generateAccessToken(payload);
-		const refreshToken = generateRefreshToken(payload);
+		const newRefreshToken = generateRefreshToken(payload);
 
-		res.cookie("refreshToken", refreshToken, {
+		await UserModel.findByIdAndUpdate(admin._id, { refreshToken: hashToken(newRefreshToken) });
+
+		res.cookie("refreshToken", newRefreshToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "strict",
@@ -115,7 +123,7 @@ export const sendStudentOtp: RequestHandler = async (req, res, next) => {
 
 		const otp = generateOtp();
 
-		storePendingRegistration(email, {
+		await storePendingRegistration(email, {
 			type: "student",
 			name,
 			email,
@@ -154,7 +162,12 @@ export const verifyStudentOtp: RequestHandler = async (req, res, next) => {
 		}
 
 		if (pending.otp !== otp) {
-			sendResponse(res, 400, false, "Invalid OTP");
+			const stillValid = incrementOtpAttempts(email);
+			if (!stillValid) {
+				sendResponse(res, 429, false, "Too many failed attempts. Please request a new OTP.");
+			} else {
+				sendResponse(res, 400, false, "Invalid OTP");
+			}
 			return;
 		}
 
@@ -169,7 +182,7 @@ export const verifyStudentOtp: RequestHandler = async (req, res, next) => {
 		const student = await StudentModel.create({
 			name: pending.name,
 			email: pending.email,
-			password: pending.password,
+			password: pending.hashedPassword,
 			studentId: pending.studentId,
 			department: pending.department,
 			semester: pending.semester || 1,
@@ -184,9 +197,11 @@ export const verifyStudentOtp: RequestHandler = async (req, res, next) => {
 		};
 
 		const accessToken = generateAccessToken(payload);
-		const refreshToken = generateRefreshToken(payload);
+		const newRefreshToken = generateRefreshToken(payload);
 
-		res.cookie("refreshToken", refreshToken, {
+		await UserModel.findByIdAndUpdate(student._id, { refreshToken: hashToken(newRefreshToken) });
+
+		res.cookie("refreshToken", newRefreshToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "strict",
@@ -232,9 +247,11 @@ export const loginStudent: RequestHandler = async (req, res, next) => {
 		};
 
 		const accessToken = generateAccessToken(payload);
-		const refreshToken = generateRefreshToken(payload);
+		const newRefreshToken = generateRefreshToken(payload);
 
-		res.cookie("refreshToken", refreshToken, {
+		await UserModel.findByIdAndUpdate(student._id, { refreshToken: hashToken(newRefreshToken) });
+
+		res.cookie("refreshToken", newRefreshToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "strict",
@@ -278,9 +295,11 @@ export const loginTeacher: RequestHandler = async (req, res, next) => {
 		};
 
 		const accessToken = generateAccessToken(payload);
-		const refreshToken = generateRefreshToken(payload);
+		const newRefreshToken = generateRefreshToken(payload);
 
-		res.cookie("refreshToken", refreshToken, {
+		await UserModel.findByIdAndUpdate(teacher._id, { refreshToken: hashToken(newRefreshToken) });
+
+		res.cookie("refreshToken", newRefreshToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "strict",
@@ -324,9 +343,11 @@ export const loginAdmin: RequestHandler = async (req, res, next) => {
 		};
 
 		const accessToken = generateAccessToken(payload);
-		const refreshToken = generateRefreshToken(payload);
+		const newRefreshToken = generateRefreshToken(payload);
 
-		res.cookie("refreshToken", refreshToken, {
+		await UserModel.findByIdAndUpdate(admin._id, { refreshToken: hashToken(newRefreshToken) });
+
+		res.cookie("refreshToken", newRefreshToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "strict",
@@ -356,6 +377,13 @@ export const refreshToken: RequestHandler = async (req, res, next) => {
 			process.env.JWT_REFRESH_SECRET as string
 		) as IJwtPayload;
 
+		// Verify the token matches what is stored in the database
+		const user = await UserModel.findById(decoded.id).select("+refreshToken");
+		if (!user || user.refreshToken !== hashToken(token)) {
+			sendResponse(res, 401, false, "Invalid or expired refresh token");
+			return;
+		}
+
 		const payload: IJwtPayload = {
 			id: decoded.id,
 			role: decoded.role,
@@ -372,8 +400,10 @@ export const refreshToken: RequestHandler = async (req, res, next) => {
 	}
 };
 
-export const logout: RequestHandler = async (_req, res, next) => {
+export const logout: RequestHandler = async (req, res, next) => {
 	try {
+		await UserModel.findByIdAndUpdate(req.user?.id, { refreshToken: null });
+
 		res.clearCookie("refreshToken", {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
