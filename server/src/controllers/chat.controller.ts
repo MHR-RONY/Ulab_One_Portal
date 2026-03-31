@@ -376,9 +376,17 @@ export const searchContacts: RequestHandler = async (req, res, next) => {
 
 		const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 
+		// Find students whose studentId matches the query
+		const matchedStudents = await StudentModel.find({ studentId: regex }).select("_id").limit(20);
+		const matchedStudentIds = matchedStudents.map((s) => s._id);
+
 		const users = await UserModel.find({
 			_id: { $ne: req.user?.id },
-			$or: [{ name: regex }, { email: regex }],
+			$or: [
+				{ name: regex },
+				{ email: regex },
+				{ _id: { $in: matchedStudentIds } },
+			],
 		})
 			.select("name email role")
 			.limit(20);
@@ -464,6 +472,78 @@ export const syncCourseGroups: RequestHandler = async (_req, res, next) => {
 			membersAdded,
 			totalCourses: courses.length,
 		});
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ---- Block / Unblock ----
+
+export const blockUser: RequestHandler = async (req, res, next) => {
+	try {
+		const userId = req.user?.id;
+		const { targetId } = req.params;
+
+		if (!targetId || targetId === userId) {
+			sendResponse(res, 400, false, "Invalid target user");
+			return;
+		}
+
+		const targetExists = await UserModel.exists({ _id: targetId });
+		if (!targetExists) {
+			sendResponse(res, 404, false, "User not found");
+			return;
+		}
+
+		await UserModel.findByIdAndUpdate(userId, {
+			$addToSet: { blockedUsers: targetId },
+		});
+
+		sendResponse(res, 200, true, "User blocked successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const unblockUser: RequestHandler = async (req, res, next) => {
+	try {
+		const userId = req.user?.id;
+		const { targetId } = req.params;
+
+		if (!targetId) {
+			sendResponse(res, 400, false, "Invalid target user");
+			return;
+		}
+
+		await UserModel.findByIdAndUpdate(userId, {
+			$pull: { blockedUsers: targetId },
+		});
+
+		sendResponse(res, 200, true, "User unblocked successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getBlockStatus: RequestHandler = async (req, res, next) => {
+	try {
+		const userId = req.user?.id;
+		const { targetId } = req.params;
+
+		if (!targetId) {
+			sendResponse(res, 400, false, "Invalid target user");
+			return;
+		}
+
+		const [me, them] = await Promise.all([
+			UserModel.findById(userId).select("blockedUsers"),
+			UserModel.findById(targetId).select("blockedUsers"),
+		]);
+
+		const iBlockedThem = me?.blockedUsers?.some((id) => id.toString() === targetId) ?? false;
+		const theyBlockedMe = them?.blockedUsers?.some((id) => id.toString() === userId) ?? false;
+
+		sendResponse(res, 200, true, "Block status fetched", { iBlockedThem, theyBlockedMe });
 	} catch (error) {
 		next(error);
 	}

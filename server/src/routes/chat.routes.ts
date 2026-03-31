@@ -10,6 +10,9 @@ import {
 	getDirectMessages,
 	searchContacts,
 	syncCourseGroups,
+	blockUser,
+	unblockUser,
+	getBlockStatus,
 } from "../controllers/chat.controller";
 import { protect, authorizeRole } from "../middleware/auth.middleware";
 
@@ -21,6 +24,11 @@ router.use(protect);
 router.get("/conversations", getConversations);
 router.get("/conversations/:contactId/messages", getDirectMessages);
 router.get("/contacts/search", searchContacts);
+
+// Block / Unblock
+router.get("/contacts/:targetId/block", getBlockStatus);
+router.post("/contacts/:targetId/block", blockUser);
+router.delete("/contacts/:targetId/block", unblockUser);
 
 // Group chat
 router.get("/groups", getMyGroups);
