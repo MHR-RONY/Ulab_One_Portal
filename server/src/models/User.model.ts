@@ -24,11 +24,22 @@ const userSchema = new Schema<IUserDocument>(
 			type: String,
 			required: [true, "Password is required"],
 			minlength: [6, "Password must be at least 6 characters"],
+			select: false,
+		},
+		refreshToken: {
+			type: String,
+			default: null,
+			select: false,
 		},
 		role: {
 			type: String,
 			enum: ["student", "teacher", "admin"] as TRole[],
 			required: [true, "Role is required"],
+		},
+		blockedUsers: {
+			type: [Schema.Types.ObjectId],
+			ref: "User",
+			default: [],
 		},
 	},
 	{
@@ -45,6 +56,8 @@ const userSchema = new Schema<IUserDocument>(
 
 userSchema.pre("save", async function (next) {
 	if (!this.isModified("password")) return next();
+	// Skip rehashing if password is already a bcrypt hash (pre-hashed in OTP flow)
+	if (this.password.startsWith("$2b$") || this.password.startsWith("$2a$")) return next();
 	const salt = await bcrypt.genSalt(12);
 	this.password = await bcrypt.hash(this.password, salt);
 	next();

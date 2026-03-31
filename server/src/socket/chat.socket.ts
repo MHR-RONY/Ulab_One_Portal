@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { IJwtPayload } from "../types";
 import { MessageModel } from "../models/Message.model";
 import { ChatGroupModel } from "../models/ChatGroup.model";
+import { UserModel } from "../models/User.model";
 
 interface AuthSocket extends Socket {
 	user: IJwtPayload;
@@ -107,6 +108,24 @@ export const initSocketServer = (httpServer: HttpServer): Server => {
 
 				if (!data.receiverId || data.receiverId === userId) {
 					callback?.({ success: false, error: "Invalid receiver" });
+					return;
+				}
+
+				// Check block status in both directions
+				const [sender, receiver] = await Promise.all([
+					UserModel.findById(userId).select("blockedUsers"),
+					UserModel.findById(data.receiverId).select("blockedUsers"),
+				]);
+
+				const senderBlockedReceiver = sender?.blockedUsers?.some(
+					(id) => id.toString() === data.receiverId
+				) ?? false;
+				const receiverBlockedSender = receiver?.blockedUsers?.some(
+					(id) => id.toString() === userId
+				) ?? false;
+
+				if (senderBlockedReceiver || receiverBlockedSender) {
+					callback?.({ success: false, error: "Message blocked" });
 					return;
 				}
 

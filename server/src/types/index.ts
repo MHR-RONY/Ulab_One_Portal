@@ -13,6 +13,8 @@ export interface IUser {
 	email: string;
 	password: string;
 	role: TRole;
+	refreshToken?: string | null;
+	blockedUsers?: string[];
 	comparePassword(candidatePassword: string): Promise<boolean>;
 	createdAt: Date;
 	updatedAt: Date;
