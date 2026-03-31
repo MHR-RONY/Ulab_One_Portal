@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import axios from "axios";
+import { setAccessToken, getAccessToken } from "@/lib/api";
 
 type UserRole = "student" | "teacher" | "admin";
 
@@ -8,12 +10,15 @@ interface RoleContextType {
 	isStudent: boolean;
 	isTeacher: boolean;
 	isAdmin: boolean;
+	isLoading: boolean;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5003/api";
+
 function getRoleFromToken(): UserRole {
-	const token = localStorage.getItem("accessToken");
+	const token = getAccessToken();
 	if (!token) return "student";
 	try {
 		const payload = JSON.parse(atob(token.split(".")[1]));
@@ -25,18 +30,36 @@ function getRoleFromToken(): UserRole {
 }
 
 export const RoleProvider = ({ children }: { children: ReactNode }) => {
-	// Force re-render counter — incremented by switchRole after login sets the token
 	const [tick, setTick] = useState(0);
-	// Derive role from the JWT token, not from a user-controllable localStorage key
+	const [isLoading, setIsLoading] = useState(true);
+
+	// On mount, silently attempt to restore the session via the httpOnly refresh token cookie.
+	// This replaces the old localStorage read and runs once per page load.
+	useEffect(() => {
+		const restoreSession = async () => {
+			try {
+				const { data } = await axios.post(
+					`${BASE_URL}/auth/refresh-token`,
+					{},
+					{ withCredentials: true }
+				);
+				setAccessToken(data.data.accessToken);
+				setTick((n) => n + 1);
+			} catch {
+				setAccessToken(null);
+			} finally {
+				setIsLoading(false);
+			}
+		};
+		restoreSession();
+	}, []);
+
 	const role: UserRole = getRoleFromToken();
 
-	// switchRole is called by login pages after they store the accessToken.
-	// Its only job is to trigger a re-render so the role is re-derived from the new token.
 	const switchRole = useCallback((_newRole: UserRole) => {
 		setTick((n) => n + 1);
 	}, []);
 
-	// tick is consumed to satisfy the linter — the value itself drives re-renders
 	void tick;
 
 	return (
@@ -47,6 +70,7 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
 				isStudent: role === "student",
 				isTeacher: role === "teacher",
 				isAdmin: role === "admin",
+				isLoading,
 			}}
 		>
 			{children}
