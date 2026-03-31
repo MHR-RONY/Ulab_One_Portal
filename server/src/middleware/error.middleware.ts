@@ -34,8 +34,7 @@ export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) => {
 	// MongoDB duplicate key (code 11000)
 	if (err.code === 11000) {
 		statusCode = 409;
-		const field = Object.keys(err.keyValue || {})[0];
-		message = field ? `${field} already exists` : "Already exists";
+		message = "A record with the provided details already exists";
 	}
 
 	sendResponse(res, statusCode, false, message);

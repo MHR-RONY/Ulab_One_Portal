@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useRole } from "@/contexts/RoleContext";
-import api from "@/lib/api";
+import api, { setAccessToken } from "@/lib/api";
 
 const AdminLogin = () => {
 	const [showPassword, setShowPassword] = useState(false);
@@ -96,7 +96,7 @@ const AdminLogin = () => {
 		setLoading(true);
 		try {
 			const { data } = await api.post("/auth/login/admin", { email, password });
-			localStorage.setItem("accessToken", data.data.accessToken);
+			setAccessToken(data.data.accessToken);
 			switchRole("admin");
 			navigate("/admin");
 		} catch (error: unknown) {

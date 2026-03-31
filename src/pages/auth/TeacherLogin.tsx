@@ -8,7 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRole } from "@/contexts/RoleContext";
-import api from "@/lib/api";
+import api, { setAccessToken } from "@/lib/api";
 
 const TeacherLogin = () => {
 	const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +36,7 @@ const TeacherLogin = () => {
 		setLoading(true);
 		try {
 			const { data } = await api.post("/auth/login/teacher", { email, password });
-			localStorage.setItem("accessToken", data.data.accessToken);
+			setAccessToken(data.data.accessToken);
 			switchRole("teacher");
 			navigate("/teacher");
 		} catch (error: unknown) {

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/input-otp";
 import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/hooks/use-toast";
-import api from "@/lib/api";
+import api, { setAccessToken } from "@/lib/api";
 
 const departments = [
 	"Computer Science & Engineering",
@@ -128,7 +128,7 @@ const StudentSignup = () => {
 				email: formData.email,
 				otp,
 			});
-			localStorage.setItem("accessToken", data.data.accessToken);
+			setAccessToken(data.data.accessToken);
 			switchRole("student");
 			toast({ title: "Account created successfully!", description: "Welcome to ULAB One Portal." });
 			navigate("/");
