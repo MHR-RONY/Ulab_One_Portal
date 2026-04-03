@@ -25,6 +25,10 @@ const attendanceSchema = new Schema<IAttendanceDocument>(
 			enum: ["present", "absent"],
 			required: true,
 		},
+		time: {
+			type: String,
+			default: null,
+		},
 	},
 	{ timestamps: true }
 );

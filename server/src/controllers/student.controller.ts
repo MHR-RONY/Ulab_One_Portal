@@ -11,6 +11,11 @@ import {
 	IProfileData,
 	IProfileCourse,
 	IStudentSettings,
+	IStudentAttendanceData,
+	IAttendanceSubjectProgress,
+	IAttendanceActivity,
+	IAttendanceDayRecord,
+	IStudentAttendanceDayData,
 } from "../types";
 
 export const getStudentProfile: RequestHandler = async (req, res, next) => {
@@ -312,6 +317,189 @@ export const changePassword: RequestHandler = async (req, res, next) => {
 		await student.save();
 
 		sendResponse(res, 200, true, "Password changed successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+const JS_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export const getStudentAttendance: RequestHandler = async (req, res, next) => {
+	try {
+		const rawMonth = parseInt(req.query.month as string, 10);
+		const rawYear = parseInt(req.query.year as string, 10);
+		const now = new Date();
+		const month = Number.isNaN(rawMonth) ? now.getMonth() + 1 : rawMonth;
+		const year = Number.isNaN(rawYear) ? now.getFullYear() : rawYear;
+
+		const student = await StudentModel.findById(req.user?.id)
+			.select("-password")
+			.populate<{ enrolledCourses: ICourseDocument[] }>("enrolledCourses");
+
+		if (!student) {
+			sendResponse(res, 404, false, "Student not found");
+			return;
+		}
+
+		const enrolledIds = student.enrolledCourses.map((c) => c._id);
+
+		const allRecords = await AttendanceModel.find({
+			student: req.user?.id,
+			course: { $in: enrolledIds },
+		}).sort({ date: -1 });
+
+		// Build a fast lookup from courseId -> course doc
+		const courseMap = new Map<string, ICourseDocument>();
+		for (const course of student.enrolledCourses) {
+			courseMap.set(String(course._id), course);
+		}
+
+		// Per-course stats
+		const statsMap = new Map<string, { attended: number; total: number }>();
+		for (const record of allRecords) {
+			const cid = String(record.course);
+			const prev = statsMap.get(cid) ?? { attended: 0, total: 0 };
+			prev.total++;
+			if (record.status === "present") prev.attended++;
+			statsMap.set(cid, prev);
+		}
+
+		const subjectProgress: IAttendanceSubjectProgress[] = student.enrolledCourses.map((course) => {
+			const cid = String(course._id);
+			const stats = statsMap.get(cid) ?? { attended: 0, total: 0 };
+			const percentage = stats.total > 0 ? Math.round((stats.attended / stats.total) * 100) : 0;
+			return {
+				courseCode: course.courseCode,
+				courseName: course.name,
+				section: course.section,
+				attended: stats.attended,
+				total: stats.total,
+				percentage,
+			};
+		});
+
+		// Overall stats
+		const totalAttended = subjectProgress.reduce((sum, s) => sum + s.attended, 0);
+		const totalClasses = subjectProgress.reduce((sum, s) => sum + s.total, 0);
+		const overallPercentage = totalClasses > 0 ? Math.round((totalAttended / totalClasses) * 100) : 0;
+		const coursesAtRisk = subjectProgress.filter((s) => s.total > 0 && s.percentage < 75).length;
+
+		// Recent activity (last 20 records)
+		const recentRecords = allRecords.slice(0, 20);
+		const recentActivity: IAttendanceActivity[] = recentRecords.map((record) => {
+			const course = courseMap.get(String(record.course));
+			return {
+				date: record.date,
+				courseCode: course?.courseCode ?? "",
+				section: course?.section ?? "",
+				status: record.status as "present" | "absent",
+				time: record.time ?? null,
+			};
+		});
+
+		// Calendar data for the requested month/year
+		const monthStr = String(month).padStart(2, "0");
+		const monthPrefix = `${year}-${monthStr}`;
+		const presentDates: string[] = [];
+		const absentDates: string[] = [];
+
+		for (const record of allRecords) {
+			if (record.date.startsWith(monthPrefix)) {
+				if (record.status === "present") {
+					if (!presentDates.includes(record.date)) presentDates.push(record.date);
+				} else {
+					if (!absentDates.includes(record.date)) absentDates.push(record.date);
+				}
+			}
+		}
+
+		const result: IStudentAttendanceData = {
+			overallStats: {
+				percentage: overallPercentage,
+				attended: totalAttended,
+				total: totalClasses,
+				coursesAtRisk,
+			},
+			subjectProgress,
+			recentActivity,
+			calendarData: { month, year, presentDates, absentDates },
+		};
+
+		sendResponse(res, 200, true, "Attendance data fetched successfully", result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getStudentAttendanceByDate: RequestHandler = async (req, res, next) => {
+	try {
+		const { date } = req.query;
+
+		if (!date || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+			sendResponse(res, 400, false, "date query param is required in YYYY-MM-DD format");
+			return;
+		}
+
+		const student = await StudentModel.findById(req.user?.id)
+			.select("-password")
+			.populate<{ enrolledCourses: ICourseDocument[] }>("enrolledCourses");
+
+		if (!student) {
+			sendResponse(res, 404, false, "Student not found");
+			return;
+		}
+
+		const dateObj = new Date(date + "T00:00:00");
+		const dayName = JS_DAY_NAMES[dateObj.getDay()];
+
+		const enrolledIds = student.enrolledCourses.map((c) => c._id);
+
+		const attendanceRecords = await AttendanceModel.find({
+			student: req.user?.id,
+			course: { $in: enrolledIds },
+			date,
+		});
+
+		const recordMap = new Map<string, { status: "present" | "absent"; time: string | null }>();
+		for (const record of attendanceRecords) {
+			recordMap.set(String(record.course), {
+				status: record.status as "present" | "absent",
+				time: record.time ?? null,
+			});
+		}
+
+		// Only include courses that either have a class on this day OR have an attendance record
+		const records: IAttendanceDayRecord[] = [];
+		for (const course of student.enrolledCourses) {
+			const cid = String(course._id);
+			const slot = course.scheduleSlots?.find((s) => s.day === dayName) ?? null;
+			const rec = recordMap.get(cid);
+			const hasRecord = !!rec;
+
+			if (!slot && !hasRecord) continue;
+
+			records.push({
+				courseCode: course.courseCode,
+				courseName: course.name,
+				section: course.section,
+				status: rec?.status ?? "not-marked",
+				time: rec?.time ?? (slot ? slot.startTime : null),
+			});
+		}
+
+		const presentCount = records.filter((r) => r.status === "present").length;
+		const absentCount = records.filter((r) => r.status === "absent").length;
+		const notMarkedCount = records.filter((r) => r.status === "not-marked").length;
+
+		const result: IStudentAttendanceDayData = {
+			date,
+			records,
+			presentCount,
+			absentCount,
+			notMarkedCount,
+		};
+
+		sendResponse(res, 200, true, "Day attendance fetched successfully", result);
 	} catch (error) {
 		next(error);
 	}
