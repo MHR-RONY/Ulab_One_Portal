@@ -109,6 +109,7 @@ export interface IAttendanceRecord {
 	course: string;
 	date: string;
 	status: TAttendanceStatus;
+	time?: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -197,6 +198,60 @@ export interface IMessage {
 	readBy: string[];
 	createdAt: Date;
 	updatedAt: Date;
+}
+
+export interface IAttendanceSubjectProgress {
+	courseCode: string;
+	courseName: string;
+	section: string;
+	attended: number;
+	total: number;
+	percentage: number;
+}
+
+export interface IAttendanceActivity {
+	date: string;
+	courseCode: string;
+	section: string;
+	status: TAttendanceStatus;
+	time: string | null;
+}
+
+export interface IAttendanceOverallStats {
+	percentage: number;
+	attended: number;
+	total: number;
+	coursesAtRisk: number;
+}
+
+export interface IAttendanceCalendarData {
+	month: number;
+	year: number;
+	presentDates: string[];
+	absentDates: string[];
+}
+
+export interface IStudentAttendanceData {
+	overallStats: IAttendanceOverallStats;
+	subjectProgress: IAttendanceSubjectProgress[];
+	recentActivity: IAttendanceActivity[];
+	calendarData: IAttendanceCalendarData;
+}
+
+export interface IAttendanceDayRecord {
+	courseCode: string;
+	courseName: string;
+	section: string;
+	status: TAttendanceStatus | "not-marked";
+	time: string | null;
+}
+
+export interface IStudentAttendanceDayData {
+	date: string;
+	records: IAttendanceDayRecord[];
+	presentCount: number;
+	absentCount: number;
+	notMarkedCount: number;
 }
 
 export interface IApiResponse<T = unknown> {
