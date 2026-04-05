@@ -4,10 +4,19 @@ import jwt from "jsonwebtoken";
 import { IJwtPayload } from "../types";
 import { MessageModel } from "../models/Message.model";
 import { ChatGroupModel } from "../models/ChatGroup.model";
+import { UserModel } from "../models/User.model";
 
 interface AuthSocket extends Socket {
 	user: IJwtPayload;
 }
+
+// Singleton io instance accessible by controllers
+let ioInstance: Server | null = null;
+
+export const getIO = (): Server => {
+	if (!ioInstance) throw new Error("Socket.io not initialized");
+	return ioInstance;
+};
 
 // Track online users: userId -> Set<socketId>
 const onlineUsers = new Map<string, Set<string>>();
@@ -37,6 +46,8 @@ export const initSocketServer = (httpServer: HttpServer): Server => {
 		pingTimeout: 60000,
 		pingInterval: 25000,
 	});
+
+	ioInstance = io;
 
 	// JWT authentication middleware
 	io.use((socket, next) => {
@@ -76,6 +87,16 @@ export const initSocketServer = (httpServer: HttpServer): Server => {
 		// Broadcast online status
 		io.emit("user:online", { userId });
 
+		// ---- Join a group room (called after group:joined event) ----
+		socket.on("group:join-room", (data: { groupId: string }) => {
+			socket.join(`group:${data.groupId}`);
+		});
+
+		// ---- Leave a group room (called after group:removed event) ----
+		socket.on("group:leave-room", (data: { groupId: string }) => {
+			socket.leave(`group:${data.groupId}`);
+		});
+
 		// ---- Direct Message ----
 		socket.on("dm:send", async (data: { receiverId: string; content: string }, callback?: (res: { success: boolean; message?: unknown; error?: string }) => void) => {
 			try {
@@ -87,6 +108,24 @@ export const initSocketServer = (httpServer: HttpServer): Server => {
 
 				if (!data.receiverId || data.receiverId === userId) {
 					callback?.({ success: false, error: "Invalid receiver" });
+					return;
+				}
+
+				// Check block status in both directions
+				const [sender, receiver] = await Promise.all([
+					UserModel.findById(userId).select("blockedUsers"),
+					UserModel.findById(data.receiverId).select("blockedUsers"),
+				]);
+
+				const senderBlockedReceiver = sender?.blockedUsers?.some(
+					(id) => id.toString() === data.receiverId
+				) ?? false;
+				const receiverBlockedSender = receiver?.blockedUsers?.some(
+					(id) => id.toString() === userId
+				) ?? false;
+
+				if (senderBlockedReceiver || receiverBlockedSender) {
+					callback?.({ success: false, error: "Message blocked" });
 					return;
 				}
 

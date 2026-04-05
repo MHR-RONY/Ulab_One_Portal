@@ -1,7 +1,18 @@
 import axios from "axios";
 
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5003/api";
+
+// In-memory token store — never persisted to localStorage (prevents XSS token theft)
+let accessToken: string | null = null;
+
+export const setAccessToken = (token: string | null): void => {
+	accessToken = token;
+};
+
+export const getAccessToken = (): string | null => accessToken;
+
 const api = axios.create({
-	baseURL: "http://localhost:5003/api",
+	baseURL: BASE_URL,
 	withCredentials: true,
 	headers: {
 		"Content-Type": "application/json",
@@ -9,9 +20,8 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-	const token = localStorage.getItem("accessToken");
-	if (token) {
-		config.headers.Authorization = `Bearer ${token}`;
+	if (accessToken) {
+		config.headers.Authorization = `Bearer ${accessToken}`;
 	}
 	return config;
 });
@@ -26,16 +36,15 @@ api.interceptors.response.use(
 			originalRequest._retry = true;
 			try {
 				const { data } = await axios.post(
-					"http://localhost:5003/api/auth/refresh-token",
+					`${BASE_URL}/auth/refresh-token`,
 					{},
 					{ withCredentials: true }
 				);
-				localStorage.setItem("accessToken", data.data.accessToken);
+				setAccessToken(data.data.accessToken);
 				originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
 				return api(originalRequest);
 			} catch {
-				localStorage.removeItem("accessToken");
-				// Redirect to the correct login portal based on the current path
+				setAccessToken(null);
 				const path = window.location.pathname;
 				if (path.startsWith("/admin")) {
 					window.location.href = "/admin/login";

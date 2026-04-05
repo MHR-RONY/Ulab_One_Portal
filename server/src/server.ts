@@ -1,9 +1,19 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+// Validate required environment variables before anything else
+const requiredEnvVars = ["JWT_SECRET", "JWT_REFRESH_SECRET", "MONGO_URI", "CLIENT_URL"];
+for (const key of requiredEnvVars) {
+	if (!process.env[key]) {
+		console.error(`Missing required environment variable: ${key}`);
+		process.exit(1);
+	}
+}
+
 import express from "express";
 import { createServer } from "http";
 import cors from "cors";
+import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { connectDB } from "./config/db";
 import authRoutes from "./routes/auth.routes";
@@ -19,8 +29,9 @@ const app = express();
 const httpServer = createServer(app);
 
 // Middleware
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
-app.use(express.json());
+app.use(helmet());
+app.use(cors({ origin: process.env.CLIENT_URL as string, credentials: true }));
+app.use(express.json({ limit: "20kb" }));
 app.use(cookieParser());
 
 // Connect to database

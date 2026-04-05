@@ -2,12 +2,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
 	Search, PenSquare, Users, User, Send, ArrowLeft,
-	CheckCheck, Phone, Video, Info, Smile, PlusCircle,
+	CheckCheck, Info, Smile, PlusCircle,
 	UserPlus, UserMinus, GraduationCap, MessageSquare, Loader2, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import TeacherSidebar from "@/components/teacher/TeacherSidebar";
 import TeacherBottomNav from "@/components/teacher/TeacherBottomNav";
+import { getAccessToken } from "@/lib/api";
 import {
 	useTeacherChat,
 	type ChatConversation,
@@ -38,7 +39,7 @@ const formatTime = (dateStr: string): string => {
 
 const getCurrentUserId = (): string => {
 	try {
-		const token = localStorage.getItem("accessToken");
+		const token = getAccessToken();
 		if (!token) return "";
 		const payload = JSON.parse(atob(token.split(".")[1]));
 		return payload.id ?? "";
@@ -53,16 +54,22 @@ const PersonalChatList = ({
 	conversations,
 	activeId,
 	onSelect,
+	onStartNew,
 	searchQuery,
 	onSearchChange,
 	onlineUsers,
+	contactResults,
+	contactSearching,
 }: {
 	conversations: ChatConversation[];
 	activeId: string;
 	onSelect: (id: string) => void;
+	onStartNew: (contact: ChatContact) => void;
 	searchQuery: string;
 	onSearchChange: (q: string) => void;
 	onlineUsers: Record<string, boolean>;
+	contactResults: ChatContact[];
+	contactSearching: boolean;
 }) => {
 	const filtered = conversations.filter(
 		(c) =>
@@ -70,6 +77,11 @@ const PersonalChatList = ({
 			c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			(c.studentId && c.studentId.includes(searchQuery))
 	);
+
+	const existingIds = new Set(conversations.map((c) => c.contactId));
+	const newContacts = contactResults.filter((r) => !existingIds.has(String(r._id)));
+	const isSearching = searchQuery.trim().length >= 2;
+	const hasNoResults = filtered.length === 0 && newContacts.length === 0 && !contactSearching;
 
 	return (
 		<div className="flex flex-col h-full">
@@ -85,9 +97,17 @@ const PersonalChatList = ({
 				</div>
 			</div>
 			<div className="flex-1 overflow-y-auto px-2 space-y-0.5">
-				{filtered.length === 0 && (
+				{contactSearching && (
+					<div className="flex justify-center py-4">
+						<Loader2 className="w-4 h-4 animate-spin text-primary" />
+					</div>
+				)}
+				{!contactSearching && isSearching && hasNoResults && (
+					<div className="text-center py-8 text-muted-foreground text-sm">No results found</div>
+				)}
+				{!isSearching && filtered.length === 0 && (
 					<div className="text-center py-8 text-muted-foreground text-sm">
-						{searchQuery ? "No results found" : "No conversations yet"}
+						No conversations yet
 					</div>
 				)}
 				{filtered.map((c) => (
@@ -95,8 +115,8 @@ const PersonalChatList = ({
 						key={c.contactId}
 						onClick={() => onSelect(c.contactId)}
 						className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${activeId === c.contactId
-								? "bg-primary/8 border-l-3 border-primary"
-								: "hover:bg-primary/5 border-l-3 border-transparent"
+							? "bg-primary/8 border-l-3 border-primary"
+							: "hover:bg-primary/5 border-l-3 border-transparent"
 							}`}
 					>
 						<div className="relative">
@@ -130,6 +150,35 @@ const PersonalChatList = ({
 						)}
 					</div>
 				))}
+				{!contactSearching && newContacts.length > 0 && (
+					<>
+						<p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 pt-3 pb-1">
+							People
+						</p>
+						{newContacts.map((r) => (
+							<div
+								key={r._id}
+								onClick={() => onStartNew(r)}
+								className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors"
+							>
+								<div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs shrink-0 ${r.role === "teacher" ? "bg-stat-blue/20 text-stat-blue" : "bg-primary/15 text-primary"}`}>
+									{getInitials(r.name)}
+								</div>
+								<div className="flex-1 min-w-0">
+									<div className="flex items-center gap-2">
+										<h3 className="text-sm font-semibold truncate">{r.name}</h3>
+										<span className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium shrink-0 ${r.role === "teacher" ? "bg-stat-blue/10 text-stat-blue" : "bg-primary/10 text-primary"}`}>
+											{r.role === "teacher" ? "Faculty" : "Student"}
+										</span>
+									</div>
+									<p className="text-[11px] text-muted-foreground truncate">
+										{r.studentId ? `${r.studentId} — ` : ""}{r.email}
+									</p>
+								</div>
+							</div>
+						))}
+					</>
+				)}
 			</div>
 		</div>
 	);
@@ -153,8 +202,8 @@ const GroupChatList = ({
 				key={g._id}
 				onClick={() => onSelect(g._id)}
 				className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${activeId === g._id
-						? "bg-primary/8 border-l-3 border-primary"
-						: "hover:bg-primary/5 border-l-3 border-transparent"
+					? "bg-primary/8 border-l-3 border-primary"
+					: "hover:bg-primary/5 border-l-3 border-transparent"
 					}`}
 			>
 				<div className="w-10 h-10 rounded-full bg-stat-purple/20 text-stat-purple flex items-center justify-center shrink-0">
@@ -267,8 +316,7 @@ const ChatThreadView = ({
 							<Users className="w-5 h-5" />
 						</button>
 					)}
-					<button className="text-muted-foreground hover:text-primary transition-colors"><Phone className="w-4 h-4" /></button>
-					<button className="text-muted-foreground hover:text-primary transition-colors"><Video className="w-4 h-4" /></button>
+
 					<button className="text-muted-foreground hover:text-primary transition-colors"><Info className="w-4 h-4" /></button>
 				</div>
 			</header>
@@ -503,8 +551,8 @@ const ManageMembersPanel = ({
 							<div className="flex items-center gap-2">
 								<h4 className="text-sm font-semibold truncate">{m.name}</h4>
 								<span className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium ${m.role === "teacher"
-										? "bg-stat-blue/10 text-stat-blue"
-										: "bg-stat-emerald/10 text-stat-emerald"
+									? "bg-stat-blue/10 text-stat-blue"
+									: "bg-stat-emerald/10 text-stat-emerald"
 									}`}>
 									{m.role === "teacher" ? "Teacher" : "Student"}
 								</span>
@@ -539,6 +587,10 @@ const TeacherChat = () => {
 	const [showThread, setShowThread] = useState(false);
 	const [showMembers, setShowMembers] = useState(false);
 	const [personalSearch, setPersonalSearch] = useState("");
+	const [contactResults, setContactResults] = useState<ChatContact[]>([]);
+	const [contactSearching, setContactSearching] = useState(false);
+	const contactSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [pendingContact, setPendingContact] = useState<ChatContact | null>(null);
 
 	const {
 		conversations,
@@ -584,8 +636,25 @@ const TeacherChat = () => {
 		}
 	}, [activeConversation, activeTab, fetchMessages, fetchGroupMembers]);
 
+	useEffect(() => {
+		if (contactSearchTimeoutRef.current) clearTimeout(contactSearchTimeoutRef.current);
+		if (personalSearch.trim().length < 2) {
+			setContactResults([]);
+			setContactSearching(false);
+			return;
+		}
+		setContactSearching(true);
+		contactSearchTimeoutRef.current = setTimeout(async () => {
+			const results = await searchContacts(personalSearch.trim());
+			setContactResults(results);
+			setContactSearching(false);
+		}, 300);
+	}, [personalSearch, searchContacts]);
+
 	const activeGroup = groups.find((g) => g._id === activeConversation);
 	const activeContact = conversations.find((c) => c.contactId === activeConversation);
+	const resolvedContactName = activeContact?.name ?? pendingContact?.name ?? "";
+	const resolvedIsOnline = activeContact ? onlineUsers[activeContact.contactId] : undefined;
 
 	const handleSend = async (content: string) => {
 		if (activeTab === "personal") {
@@ -597,6 +666,16 @@ const TeacherChat = () => {
 
 	const handleTyping = () => {
 		emitTyping(activeConversation, activeTab === "groups");
+	};
+
+	const handleNewContact = (contact: ChatContact) => {
+		setActiveTab("personal");
+		setActiveConversation(contact._id);
+		setPendingContact(contact);
+		setPersonalSearch("");
+		setShowThread(true);
+		fetchMessages("dm", contact._id);
+		fetchConversations();
 	};
 
 	const totalPersonalUnread = conversations.reduce((a, c) => a + c.unreadCount, 0);
@@ -624,8 +703,8 @@ const TeacherChat = () => {
 									key={tab}
 									onClick={() => { setActiveTab(tab); setActiveConversation(""); setShowThread(false); }}
 									className={`flex h-full flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-semibold transition-all ${activeTab === tab
-											? "bg-card text-primary shadow-sm"
-											: "text-muted-foreground"
+										? "bg-card text-primary shadow-sm"
+										: "text-muted-foreground"
 										}`}
 								>
 									{tab === "personal" ? <User className="w-4 h-4" /> : <Users className="w-4 h-4" />}
@@ -654,9 +733,12 @@ const TeacherChat = () => {
 										conversations={conversations}
 										activeId={activeConversation}
 										onSelect={(id) => { setActiveConversation(id); setShowThread(true); }}
+										onStartNew={handleNewContact}
 										searchQuery={personalSearch}
 										onSearchChange={setPersonalSearch}
 										onlineUsers={onlineUsers}
+										contactResults={contactResults}
+										contactSearching={contactSearching}
 									/>
 								) : (
 									<GroupChatList
@@ -672,11 +754,11 @@ const TeacherChat = () => {
 
 				{/* Right Panel */}
 				<div className={`${showThread ? "flex" : "hidden md:flex"} flex-1 flex-col bg-background relative`}>
-					{activeConversation && (activeContact || activeGroup) ? (
+					{activeConversation && (activeContact || activeGroup || pendingContact) ? (
 						<>
 							<ChatThreadView
-								name={activeContact?.name ?? activeGroup?.name ?? ""}
-								isOnline={activeContact ? onlineUsers[activeContact.contactId] : undefined}
+								name={activeGroup?.name ?? resolvedContactName}
+								isOnline={resolvedIsOnline}
 								isGroup={!!activeGroup}
 								memberCount={activeGroup?.members.length}
 								messages={messages}

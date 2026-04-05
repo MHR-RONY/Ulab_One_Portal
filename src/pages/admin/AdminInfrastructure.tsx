@@ -63,7 +63,7 @@ const integrations = [
 
 const AdminInfrastructure = () => {
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-background admin-theme">
       <div className="hidden md:block">
         <AdminSidebar activePage="Maintenance" />
       </div>

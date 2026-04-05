@@ -1,12 +1,14 @@
 import { io, Socket } from "socket.io-client";
+import { getAccessToken } from "./api";
+
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:5003";
 
 let socket: Socket | null = null;
 
 export const getSocket = (): Socket => {
 	if (!socket) {
-		const token = localStorage.getItem("accessToken");
-		socket = io("http://localhost:5003", {
-			auth: { token },
+		socket = io(SOCKET_URL, {
+			auth: { token: getAccessToken() },
 			withCredentials: true,
 			autoConnect: false,
 			reconnection: true,
@@ -20,8 +22,7 @@ export const getSocket = (): Socket => {
 export const connectSocket = (): Socket => {
 	const s = getSocket();
 	if (!s.connected) {
-		const token = localStorage.getItem("accessToken");
-		s.auth = { token };
+		s.auth = { token: getAccessToken() };
 		s.connect();
 	}
 	return s;

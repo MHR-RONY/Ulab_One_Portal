@@ -93,7 +93,7 @@ const AdminSchedules = () => {
     .filter((e) => e.entry);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background admin-theme">
       <div className="hidden lg:block">
         <AdminSidebar activePage="Schedules" />
       </div>

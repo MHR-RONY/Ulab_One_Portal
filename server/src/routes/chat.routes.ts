@@ -9,8 +9,12 @@ import {
 	getConversations,
 	getDirectMessages,
 	searchContacts,
+	syncCourseGroups,
+	blockUser,
+	unblockUser,
+	getBlockStatus,
 } from "../controllers/chat.controller";
-import { protect } from "../middleware/auth.middleware";
+import { protect, authorizeRole } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -21,6 +25,11 @@ router.get("/conversations", getConversations);
 router.get("/conversations/:contactId/messages", getDirectMessages);
 router.get("/contacts/search", searchContacts);
 
+// Block / Unblock
+router.get("/contacts/:targetId/block", getBlockStatus);
+router.post("/contacts/:targetId/block", blockUser);
+router.delete("/contacts/:targetId/block", unblockUser);
+
 // Group chat
 router.get("/groups", getMyGroups);
 router.get("/groups/:groupId", getGroupById);
@@ -28,5 +37,8 @@ router.get("/groups/:groupId/members", getGroupMembers);
 router.post("/groups/:groupId/members", addMemberToGroup);
 router.delete("/groups/:groupId/members/:memberId", removeMemberFromGroup);
 router.get("/groups/:groupId/messages", getGroupMessages);
+
+// Sync - create missing groups and add missing members (admin/teacher only)
+router.post("/sync-course-groups", authorizeRole("admin", "teacher"), syncCourseGroups);
 
 export default router;

@@ -12,6 +12,7 @@ import AdminStudentDetail from "@/pages/admin/AdminStudentDetail";
 import AdminTeachers from "@/pages/admin/AdminTeachers";
 import AdminTeacherDetail from "@/pages/admin/AdminTeacherDetail";
 import AdminSchedules from "@/pages/admin/AdminSchedules";
+import AdminScheduleBuilder from "@/pages/admin/AdminScheduleBuilder";
 import AdminManagement from "@/pages/admin/AdminManagement";
 import AdminResources from "@/pages/admin/AdminResources";
 import AdminMessenger from "@/pages/admin/AdminMessenger";
@@ -84,6 +85,7 @@ const App = () => (
                 <Route path="/admin/teachers" element={<AdminTeachers />} />
                 <Route path="/admin/teachers/:teacherId" element={<AdminTeacherDetail />} />
                 <Route path="/admin/schedules" element={<AdminSchedules />} />
+                <Route path="/admin/schedule-builder" element={<AdminScheduleBuilder />} />
                 <Route path="/admin/management" element={<AdminManagement />} />
                 <Route path="/admin/resources" element={<AdminResources />} />
                 <Route path="/admin/resources/:deptId" element={<AdminDepartmentNotes />} />

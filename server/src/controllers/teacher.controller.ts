@@ -3,9 +3,11 @@ import { TeacherModel } from "../models/Teacher.model";
 import { CourseModel } from "../models/Course.model";
 import { StudentModel } from "../models/Student.model";
 import { AttendanceModel } from "../models/Attendance.model";
+import { HolidayModel } from "../models/Holiday.model";
 import { ChatGroupModel } from "../models/ChatGroup.model";
 import { TAttendanceStatus } from "../types";
 import { sendResponse } from "../utils/apiResponse";
+import { getIO } from "../socket/chat.socket";
 
 export const getTeacherProfile: RequestHandler = async (req, res, next) => {
 	try {
@@ -155,10 +157,24 @@ export const addStudentToCourse: RequestHandler = async (req, res, next) => {
 		});
 
 		// Auto-add student to the course chat group
-		await ChatGroupModel.findOneAndUpdate(
+		const chatGroup = await ChatGroupModel.findOneAndUpdate(
 			{ course: id, type: "class" },
-			{ $addToSet: { members: studentMongoId } }
+			{ $addToSet: { members: studentMongoId } },
+			{ new: true }
 		);
+
+		// Notify the student's socket to join the new group room
+		if (chatGroup) {
+			try {
+				const io = getIO();
+				io.to(`user:${studentMongoId}`).emit("group:joined", {
+					groupId: chatGroup._id,
+					groupName: chatGroup.name,
+				});
+			} catch {
+				// Socket not initialized yet, skip notification
+			}
+		}
 
 		sendResponse(res, 200, true, "Student added to course successfully");
 	} catch (error) {
@@ -185,10 +201,23 @@ export const removeStudentFromCourse: RequestHandler = async (req, res, next) =>
 		});
 
 		// Auto-remove student from the course chat group
-		await ChatGroupModel.findOneAndUpdate(
+		const chatGroup = await ChatGroupModel.findOneAndUpdate(
 			{ course: id, type: "class" },
-			{ $pull: { members: studentMongoId } }
+			{ $pull: { members: studentMongoId } },
+			{ new: true }
 		);
+
+		// Notify the student's socket to leave the group room
+		if (chatGroup) {
+			try {
+				const io = getIO();
+				io.to(`user:${studentMongoId}`).emit("group:removed", {
+					groupId: chatGroup._id,
+				});
+			} catch {
+				// Socket not initialized yet, skip notification
+			}
+		}
 
 		sendResponse(res, 200, true, "Student removed from course successfully");
 	} catch (error) {
@@ -205,7 +234,8 @@ export const searchStudents: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
-		const regex = new RegExp(q, "i");
+		const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const regex = new RegExp(escaped, "i");
 		const students = await StudentModel.find({
 			$or: [{ name: regex }, { studentId: regex }, { email: regex }],
 		})
@@ -247,10 +277,16 @@ export const getAttendanceForDate: RequestHandler = async (req, res, next) => {
 			semester: number;
 		}>;
 
-		const [dateRecords, allRecords] = await Promise.all([
+		const [dateRecords, allRecords, holidayRecord, allHolidays] = await Promise.all([
 			AttendanceModel.find({ course: id, date }),
 			AttendanceModel.find({ course: id }),
+			HolidayModel.findOne({ course: id, date }),
+			HolidayModel.find({ course: id }, { date: 1 }),
 		]);
+
+		const isHoliday = holidayRecord !== null;
+		const holidayDateSet = new Set(allHolidays.map((h) => h.date));
+		const nonHolidayRecords = allRecords.filter((r) => !holidayDateSet.has(r.date));
 
 		const dateMap = new Map<string, TAttendanceStatus>();
 		dateRecords.forEach((r) => {
@@ -258,7 +294,7 @@ export const getAttendanceForDate: RequestHandler = async (req, res, next) => {
 		});
 
 		const statsMap = new Map<string, { attended: number; total: number }>();
-		allRecords.forEach((r) => {
+		nonHolidayRecords.forEach((r) => {
 			const sid = r.student.toString();
 			const prev = statsMap.get(sid) ?? { attended: 0, total: 0 };
 			prev.total++;
@@ -291,6 +327,8 @@ export const getAttendanceForDate: RequestHandler = async (req, res, next) => {
 				section: course.section,
 			},
 			date,
+			isHoliday,
+			allHolidayDates: allHolidays.map((h) => h.date),
 			students,
 		});
 	} catch (error) {
@@ -327,17 +365,83 @@ export const saveAttendance: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
-		const ops = records.map(({ student, status }) => ({
-			updateOne: {
-				filter: { student, course: id, date },
-				update: { $set: { student, course: id, date, status } },
-				upsert: true,
-			},
-		}));
+		// Validate all submitted students are enrolled in this course
+		const enrolledSet = new Set(course.enrolledStudents.map((s) => s.toString()));
+		const invalidStudents = records.filter(({ student }) => !enrolledSet.has(student));
+		if (invalidStudents.length > 0) {
+			sendResponse(res, 400, false, "One or more students are not enrolled in this course");
+			return;
+		}
 
-		await AttendanceModel.bulkWrite(ops);
+		// Derive class time from schedule slot for this day of week
+		const JS_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+		const dateObj = new Date(date + "T00:00:00");
+		const dayName = JS_DAY_NAMES[dateObj.getDay()];
+		const slot = course.scheduleSlots?.find((s) => s.day === dayName) ?? null;
+		const classTime = slot ? slot.startTime : null;
+
+		await Promise.all(
+			records.map(({ student, status }) =>
+				AttendanceModel.findOneAndUpdate(
+					{ student, course: id, date },
+					{ status, time: classTime },
+					{ upsert: true }
+				)
+			)
+		);
 
 		sendResponse(res, 200, true, "Attendance saved successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const markHoliday: RequestHandler = async (req, res, next) => {
+	try {
+		const { id } = req.params;
+		const { date } = req.body;
+
+		if (!date || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+			sendResponse(res, 400, false, "date is required in YYYY-MM-DD format");
+			return;
+		}
+
+		const course = await CourseModel.findOne({ _id: id, teacher: req.user?.id });
+		if (!course) {
+			sendResponse(res, 404, false, "Course not found");
+			return;
+		}
+
+		await HolidayModel.findOneAndUpdate(
+			{ course: id, date },
+			{ markedBy: req.user?.id },
+			{ upsert: true, new: true }
+		);
+
+		sendResponse(res, 200, true, "Holiday marked successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const unmarkHoliday: RequestHandler = async (req, res, next) => {
+	try {
+		const { id, date } = req.params;
+
+		if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+			sendResponse(res, 400, false, "date param is required in YYYY-MM-DD format");
+			return;
+		}
+
+		const course = await CourseModel.findOne({ _id: id, teacher: req.user?.id });
+		if (!course) {
+			sendResponse(res, 404, false, "Course not found");
+			return;
+		}
+
+		await HolidayModel.deleteOne({ course: id, date });
+
+		sendResponse(res, 200, true, "Holiday removed successfully");
 	} catch (error) {
 		next(error);
 	}
