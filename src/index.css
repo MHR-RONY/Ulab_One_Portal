@@ -79,6 +79,48 @@
     );
   }
 
+  /* Admin theme — premium orange #ec5b13 = hsl(22 88% 51%) */
+  .admin-theme {
+    --primary: 22 88% 51%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 22 88% 51%;
+    --sidebar-primary: 22 88% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 22 88% 51%;
+    --sidebar-accent-foreground: 22 88% 51%;
+    --sidebar-ring: 22 88% 56%;
+    --admin-glow: 22 88% 51%;
+    --shadow-premium: 0 4px 24px -4px hsl(22 88% 51% / 0.15);
+    --shadow-premium-hover: 0 8px 32px -4px hsl(22 88% 51% / 0.28);
+    --gradient-page: linear-gradient(
+      135deg,
+      hsl(22 30% 97%) 0%,
+      hsl(28 35% 96%) 50%,
+      hsl(18 25% 97%) 100%
+    );
+  }
+
+  /* Admin theme — dark mode */
+  .dark .admin-theme,
+  .admin-theme.dark {
+    --primary: 22 88% 56%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 22 88% 56%;
+    --sidebar-primary: 22 88% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 22 88% 56%;
+    --sidebar-accent-foreground: 22 88% 56%;
+    --sidebar-ring: 22 88% 56%;
+    --admin-glow: 22 88% 56%;
+    --shadow-premium: 0 4px 24px -4px hsl(22 88% 51% / 0.25);
+    --shadow-premium-hover: 0 8px 32px -4px hsl(22 88% 51% / 0.4);
+    --gradient-page: linear-gradient(
+      135deg,
+      hsl(22 8% 6%) 0%,
+      hsl(28 8% 8%) 100%
+    );
+  }
+
   /* Teacher theme — premium amber/orange */
   .teacher-theme {
     --primary: 38 92% 50%;
@@ -409,6 +451,147 @@
     );
     z-index: 1;
   }
+
+  /* Admin glossy sidebar */
+  .admin-sidebar-glossy {
+    background: linear-gradient(
+      180deg,
+      hsl(22 88% 51% / 0.04) 0%,
+      transparent 40%,
+      hsl(22 88% 51% / 0.02) 100%
+    );
+    position: relative;
+    overflow: hidden;
+  }
+  .admin-sidebar-glossy::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+      ellipse at 30% 20%,
+      hsl(22 88% 51% / 0.07) 0%,
+      transparent 50%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Admin active nav item */
+  .admin-nav-active {
+    background: linear-gradient(
+      135deg,
+      hsl(22 88% 51% / 0.14) 0%,
+      hsl(22 88% 51% / 0.07) 100%
+    );
+    border: 1px solid hsl(22 88% 51% / 0.2);
+    box-shadow:
+      0 0 14px hsl(22 88% 51% / 0.1),
+      inset 0 1px 0 hsl(0 0% 100% / 0.05);
+  }
+
+  /* Admin shimmer sweep */
+  .admin-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .admin-shimmer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(22 88% 55% / 0.08),
+      transparent
+    );
+    transform: skewX(-15deg);
+    animation: admin-shimmer-sweep 4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Admin card glossy */
+  .admin-card-glossy {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid hsl(22 88% 51% / 0.08);
+  }
+  .admin-card-glossy::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(22 88% 51% / 0.35),
+      transparent
+    );
+    z-index: 1;
+  }
+
+  /* Admin stat card hover glow */
+  .admin-stat-card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .admin-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px -6px hsl(22 88% 51% / 0.18);
+  }
+
+  /* Admin avatar ring */
+  .admin-avatar-glow {
+    box-shadow:
+      0 0 0 3px hsl(22 88% 51% / 0.2),
+      0 0 18px hsl(22 88% 51% / 0.12);
+  }
+
+  /* Admin table row hover */
+  .admin-row-hover:hover {
+    background: hsl(22 88% 51% / 0.04);
+  }
+
+  /* Pulse ring animation for notification dot */
+  .admin-pulse-ring {
+    position: relative;
+  }
+  .admin-pulse-ring::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid hsl(22 88% 51% / 0.4);
+    animation: admin-pulse-ring 2s ease-out infinite;
+  }
+}
+
+@keyframes admin-shimmer-sweep {
+  0%,
+  100% { left: -100%; }
+  50% { left: 150%; }
+}
+
+@keyframes admin-pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes admin-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes admin-glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px hsl(22 88% 51% / 0.2); }
+  50% { box-shadow: 0 0 20px hsl(22 88% 51% / 0.45); }
 }
 
 @keyframes teacher-shimmer-sweep {
