@@ -65,7 +65,7 @@ const AdminMessenger = () => {
   const [activeTab, setActiveTab] = useState("All Groups");
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background admin-theme">
       <div className="hidden lg:block">
         <AdminSidebar activePage="Messenger" />
       </div>

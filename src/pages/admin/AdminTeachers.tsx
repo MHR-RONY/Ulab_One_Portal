@@ -77,7 +77,7 @@ const AdminTeachers = () => {
 		setFetchError("");
 		try {
 			const { data } = await api.get("/admin/teachers");
-			setTeachers(data.data);
+			setTeachers(Array.isArray(data.data?.teachers) ? data.data.teachers : []);
 		} catch {
 			setFetchError("Failed to load teachers. Please try again.");
 		} finally {
@@ -198,7 +198,7 @@ const AdminTeachers = () => {
 	};
 
 	return (
-		<div className="flex h-screen overflow-hidden premium-bg">
+		<div className="flex h-screen overflow-hidden premium-bg admin-theme">
 			<div className="hidden md:block">
 				<AdminSidebar activePage="Teachers" />
 			</div>
@@ -386,7 +386,7 @@ const AdminTeachers = () => {
 
 			{/* Create Teacher Dialog */}
 			<Dialog open={dialogOpen} onOpenChange={(open) => { if (!submitting) { setDialogOpen(open); if (!open) { setForm({ name: "", email: "", password: "", teacherId: "", department: "" }); setFormErrors({}); setFormError(""); setFormSuccess(""); } } }}>
-				<DialogContent className="sm:max-w-md rounded-2xl">
+				<DialogContent className="sm:max-w-md rounded-2xl admin-theme">
 					<DialogHeader>
 						<DialogTitle className="text-xl font-extrabold">Create Teacher Account</DialogTitle>
 						<DialogDescription>
@@ -522,7 +522,7 @@ const AdminTeachers = () => {
 
 			{/* Edit Teacher Dialog */}
 			<Dialog open={editDialogOpen} onOpenChange={(open) => { if (!editSubmitting && !deleteSubmitting) { setEditDialogOpen(open); if (!open) setDeleteConfirmOpen(false); } }}>
-				<DialogContent className="sm:max-w-md rounded-2xl">
+				<DialogContent className="sm:max-w-md rounded-2xl admin-theme">
 					<DialogHeader>
 						<DialogTitle className="text-xl font-extrabold">Edit Teacher</DialogTitle>
 						<DialogDescription>

@@ -57,7 +57,7 @@ const AdminMaintenance = () => {
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden premium-bg">
+    <div className="flex h-screen overflow-hidden premium-bg admin-theme">
       <div className="hidden md:block">
         <AdminSidebar activePage="Maintenance" />
       </div>
