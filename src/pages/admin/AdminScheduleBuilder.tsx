@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  UploadCloud, CheckCircle2, FileText, FileEdit, BookOpen,
-  Info, History, Pencil, Trash2, Plus, User,
-  BarChart3, Download, Upload, ChevronDown,
+	UploadCloud, CheckCircle2, FileText, FileEdit,
+	Info, History, Pencil, Trash2, User, Save, X,
+	BarChart3, Download, Upload, ChevronDown, Loader2, AlertCircle,
 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -11,541 +11,1081 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+	Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+	Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import api from "@/lib/api";
 
 // --- Types ---
-type DotColor = "green" | "amber";
-type CreditColor = "blue" | "green" | "purple";
-type SubjectDept = "All Departments" | "Computer Science (CSE)" | "Business School (BBS)" | "Electrical Engineering (EEE)";
-
-type RecentEntry = {
-  id: number;
-  code: string;
-  courseName: string;
-  courseType: string;
-  section: string;
-  schedule: string;
-  dotColor: DotColor;
+type UploadLogEntry = {
+	_id: string;
+	fileName: string;
+	fileSize: number;
+	semester: string;
+	totalEntries: number;
+	errorCount: number;
+	createdAt: string;
 };
 
-type Subject = {
-  id: number;
-  code: string;
-  name: string;
-  type: string;
-  credits: string;
-  creditColor: CreditColor;
-  department: string;
+type ScheduleStats = {
+	totalCourses: number;
+	totalSections: number;
+	tbaCount: number;
+	conflictCount: number;
+};
+
+type UploadResult = {
+	totalParsed: number;
+	totalSaved: number;
+	tbaCount: number;
+	conflictCount: number;
+	teachersSaved?: number;
+	errors: string[];
+};
+
+type OfferedCourse = {
+	_id: string;
+	courseCode: string;
+	unicode: string;
+	section: string;
+	room: string;
+	teacherInitials: string;
+	teacherTBA: boolean;
+	isLab: boolean;
+	daySuffix: string;
+	days: string[];
+	blockedDays: string[];
+	startTime: string;
+	endTime: string;
+	semester: string;
+	hasConflict: boolean;
+	conflictReason: string;
+};
+
+// Pending course: parsed but not yet saved — uses _tempId instead of _id
+type PendingCourse = {
+	_tempId: string;
+	courseCode: string;
+	unicode: string;
+	section: string;
+	room: string;
+	teacher: string;         // matches IScheduleUploadEntry field name
+	teacherTBA: boolean;
+	isLab: boolean;
+	daySuffix: string;
+	days: string[];
+	blockedDays: string[];
+	startTime: string;
+	endTime: string;
+	hasConflict: boolean;
+	conflictReason: string;
+};
+
+type PendingMeta = {
+	fileName: string;
+	fileSize: number;
+	totalParsed: number;
+	tbaCount: number;
+	conflictCount: number;
+	errors: string[];
 };
 
 // --- Static Data ---
-const recentEntries: RecentEntry[] = [
-  { id: 1, code: "CS202", courseName: "Data Structures", courseType: "MAJOR ELECTIVE", section: "Section B", schedule: "Mon, 10:00 AM", dotColor: "green" },
-  { id: 2, code: "ENG101", courseName: "English Composition", courseType: "CORE CURRICULUM", section: "Section A", schedule: "Tue, 02:30 PM", dotColor: "amber" },
-];
-
-const subjectsData: Subject[] = [
-  { id: 1, code: "CSE301", name: "Database Management Systems", type: "CORE TECHNICAL", credits: "3.0 Credits", creditColor: "blue", department: "CSE" },
-  { id: 2, code: "BBS182", name: "Principles of Marketing", type: "GENERAL EDUCATION", credits: "2.0 Credits", creditColor: "green", department: "BBS" },
-  { id: 3, code: "EEE284", name: "Microprocessors & Interfacing", type: "MAJOR REQUIREMENT", credits: "4.0 Credits", creditColor: "purple", department: "EEE" },
-];
-
-const quickStats = [
-  { label: "TOTAL REGISTERED COURSES", value: "248", badge: "+12%" },
-  { label: "ACTIVE FACULTY STAFF", value: "62", badge: "Steady" },
-  { label: "RUNNING CLASS SECTIONS", value: "1,402", badge: "+5%" },
-];
-
 const dataGuidelines = [
-  "Ensure Course Codes match the official registry.",
-  "Rooms must be formatted as [Building] [Number].",
-  "Times should be in 24-hour format or specify AM/PM.",
-  "Duplicates will be automatically flagged for review.",
-];
-
-const deptFilters: SubjectDept[] = [
-  "All Departments",
-  "Computer Science (CSE)",
-  "Business School (BBS)",
-  "Electrical Engineering (EEE)",
+	"Ensure Course Codes match the official registry.",
+	"Rooms must be formatted as [Building] [Number].",
+	"Times should be in 24-hour format or specify AM/PM.",
+	"Duplicates will be automatically flagged for review.",
 ];
 
 // --- Sub-components ---
 interface FloatingInputProps {
-  id: string;
-  label: string;
-  type?: string;
-  value: string;
-  onChange: (val: string) => void;
+	id: string;
+	label: string;
+	type?: string;
+	value: string;
+	onChange: (val: string) => void;
 }
 
 const FloatingInput = ({ id, label, type = "text", value, onChange }: FloatingInputProps) => (
-  <div className="relative">
-    <input
-      id={id}
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={label}
-      className="peer w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none placeholder-transparent text-sm text-foreground"
-    />
-    <label
-      htmlFor={id}
-      className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground transition-all
+	<div className="relative">
+		<input
+			id={id}
+			type={type}
+			value={value}
+			onChange={(e) => onChange(e.target.value)}
+			placeholder={label}
+			className="peer w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none placeholder-transparent text-sm text-foreground"
+		/>
+		<label
+			htmlFor={id}
+			className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground transition-all
         peer-placeholder-shown:text-sm peer-placeholder-shown:top-3.5
         peer-focus:-top-2.5 peer-focus:text-primary peer-focus:text-xs"
-    >
-      {label}
-    </label>
-  </div>
+		>
+			{label}
+		</label>
+	</div>
 );
-
-const CreditBadge = ({ credits, color }: { credits: string; color: CreditColor }) => {
-  const colorMap: Record<CreditColor, string> = {
-    blue: "text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400",
-    green: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400",
-    purple: "text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400",
-  };
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold ${colorMap[color]}`}>
-      {credits}
-    </span>
-  );
-};
-
-const ScheduleDot = ({ color }: { color: DotColor }) => {
-  const colorMap: Record<DotColor, string> = {
-    green: "bg-emerald-500",
-    amber: "bg-amber-500",
-  };
-  return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${colorMap[color]}`} />;
-};
 
 // --- Main Page ---
 const AdminScheduleBuilder = () => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [activeDept, setActiveDept] = useState<SubjectDept>("All Departments");
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const [isDragging, setIsDragging] = useState(false);
+	const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+	const [uploading, setUploading] = useState(false);
+	const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+	const [uploadError, setUploadError] = useState("");
+	const [uploadLogs, setUploadLogs] = useState<UploadLogEntry[]>([]);
+	const [stats, setStats] = useState<ScheduleStats>({ totalCourses: 0, totalSections: 0, tbaCount: 0, conflictCount: 0 });
+	const [semester, setSemester] = useState("Summer 2025");
+	const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState({
-    courseCode: "",
-    courseName: "",
-    section: "",
-    room: "",
-    day: "Monday",
-    time: "",
-    teacherSearch: "",
-  });
+	// Pending state: parsed but not yet saved to DB
+	const [pendingCourses, setPendingCourses] = useState<PendingCourse[]>([]);
+	const [pendingMeta, setPendingMeta] = useState<PendingMeta | null>(null);
 
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
-  const handleDragLeave = () => setIsDragging(false);
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) setUploadedFile(file);
-  };
+	// Offered courses state
+	const [offeredCourses, setOfferedCourses] = useState<OfferedCourse[]>([]);
+	const [activeDeptTab, setActiveDeptTab] = useState("All");
+	const [editingId, setEditingId] = useState<string | null>(null);
+	const [editForm, setEditForm] = useState<Partial<OfferedCourse & PendingCourse>>({});
+	const [coursesLoading, setCoursesLoading] = useState(false);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) setUploadedFile(e.target.files[0]);
-  };
+	const [form, setForm] = useState({
+		courseCode: "",
+		courseName: "",
+		section: "",
+		room: "",
+		day: "Monday",
+		time: "",
+		teacherSearch: "",
+	});
 
-  const handleFormChange = (field: keyof typeof form, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+	const fetchUploadLogs = useCallback(async () => {
+		try {
+			const res = await api.get("/admin/schedule/upload-logs");
+			if (res.data.success) setUploadLogs(res.data.data.logs);
+		} catch { /* silent */ }
+	}, []);
 
-  const handleReset = () => {
-    setForm({ courseCode: "", courseName: "", section: "", room: "", day: "Monday", time: "", teacherSearch: "" });
-  };
+	const fetchStats = useCallback(async () => {
+		try {
+			const res = await api.get("/admin/schedule/schedule-stats");
+			if (res.data.success) setStats(res.data.data);
+		} catch { /* silent */ }
+	}, []);
 
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); };
+	const fetchOfferedCourses = useCallback(async (sem: string) => {
+		setCoursesLoading(true);
+		try {
+			const res = await api.get("/admin/schedule/offered-courses", {
+				params: { semester: sem, limit: 5000 },
+			});
+			if (res.data.success) setOfferedCourses(res.data.data.courses);
+		} catch { /* silent */ }
+		finally { setCoursesLoading(false); }
+	}, []);
 
-  const filteredSubjects =
-    activeDept === "All Departments"
-      ? subjectsData
-      : subjectsData.filter((s) => s.department === (activeDept.match(/\((\w+)\)/)?.[1] ?? ""));
+	useEffect(() => {
+		fetchUploadLogs();
+		fetchStats();
+		fetchOfferedCourses(semester);
+	}, [fetchUploadLogs, fetchStats, fetchOfferedCourses, semester]);
 
-  return (
-    <div className="flex min-h-screen bg-background admin-theme">
-      <div className="hidden lg:block">
-        <AdminSidebar activePage="Schedule Builder" />
-      </div>
-      <div className="flex-1 flex flex-col min-w-0">
-        <AdminHeader />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto pb-20 lg:pb-8 space-y-8">
+	// Warn before navigating away if there are unsaved changes
+	useEffect(() => {
+		if (pendingCourses.length === 0) return;
+		const handler = (e: BeforeUnloadEvent) => {
+			e.preventDefault();
+			e.returnValue = "You have unsaved schedule changes. Leave without saving?";
+		};
+		window.addEventListener("beforeunload", handler);
+		return () => window.removeEventListener("beforeunload", handler);
+	}, [pendingCourses.length]);
 
-          {/* Page Intro */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4"
-          >
-            <div>
-              <h1 className="text-2xl md:text-3xl font-black text-foreground tracking-tight">Manage Schedules</h1>
-              <p className="text-muted-foreground mt-2 text-sm md:text-base max-w-2xl">
-                Upload bulk data via CSV/Excel or manually enter individual course schedules and teacher assignments.
-              </p>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <Button variant="outline" className="rounded-xl gap-2 text-xs font-bold shadow-sm">
-                <Download className="w-4 h-4" /> Export
-              </Button>
-              <Button className="rounded-xl gap-2 text-xs font-bold bg-foreground text-background hover:bg-foreground/90">
-                <Upload className="w-4 h-4" /> Import
-              </Button>
-            </div>
-          </motion.div>
+	const handleUploadFile = async (file: File) => {
+		setUploadedFile(file);
+		setUploadResult(null);
+		setUploadError("");
+		setUploading(true);
 
-          {/* 1. Bulk Data Upload */}
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <h3 className="font-bold text-base flex items-center gap-2">
-                  <UploadCloud className="w-5 h-5 text-primary" />
-                  1. Bulk Data Upload
-                </h3>
-                <Badge variant="secondary" className="text-primary bg-primary/10 border-0 text-xs font-semibold">
-                  Supports CSV, XLSX
-                </Badge>
-              </div>
-              <CardContent className="p-6 md:p-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8">
-                  {/* Drop Zone */}
-                  <div
-                    className={`md:col-span-3 border-2 border-dashed rounded-2xl p-10 md:p-14 flex flex-col items-center justify-center cursor-pointer transition-all group
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("semester", semester);
+
+			const res = await api.post("/admin/schedule/parse-preview", formData, {
+				headers: { "Content-Type": "multipart/form-data" },
+			});
+
+			if (res.data.success) {
+				const data = res.data.data;
+				// Map parser entries to PendingCourse (add _tempId)
+				const mapped: PendingCourse[] = (data.entries as PendingCourse[]).map((e, idx) => ({
+					...e,
+					_tempId: String(idx),
+				}));
+				setPendingCourses(mapped);
+				setPendingMeta({
+					fileName: data.fileName,
+					fileSize: data.fileSize,
+					totalParsed: data.totalParsed,
+					tbaCount: data.tbaCount,
+					conflictCount: data.conflictCount,
+					errors: data.errors,
+				});
+				setActiveDeptTab("All");
+			} else {
+				setUploadError(res.data.message || "Upload failed");
+			}
+		} catch (err: unknown) {
+			const axiosErr = err as { response?: { data?: { message?: string } } };
+			setUploadError(axiosErr.response?.data?.message || "Upload failed");
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	const handleSaveAll = async () => {
+		if (pendingCourses.length === 0) return;
+		setSaving(true);
+		try {
+			const res = await api.post("/admin/schedule/confirm-save", {
+				entries: pendingCourses,
+				semester,
+				fileName: pendingMeta?.fileName ?? "unknown",
+				fileSize: pendingMeta?.fileSize ?? 0,
+			});
+			if (res.data.success) {
+				setUploadResult({
+					totalParsed: pendingMeta?.totalParsed ?? pendingCourses.length,
+					totalSaved: res.data.data.totalSaved,
+					tbaCount: pendingMeta?.tbaCount ?? 0,
+					conflictCount: pendingMeta?.conflictCount ?? 0,
+					errors: pendingMeta?.errors ?? [],
+				});
+				setPendingCourses([]);
+				setPendingMeta(null);
+				fetchUploadLogs();
+				fetchStats();
+				fetchOfferedCourses(semester);
+			}
+		} catch (err: unknown) {
+			const axiosErr = err as { response?: { data?: { message?: string } } };
+			setUploadError(axiosErr.response?.data?.message || "Failed to save entries");
+		}
+		finally { setSaving(false); }
+	};
+
+	const handleClearUploadHistory = async () => {
+		try {
+			await api.delete("/admin/schedule/upload-logs");
+			setUploadLogs([]);
+		} catch { /* silent */ }
+	};
+
+	const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
+	const handleDragLeave = () => setIsDragging(false);
+	const handleDrop = (e: React.DragEvent) => {
+		e.preventDefault();
+		setIsDragging(false);
+		const file = e.dataTransfer.files[0];
+		if (file) handleUploadFile(file);
+	};
+
+	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+		if (e.target.files?.[0]) handleUploadFile(e.target.files[0]);
+	};
+
+	const handleFormChange = (field: keyof typeof form, value: string) => {
+		setForm((prev) => ({ ...prev, [field]: value }));
+	};
+
+	const handleReset = () => {
+		setForm({ courseCode: "", courseName: "", section: "", room: "", day: "Monday", time: "", teacherSearch: "" });
+	};
+
+	const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); };
+
+	// --- Offered Courses helpers ---
+	// When pending courses exist, show them instead of saved courses
+	const hasPending = pendingCourses.length > 0;
+
+	const allDisplayCourses: (OfferedCourse | (PendingCourse & { _id?: undefined }))[] = hasPending
+		? pendingCourses
+		: offeredCourses;
+
+	const departments = ["All", ...Array.from(new Set(allDisplayCourses.map((c) => {
+		const match = c.courseCode.match(/^[A-Za-z]+/);
+		return match ? match[0].toUpperCase() : "OTHER";
+	}))).sort()];
+
+	const filteredCourses = activeDeptTab === "All"
+		? allDisplayCourses
+		: allDisplayCourses.filter((c) => c.courseCode.toUpperCase().startsWith(activeDeptTab));
+
+	// Group by day for display
+	const coursesByDay: Record<string, typeof filteredCourses> = {};
+	filteredCourses.forEach((c) => {
+		const dayKey = c.days.length > 0 ? c.days.join(", ") : "Unassigned";
+		if (!coursesByDay[dayKey]) coursesByDay[dayKey] = [];
+		coursesByDay[dayKey].push(c);
+	});
+	const sortedDayKeys = Object.keys(coursesByDay).sort();
+
+	const handleStartEdit = (course: OfferedCourse | PendingCourse) => {
+		const id = "_id" in course ? course._id : course._tempId;
+		setEditingId(id);
+		setEditForm({
+			courseCode: course.courseCode,
+			unicode: course.unicode,
+			section: course.section,
+			room: course.room,
+			teacherInitials: "_id" in course ? course.teacherInitials : course.teacher,
+			teacher: "_id" in course ? undefined : course.teacher,
+			startTime: course.startTime,
+			endTime: course.endTime,
+			daySuffix: course.daySuffix,
+		});
+	};
+
+	const handleCancelEdit = () => {
+		setEditingId(null);
+		setEditForm({});
+	};
+
+	const handleEditField = (field: string, value: string) => {
+		setEditForm((prev) => ({ ...prev, [field]: value }));
+	};
+
+	const handleSaveEdit = async () => {
+		if (!editingId) return;
+
+		// Check if editing a pending course (_tempId)
+		if (hasPending) {
+			setPendingCourses((prev) =>
+				prev.map((c) =>
+					c._tempId === editingId
+						? {
+							...c,
+							courseCode: editForm.courseCode ?? c.courseCode,
+							unicode: editForm.unicode ?? c.unicode,
+							section: editForm.section ?? c.section,
+							room: editForm.room ?? c.room,
+							teacher: editForm.teacher ?? editForm.teacherInitials ?? c.teacher,
+							startTime: editForm.startTime ?? c.startTime,
+							endTime: editForm.endTime ?? c.endTime,
+							daySuffix: editForm.daySuffix ?? c.daySuffix,
+						}
+						: c
+				)
+			);
+			setEditingId(null);
+			setEditForm({});
+			return;
+		}
+
+		// Saved course — API call
+		try {
+			const res = await api.patch(`/admin/schedule/offered-courses/${editingId}`, editForm);
+			if (res.data.success) {
+				setOfferedCourses((prev) =>
+					prev.map((c) => (c._id === editingId ? { ...c, ...res.data.data } : c))
+				);
+				setEditingId(null);
+				setEditForm({});
+				fetchStats();
+			}
+		} catch { /* silent */ }
+	};
+
+	const handleDeleteCourse = async (course: OfferedCourse | PendingCourse) => {
+		if ("_tempId" in course && !("_id" in course)) {
+			// Pending — remove from local state
+			setPendingCourses((prev) => prev.filter((c) => c._tempId !== course._tempId));
+			return;
+		}
+		// Saved — API delete
+		const saved = course as OfferedCourse;
+		try {
+			const res = await api.delete(`/admin/schedule/offered-courses/single/${saved._id}`);
+			if (res.data.success) {
+				setOfferedCourses((prev) => prev.filter((c) => c._id !== saved._id));
+				fetchStats();
+			}
+		} catch { /* silent */ }
+	};
+
+	return (
+		<div className="flex min-h-screen bg-background admin-theme">
+			<div className="hidden lg:block">
+				<AdminSidebar activePage="Schedule Builder" />
+			</div>
+			<div className="flex-1 flex flex-col min-w-0">
+				<AdminHeader />
+				<main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto pb-20 lg:pb-8 space-y-8">
+
+					{/* Page Intro */}
+					<motion.div
+						initial={{ opacity: 0, y: -10 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.4 }}
+						className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4"
+					>
+						<div>
+							<h1 className="text-2xl md:text-3xl font-black text-foreground tracking-tight">Manage Schedules</h1>
+							<p className="text-muted-foreground mt-2 text-sm md:text-base max-w-2xl">
+								Upload bulk data via CSV/Excel or manually enter individual course schedules and teacher assignments.
+							</p>
+						</div>
+						<div className="flex gap-2 shrink-0">
+							<Button variant="outline" className="rounded-xl gap-2 text-xs font-bold shadow-sm">
+								<Download className="w-4 h-4" /> Export
+							</Button>
+							<Button className="rounded-xl gap-2 text-xs font-bold bg-foreground text-background hover:bg-foreground/90">
+								<Upload className="w-4 h-4" /> Import
+							</Button>
+						</div>
+					</motion.div>
+
+					{/* 1. Bulk Data Upload */}
+					<motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+						<Card className="overflow-hidden">
+							<div className="p-6 border-b border-border flex items-center justify-between">
+								<h3 className="font-bold text-base flex items-center gap-2">
+									<UploadCloud className="w-5 h-5 text-primary" />
+									1. Bulk Data Upload
+								</h3>
+								<Badge variant="secondary" className="text-primary bg-primary/10 border-0 text-xs font-semibold">
+									Supports CSV, XLSX
+								</Badge>
+							</div>
+							<CardContent className="p-6 md:p-8">
+								{/* Semester selector */}
+								<div className="mb-6 flex items-center gap-3">
+									<label htmlFor="semester" className="text-sm font-bold text-muted-foreground whitespace-nowrap">
+										Semester:
+									</label>
+									<input
+										id="semester"
+										type="text"
+										value={semester}
+										onChange={(e) => setSemester(e.target.value)}
+										placeholder="e.g. Summer 2025"
+										className="px-4 py-2 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm text-foreground w-56"
+									/>
+								</div>
+								<div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8">
+									{/* Drop Zone */}
+									<div
+										className={`md:col-span-3 border-2 border-dashed rounded-2xl p-10 md:p-14 flex flex-col items-center justify-center cursor-pointer transition-all group
                       ${isDragging ? "border-primary/70 bg-primary/5" : "border-border hover:border-primary/40 bg-card"}`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <div className={`w-20 h-20 bg-primary/5 text-primary rounded-2xl flex items-center justify-center mb-6 transition-transform shadow-inner ${isDragging ? "scale-110" : "group-hover:scale-110"}`}>
-                      <UploadCloud className="w-10 h-10" />
-                    </div>
-                    {uploadedFile ? (
-                      <>
-                        <h4 className="text-xl font-bold text-foreground">{uploadedFile.name}</h4>
-                        <p className="text-muted-foreground mt-2 text-sm">{(uploadedFile.size / 1024).toFixed(1)} KB — click to replace</p>
-                      </>
-                    ) : (
-                      <>
-                        <h4 className="text-xl font-bold text-foreground">Drop your master data here</h4>
-                        <p className="text-muted-foreground mt-2 text-sm">CSV, XLSX, or JSON files supported (Max 50MB)</p>
-                      </>
-                    )}
-                    <Button
-                      type="button"
-                      className="mt-8 rounded-xl px-8 py-3 shadow-xl shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all"
-                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                    >
-                      Select Files to Upload
-                    </Button>
-                    <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls,.json" className="hidden" onChange={handleFileSelect} />
-                  </div>
+										onDragOver={handleDragOver}
+										onDragLeave={handleDragLeave}
+										onDrop={handleDrop}
+										onClick={() => !uploading && fileInputRef.current?.click()}
+									>
+										<div className={`w-20 h-20 bg-primary/5 text-primary rounded-2xl flex items-center justify-center mb-6 transition-transform shadow-inner ${isDragging ? "scale-110" : "group-hover:scale-110"}`}>
+											{uploading ? <Loader2 className="w-10 h-10 animate-spin" /> : <UploadCloud className="w-10 h-10" />}
+										</div>
+										{uploading ? (
+											<>
+												<h4 className="text-xl font-bold text-foreground">Parsing File...</h4>
+												<p className="text-muted-foreground mt-2 text-sm">Processing {uploadedFile?.name}</p>
+											</>
+										) : pendingMeta ? (
+											<>
+												<h4 className="text-xl font-bold text-amber-600">Parsed — Review &amp; Save</h4>
+												<p className="text-muted-foreground mt-2 text-sm">
+													{pendingMeta.totalParsed} entries parsed | {pendingMeta.tbaCount} TBA | {pendingMeta.conflictCount} conflicts | {pendingMeta.errors.length} parse errors
+												</p>
+												<p className="mt-3 text-sm font-bold text-amber-600">Review the table below, then click Save All to commit to the database.</p>
+												{pendingMeta.errors.length > 0 && (
+													<div className="mt-4 max-h-32 overflow-y-auto w-full max-w-lg text-left">
+														{pendingMeta.errors.slice(0, 5).map((err, i) => (
+															<p key={i} className="text-xs text-destructive flex items-start gap-1 mb-1">
+																<AlertCircle className="w-3 h-3 mt-0.5 shrink-0" /> {err}
+															</p>
+														))}
+														{pendingMeta.errors.length > 5 && (
+															<p className="text-xs text-muted-foreground">...and {pendingMeta.errors.length - 5} more errors</p>
+														)}
+													</div>
+												)}
+												<p className="text-muted-foreground mt-3 text-xs">Click or drop to replace with a different file</p>
+											</>
+										) : uploadResult ? (
+											<>
+												<h4 className="text-xl font-bold text-emerald-600">Saved to Database</h4>
+												<p className="text-muted-foreground mt-2 text-sm">
+													{uploadResult.totalSaved} entries saved | {uploadResult.tbaCount} TBA | {uploadResult.conflictCount} conflicts | {uploadResult.errors.length} parse errors
+												</p>
+												{uploadResult.errors.length > 0 && (
+													<div className="mt-4 max-h-32 overflow-y-auto w-full max-w-lg text-left">
+														{uploadResult.errors.slice(0, 5).map((err, i) => (
+															<p key={i} className="text-xs text-destructive flex items-start gap-1 mb-1">
+																<AlertCircle className="w-3 h-3 mt-0.5 shrink-0" /> {err}
+															</p>
+														))}
+														{uploadResult.errors.length > 5 && (
+															<p className="text-xs text-muted-foreground">...and {uploadResult.errors.length - 5} more errors</p>
+														)}
+													</div>
+												)}
+												<p className="text-muted-foreground mt-3 text-xs">Click or drop to upload another file</p>
+											</>
+										) : uploadError ? (
+											<>
+												<h4 className="text-xl font-bold text-destructive">Upload Failed</h4>
+												<p className="text-muted-foreground mt-2 text-sm">{uploadError}</p>
+												<p className="text-muted-foreground mt-3 text-xs">Click or drop to try again</p>
+											</>
+										) : uploadedFile ? (
+											<>
+												<h4 className="text-xl font-bold text-foreground">{uploadedFile.name}</h4>
+												<p className="text-muted-foreground mt-2 text-sm">{(uploadedFile.size / 1024).toFixed(1)} KB — click to replace</p>
+											</>
+										) : (
+											<>
+												<h4 className="text-xl font-bold text-foreground">Drop your master data here</h4>
+												<p className="text-muted-foreground mt-2 text-sm">CSV, XLSX, or JSON files supported (Max 50MB)</p>
+											</>
+										)}
+										<Button
+											type="button"
+											className="mt-8 rounded-xl px-8 py-3 shadow-xl shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all"
+											onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+										>
+											Select Files to Upload
+										</Button>
+										<input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls,.json" className="hidden" onChange={handleFileSelect} />
+									</div>
 
-                  {/* Recent Uploads Log */}
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Recent Uploads Log</h4>
-                    <div className="space-y-3">
-                      <div className="p-3 bg-secondary/50 rounded-xl border border-border">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold truncate">Spring_Schedules_v2.xlsx</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">2 mins ago • 1.2 MB</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-3 bg-secondary/50 rounded-xl border border-border">
-                        <div className="flex items-center gap-3">
-                          <FileText className="w-5 h-5 text-blue-500 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold truncate">Teacher_Directory.csv</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">1 hour ago • 450 KB</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <Button variant="link" className="text-primary text-xs font-bold p-0 h-auto w-full justify-center">
-                      Clear Upload History
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+									{/* Recent Uploads Log */}
+									<div className="space-y-3">
+										<h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Recent Uploads Log</h4>
+										<div className="space-y-3">
+											{uploadLogs.length === 0 ? (
+												<p className="text-xs text-muted-foreground text-center py-4">No uploads yet</p>
+											) : (
+												uploadLogs.slice(0, 5).map((log) => (
+													<div key={log._id} className="p-3 bg-secondary/50 rounded-xl border border-border">
+														<div className="flex items-center gap-3">
+															{log.errorCount === 0 ? (
+																<CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+															) : (
+																<FileText className="w-5 h-5 text-amber-500 shrink-0" />
+															)}
+															<div className="flex-1 min-w-0">
+																<p className="text-xs font-bold truncate">{log.fileName}</p>
+																<p className="text-[10px] text-muted-foreground mt-0.5">
+																	{new Date(log.createdAt).toLocaleDateString()} | {log.totalEntries} entries | {(log.fileSize / 1024).toFixed(0)} KB
+																</p>
+															</div>
+														</div>
+													</div>
+												))
+											)}
+										</div>
+										{uploadLogs.length > 0 && (
+											<Button variant="link" className="text-primary text-xs font-bold p-0 h-auto w-full justify-center" onClick={handleClearUploadHistory}>
+												Clear Upload History
+											</Button>
+										)}
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+					</motion.div>
 
-          {/* 2. Manual Entry + Quick Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-8"
-          >
-            {/* Manual Entry Form */}
-            <div className="lg:col-span-2">
-              <Card>
-                <div className="p-6 border-b border-border">
-                  <h3 className="font-bold text-base flex items-center gap-2">
-                    <FileEdit className="w-5 h-5 text-primary" />
-                    2. Manual Data Entry
-                  </h3>
-                </div>
-                <CardContent className="p-6">
-                  <form onSubmit={handleSubmit} className="space-y-0">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                      {/* Left column */}
-                      <div className="space-y-6">
-                        <FloatingInput id="courseCode" label="Course Code" value={form.courseCode} onChange={(v) => handleFormChange("courseCode", v)} />
-                        <FloatingInput id="courseName" label="Course Name" value={form.courseName} onChange={(v) => handleFormChange("courseName", v)} />
-                        <div className="grid grid-cols-2 gap-4">
-                          <FloatingInput id="section" label="Section" value={form.section} onChange={(v) => handleFormChange("section", v)} />
-                          <FloatingInput id="room" label="Room" value={form.room} onChange={(v) => handleFormChange("room", v)} />
-                        </div>
-                      </div>
-                      {/* Right column */}
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                          {/* Schedule Day */}
-                          <div className="relative">
-                            <select
-                              value={form.day}
-                              onChange={(e) => handleFormChange("day", e.target.value)}
-                              className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none text-sm text-foreground"
-                            >
-                              {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((d) => (
-                                <option key={d} value={d}>{d}</option>
-                              ))}
-                            </select>
-                            <label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
-                              Schedule Day
-                            </label>
-                            <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-muted-foreground pointer-events-none" />
-                          </div>
-                          {/* Start Time */}
-                          <div className="relative">
-                            <input
-                              type="time"
-                              value={form.time}
-                              onChange={(e) => handleFormChange("time", e.target.value)}
-                              className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm text-foreground"
-                            />
-                            <label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
-                              Start Time
-                            </label>
-                          </div>
-                        </div>
-                        {/* Teacher Assignment */}
-                        <div className="p-5 bg-secondary/50 rounded-2xl border border-border space-y-4">
-                          <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Teacher Assignment</h4>
-                          <div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground shrink-0">
-                              <User className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Search Teacher</p>
-                              <input
-                                type="text"
-                                value={form.teacherSearch}
-                                onChange={(e) => handleFormChange("teacherSearch", e.target.value)}
-                                placeholder="Enter name or ID..."
-                                className="w-full border-none p-0 focus:ring-0 bg-transparent text-sm font-semibold placeholder:text-muted-foreground/50 outline-none"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+					{/* 2. Manual Entry + Quick Stats */}
+					<motion.div
+						initial={{ opacity: 0, y: 8 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ delay: 0.1 }}
+						className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+					>
+						{/* Manual Entry Form */}
+						<div className="lg:col-span-2">
+							<Card>
+								<div className="p-6 border-b border-border">
+									<h3 className="font-bold text-base flex items-center gap-2">
+										<FileEdit className="w-5 h-5 text-primary" />
+										2. Manual Data Entry
+									</h3>
+								</div>
+								<CardContent className="p-6">
+									<form onSubmit={handleSubmit} className="space-y-0">
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+											{/* Left column */}
+											<div className="space-y-6">
+												<FloatingInput id="courseCode" label="Course Code" value={form.courseCode} onChange={(v) => handleFormChange("courseCode", v)} />
+												<FloatingInput id="courseName" label="Course Name" value={form.courseName} onChange={(v) => handleFormChange("courseName", v)} />
+												<div className="grid grid-cols-2 gap-4">
+													<FloatingInput id="section" label="Section" value={form.section} onChange={(v) => handleFormChange("section", v)} />
+													<FloatingInput id="room" label="Room" value={form.room} onChange={(v) => handleFormChange("room", v)} />
+												</div>
+											</div>
+											{/* Right column */}
+											<div className="space-y-6">
+												<div className="grid grid-cols-2 gap-4">
+													{/* Schedule Day */}
+													<div className="relative">
+														<select
+															value={form.day}
+															onChange={(e) => handleFormChange("day", e.target.value)}
+															className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none text-sm text-foreground"
+														>
+															{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((d) => (
+																<option key={d} value={d}>{d}</option>
+															))}
+														</select>
+														<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
+															Schedule Day
+														</label>
+														<ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-muted-foreground pointer-events-none" />
+													</div>
+													{/* Start Time */}
+													<div className="relative">
+														<input
+															type="time"
+															value={form.time}
+															onChange={(e) => handleFormChange("time", e.target.value)}
+															className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm text-foreground"
+														/>
+														<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
+															Start Time
+														</label>
+													</div>
+												</div>
+												{/* Teacher Assignment */}
+												<div className="p-5 bg-secondary/50 rounded-2xl border border-border space-y-4">
+													<h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Teacher Assignment</h4>
+													<div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
+														<div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground shrink-0">
+															<User className="w-5 h-5" />
+														</div>
+														<div className="flex-1 min-w-0">
+															<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Search Teacher</p>
+															<input
+																type="text"
+																value={form.teacherSearch}
+																onChange={(e) => handleFormChange("teacherSearch", e.target.value)}
+																placeholder="Enter name or ID..."
+																className="w-full border-none p-0 focus:ring-0 bg-transparent text-sm font-semibold placeholder:text-muted-foreground/50 outline-none"
+															/>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-border">
-                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-                        Drafts are automatically saved
-                      </p>
-                      <div className="flex gap-3">
-                        <Button type="button" variant="ghost" className="font-bold text-sm px-6" onClick={handleReset}>
-                          Reset Form
-                        </Button>
-                        <Button type="submit" className="px-8 rounded-xl font-bold shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all">
-                          Publish Entry
-                        </Button>
-                      </div>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
+										<div className="flex items-center justify-between pt-4 border-t border-border">
+											<p className="text-xs text-muted-foreground flex items-center gap-1.5">
+												<CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+												Drafts are automatically saved
+											</p>
+											<div className="flex gap-3">
+												<Button type="button" variant="ghost" className="font-bold text-sm px-6" onClick={handleReset}>
+													Reset Form
+												</Button>
+												<Button type="submit" className="px-8 rounded-xl font-bold shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all">
+													Publish Entry
+												</Button>
+											</div>
+										</div>
+									</form>
+								</CardContent>
+							</Card>
+						</div>
 
-            {/* Sidebar: Quick Stats + Guidelines */}
-            <div className="space-y-6">
-              <div className="bg-primary rounded-2xl p-6 text-primary-foreground shadow-xl shadow-primary/20">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-bold text-lg">Quick Stats</h3>
-                  <BarChart3 className="w-5 h-5 text-white/50" />
-                </div>
-                <div className="grid grid-cols-1 gap-4">
-                  {quickStats.map((stat) => (
-                    <div key={stat.label} className="bg-white/10 p-5 rounded-2xl backdrop-blur-md border border-white/20 hover:bg-white/[0.15] transition-colors">
-                      <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-1">{stat.label}</p>
-                      <div className="flex items-end justify-between">
-                        <p className="text-4xl font-black">{stat.value}</p>
-                        <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{stat.badge}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+						{/* Sidebar: Quick Stats + Guidelines */}
+						<div className="space-y-6">
+							<div className="bg-primary rounded-2xl p-6 text-primary-foreground shadow-xl shadow-primary/20">
+								<div className="flex items-center justify-between mb-6">
+									<h3 className="font-bold text-lg">Quick Stats</h3>
+									<BarChart3 className="w-5 h-5 text-white/50" />
+								</div>
+								<div className="grid grid-cols-1 gap-4">
+									{[
+										{ label: "TOTAL REGISTERED COURSES", value: String(stats.totalCourses) },
+										{ label: "RUNNING CLASS SECTIONS", value: String(stats.totalSections) },
+										{ label: "TBA TEACHERS", value: String(stats.tbaCount) },
+										{ label: "SCHEDULE CONFLICTS", value: String(stats.conflictCount) },
+									].map((stat) => (
+										<div key={stat.label} className="bg-white/10 p-5 rounded-2xl backdrop-blur-md border border-white/20 hover:bg-white/[0.15] transition-colors">
+											<p className="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-1">{stat.label}</p>
+											<div className="flex items-end justify-between">
+												<p className="text-4xl font-black">{stat.value}</p>
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
 
-              <Card>
-                <CardContent className="p-5">
-                  <h3 className="font-bold mb-3 flex items-center gap-2 text-foreground text-sm">
-                    <Info className="w-4 h-4 text-primary" />
-                    Data Guidelines
-                  </h3>
-                  <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-4">
-                    {dataGuidelines.map((g, i) => <li key={i}>{g}</li>)}
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          </motion.div>
+							<Card>
+								<CardContent className="p-5">
+									<h3 className="font-bold mb-3 flex items-center gap-2 text-foreground text-sm">
+										<Info className="w-4 h-4 text-primary" />
+										Data Guidelines
+									</h3>
+									<ul className="text-sm text-muted-foreground space-y-2 list-disc pl-4">
+										{dataGuidelines.map((g, i) => <li key={i}>{g}</li>)}
+									</ul>
+								</CardContent>
+							</Card>
+						</div>
+					</motion.div>
 
-          {/* 3. Recently Added Entries */}
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <Card>
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <h3 className="font-bold text-base flex items-center gap-2">
-                  <History className="w-5 h-5 text-primary" />
-                  Recently Added Entries
-                </h3>
-                <Button variant="link" className="text-primary p-0 h-auto font-bold text-sm">
-                  View All Records
-                </Button>
-              </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-secondary/40">
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-6">Code</TableHead>
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Course Name</TableHead>
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Section</TableHead>
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Schedule</TableHead>
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right pr-6">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentEntries.map((entry) => (
-                      <TableRow key={entry.id} className="hover:bg-secondary/30 transition-colors">
-                        <TableCell className="font-bold text-foreground pl-6">{entry.code}</TableCell>
-                        <TableCell>
-                          <p className="font-semibold text-foreground text-sm">{entry.courseName}</p>
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">{entry.courseType}</p>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{entry.section}</TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <ScheduleDot color={entry.dotColor} />
-                            {entry.schedule}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right pr-6">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:text-primary">
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:text-destructive">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-          </motion.div>
+					{/* 3. Uploaded Schedule Data */}
+					<motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+						<Card>
+							<div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+								<h3 className="font-bold text-base flex items-center gap-2">
+									<History className="w-5 h-5 text-primary" />
+									{hasPending ? "Parsed Schedule — Unsaved Preview" : "Uploaded Schedule Data"}
+									{hasPending ? (
+										<Badge variant="secondary" className="ml-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+											{pendingCourses.length} unsaved
+										</Badge>
+									) : offeredCourses.length > 0 ? (
+										<Badge variant="secondary" className="ml-2 text-xs">{offeredCourses.length} courses</Badge>
+									) : null}
+								</h3>
+								<div className="flex items-center gap-2 flex-wrap">
+									{departments.map((dept) => (
+										<button
+											key={dept}
+											onClick={() => setActiveDeptTab(dept)}
+											className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${activeDeptTab === dept
+												? "bg-primary text-primary-foreground"
+												: "bg-secondary text-muted-foreground hover:bg-secondary/80"
+												}`}
+										>
+											{dept}
+										</button>
+									))}
+								</div>
+							</div>
 
-          {/* 4. Subject Registration List */}
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card>
-              <div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-                  <h3 className="font-bold text-base flex items-center gap-2 shrink-0">
-                    <BookOpen className="w-5 h-5 text-primary" />
-                    Subject Registration List
-                  </h3>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {deptFilters.map((dept) => (
-                      <button
-                        key={dept}
-                        onClick={() => setActiveDept(dept)}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                          activeDept === dept
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                        }`}
-                      >
-                        {dept}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <Button className="rounded-xl gap-1.5 text-xs font-bold shadow-sm shrink-0">
-                  <Plus className="w-3.5 h-3.5" /> Add Subject
-                </Button>
-              </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-secondary/40">
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-6">Code</TableHead>
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Subject Name</TableHead>
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Credits</TableHead>
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Department</TableHead>
-                      <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right pr-6">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSubjects.map((subject) => (
-                      <TableRow key={subject.id} className="hover:bg-secondary/30 transition-colors">
-                        <TableCell className="font-bold text-foreground pl-6">{subject.code}</TableCell>
-                        <TableCell>
-                          <p className="font-semibold text-foreground text-sm">{subject.name}</p>
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">{subject.type}</p>
-                        </TableCell>
-                        <TableCell>
-                          <CreditBadge credits={subject.credits} color={subject.creditColor} />
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{subject.department}</TableCell>
-                        <TableCell className="text-right pr-6">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:text-primary">
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:text-destructive">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="px-6 py-4 border-t border-border">
-                <p className="text-xs text-muted-foreground">Showing {filteredSubjects.length} of 42 subjects</p>
-              </div>
-            </Card>
-          </motion.div>
+							{/* Unsaved changes banner */}
+							{hasPending && (
+								<div className="px-6 py-4 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+									<div className="flex items-start gap-2">
+										<AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+										<div>
+											<p className="text-sm font-bold text-amber-700 dark:text-amber-400">
+												{pendingCourses.length} unsaved entries — not yet in the database
+											</p>
+											<p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
+												Review below. Edit or delete individual rows, then click Save All to commit.
+											</p>
+										</div>
+									</div>
+									<Button
+										onClick={handleSaveAll}
+										disabled={saving}
+										className="rounded-xl gap-2 text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+									>
+										{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+										{saving ? "Saving..." : "Save All"}
+									</Button>
+								</div>
+							)}
 
-        </main>
-      </div>
-    </div>
-  );
+							{coursesLoading ? (
+								<div className="p-12 flex items-center justify-center">
+									<Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+								</div>
+							) : filteredCourses.length === 0 ? (
+								<div className="p-12 text-center text-muted-foreground text-sm">
+									{hasPending ? "No entries match this filter." : "No courses found. Upload a schedule file to see data here."}
+								</div>
+							) : (
+								<TooltipProvider delayDuration={200}>
+									<div className="space-y-0">
+										{sortedDayKeys.map((dayKey) => (
+											<div key={dayKey}>
+												<div className="px-6 py-3 bg-secondary/60 border-b border-border">
+													<h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{dayKey}</h4>
+												</div>
+												<div className="overflow-x-auto">
+													<Table>
+														<TableHeader>
+															<TableRow className="bg-secondary/30">
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-6 w-24">Code</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-20">Unicode</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16">Sec</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-20">Room</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-20">Teacher</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-28">Time</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16">Suffix</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-12">Lab</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right pr-6 w-24">Actions</TableHead>
+															</TableRow>
+														</TableHeader>
+														<TableBody>
+															{coursesByDay[dayKey].map((course) => {
+																const isPending = !("_id" in course);
+																const rowId = isPending ? (course as PendingCourse)._tempId : (course as OfferedCourse)._id;
+																const isEditing = editingId === rowId;
+																const displayTeacher = isPending
+																	? (course as PendingCourse).teacher
+																	: (course as OfferedCourse).teacherInitials;
+																return (
+																	<TableRow
+																		key={rowId}
+																		className={`transition-colors ${isPending
+																			? course.hasConflict
+																				? "bg-destructive/5 hover:bg-destructive/10 border-l-2 border-l-destructive"
+																				: "bg-amber-50/60 dark:bg-amber-950/10 hover:bg-amber-50 dark:hover:bg-amber-950/20 border-l-2 border-l-amber-400"
+																			: course.hasConflict
+																				? "bg-destructive/5 hover:bg-destructive/10 border-l-2 border-l-destructive"
+																				: "hover:bg-secondary/30"
+																			}`}
+																	>
+																		<TableCell className="pl-6">
+																			{isEditing ? (
+																				<input
+																					className="w-full px-2 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																					value={editForm.courseCode ?? ""}
+																					onChange={(e) => handleEditField("courseCode", e.target.value)}
+																				/>
+																			) : (
+																				<div className="flex flex-col gap-0.5">
+																					<span className="font-bold text-foreground text-sm">{course.courseCode || course.unicode}</span>
+																					{isPending && (
+																						<span className="text-[10px] text-amber-600 font-semibold leading-tight">UNSAVED</span>
+																					)}
+																					{course.hasConflict && (
+																						<Tooltip>
+																							<TooltipTrigger asChild>
+																								<span className="text-[10px] text-destructive font-semibold leading-tight cursor-help">
+																									Conflict
+																								</span>
+																							</TooltipTrigger>
+																							<TooltipContent side="right" className="max-w-sm">
+																								<p className="text-xs font-normal whitespace-pre-wrap">{course.conflictReason}</p>
+																							</TooltipContent>
+																						</Tooltip>
+																					)}
+																				</div>
+																			)}
+																		</TableCell>
+																		<TableCell>
+																			{isEditing ? (
+																				<input
+																					className="w-full px-2 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																					value={editForm.unicode ?? ""}
+																					onChange={(e) => handleEditField("unicode", e.target.value)}
+																				/>
+																			) : (
+																				<span className="text-sm text-muted-foreground">{course.unicode}</span>
+																			)}
+																		</TableCell>
+																		<TableCell>
+																			{isEditing ? (
+																				<input
+																					className="w-full px-2 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																					value={editForm.section ?? ""}
+																					onChange={(e) => handleEditField("section", e.target.value)}
+																				/>
+																			) : (
+																				<span className="text-sm text-muted-foreground">{course.section}</span>
+																			)}
+																		</TableCell>
+																		<TableCell>
+																			{isEditing ? (
+																				<input
+																					className="w-full px-2 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																					value={editForm.room ?? ""}
+																					onChange={(e) => handleEditField("room", e.target.value)}
+																				/>
+																			) : (
+																				<span className="text-sm text-muted-foreground">{course.room}</span>
+																			)}
+																		</TableCell>
+																		<TableCell>
+																			{isEditing ? (
+																				<input
+																					className="w-full px-2 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																					value={editForm.teacherInitials ?? editForm.teacher ?? ""}
+																					onChange={(e) => {
+																						handleEditField("teacherInitials", e.target.value);
+																						handleEditField("teacher", e.target.value);
+																					}}
+																				/>
+																			) : (
+																				<span className={`text-sm ${course.teacherTBA ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
+																					{displayTeacher || "TBA"}
+																				</span>
+																			)}
+																		</TableCell>
+																		<TableCell>
+																			{isEditing ? (
+																				<div className="flex gap-1">
+																					<input
+																						className="w-16 px-1 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																						value={editForm.startTime ?? ""}
+																						onChange={(e) => handleEditField("startTime", e.target.value)}
+																						placeholder="HH:MM"
+																					/>
+																					<span className="text-xs text-muted-foreground self-center">-</span>
+																					<input
+																						className="w-16 px-1 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																						value={editForm.endTime ?? ""}
+																						onChange={(e) => handleEditField("endTime", e.target.value)}
+																						placeholder="HH:MM"
+																					/>
+																				</div>
+																			) : (
+																				<span className="text-xs text-muted-foreground">{course.startTime} - {course.endTime}</span>
+																			)}
+																		</TableCell>
+																		<TableCell>
+																			{isEditing ? (
+																				<input
+																					className="w-full px-2 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																					value={editForm.daySuffix ?? ""}
+																					onChange={(e) => handleEditField("daySuffix", e.target.value)}
+																				/>
+																			) : (
+																				<span className="text-xs text-muted-foreground">{course.daySuffix || "-"}</span>
+																			)}
+																		</TableCell>
+																		<TableCell>
+																			<div className="flex flex-col gap-1">
+																				{course.isLab ? (
+																					<Badge variant="secondary" className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400 w-fit">LAB</Badge>
+																				) : (
+																					<span className="text-xs text-muted-foreground">-</span>
+																				)}
+																				{course.hasConflict && (
+																					<Tooltip>
+																						<TooltipTrigger asChild>
+																							<div>
+																								<Badge variant="destructive" className="text-[10px] w-fit cursor-help">!</Badge>
+																							</div>
+																						</TooltipTrigger>
+																						<TooltipContent side="left" className="max-w-sm">
+																							<p className="text-xs font-normal whitespace-pre-wrap">{course.conflictReason}</p>
+																						</TooltipContent>
+																					</Tooltip>
+																				)}
+																			</div>
+																		</TableCell>
+																		<TableCell className="text-right pr-6">
+																			{isEditing ? (
+																				<div className="flex items-center justify-end gap-1">
+																					<Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:text-emerald-600" onClick={handleSaveEdit}>
+																						<Save className="w-3.5 h-3.5" />
+																					</Button>
+																					<Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:text-muted-foreground" onClick={handleCancelEdit}>
+																						<X className="w-3.5 h-3.5" />
+																					</Button>
+																				</div>
+																			) : (
+																				<div className="flex items-center justify-end gap-1">
+																					<Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:text-primary" onClick={() => handleStartEdit(course as OfferedCourse | PendingCourse)}>
+																						<Pencil className="w-3.5 h-3.5" />
+																					</Button>
+																					<Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:text-destructive" onClick={() => handleDeleteCourse(course as OfferedCourse | PendingCourse)}>
+																						<Trash2 className="w-3.5 h-3.5" />
+																					</Button>
+																				</div>
+																			)}
+																		</TableCell>
+																	</TableRow>
+																);
+															})}
+														</TableBody>
+													</Table>
+												</div>
+											</div>
+										))}
+									</div>
+								</TooltipProvider>
+							)}
+
+							{filteredCourses.length > 0 && (
+								<div className="px-6 py-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+									<p className="text-xs text-muted-foreground">
+										Showing {filteredCourses.length} of {hasPending ? pendingCourses.length : offeredCourses.length} courses
+										{activeDeptTab !== "All" && ` in ${activeDeptTab}`}
+										{hasPending && " — UNSAVED"}
+									</p>
+									{hasPending && (
+										<Button
+											onClick={handleSaveAll}
+											disabled={saving}
+											className="rounded-xl gap-2 text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white"
+										>
+											{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+											{saving ? "Saving..." : `Save All ${pendingCourses.length} Entries`}
+										</Button>
+									)}
+								</div>
+							)}
+						</Card>
+					</motion.div>
+
+					{/* 4. Upload Issues: Conflicts + Parse Errors */}
+					{(pendingMeta || uploadResult) && (() => {
+						const meta = pendingMeta ?? uploadResult;
+						const conflicts = meta?.conflictCount ?? 0;
+						const errors = meta?.errors ?? [];
+						const totalParsed = meta?.totalParsed ?? 0;
+						const totalSaved = pendingMeta ? pendingCourses.length : (uploadResult?.totalSaved ?? 0);
+						if (conflicts === 0 && errors.length === 0) return null;
+						return (
+							<motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+								<Card>
+									<div className="p-6 border-b border-border flex items-center justify-between">
+										<h3 className="font-bold text-base flex items-center gap-2">
+											<AlertCircle className="w-5 h-5 text-destructive" />
+											Upload Issues
+										</h3>
+										<p className="text-xs text-muted-foreground">
+											{totalSaved} {pendingMeta ? "pending" : "saved"} / {totalParsed} parsed
+										</p>
+									</div>
+									<CardContent className="p-6 space-y-4">
+										{conflicts > 0 && (
+											<div>
+												<p className="text-xs font-bold text-destructive uppercase tracking-wider mb-2 flex items-center gap-1.5">
+													<AlertCircle className="w-3.5 h-3.5" />
+													{conflicts} Schedule Conflicts — rows highlighted in red in the table. Click pencil to fix.
+												</p>
+											</div>
+										)}
+										{errors.length > 0 && (
+											<div>
+												<p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+													{errors.length} Parse Errors — rows could not be read from the Excel file
+												</p>
+												<div className="space-y-1.5 max-h-48 overflow-y-auto">
+													{errors.map((err, i) => (
+														<div key={i} className="flex items-start gap-2 p-2 bg-destructive/5 rounded-lg border border-destructive/10">
+															<AlertCircle className="w-3.5 h-3.5 text-destructive mt-0.5 shrink-0" />
+															<p className="text-xs text-foreground">{err}</p>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+									</CardContent>
+								</Card>
+							</motion.div>
+						);
+					})()}
+
+				</main>
+			</div>
+		</div>
+	);
 };
 
 export default AdminScheduleBuilder;
