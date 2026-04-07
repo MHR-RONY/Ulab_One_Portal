@@ -94,11 +94,10 @@ const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
 								>
 									<Link
 										to={item.href}
-										className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm group ${
-											isActive
+										className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm group ${isActive
 												? "admin-nav-active text-primary font-semibold"
 												: "text-muted-foreground hover:bg-primary/5 hover:text-foreground"
-										}`}
+											}`}
 									>
 										{isActive && (
 											<span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full shadow-sm shadow-primary/50" />
