@@ -254,6 +254,79 @@ export interface IStudentAttendanceDayData {
 	notMarkedCount: number;
 }
 
+export interface IScheduleUploadEntry {
+	courseCode: string;
+	unicode: string;
+	section: string;
+	room: string;
+	teacher: string;
+	teacherTBA: boolean;
+	isLab: boolean;
+	daySuffix: string;
+	days: string[];
+	blockedDays: string[];
+	startTime: string;
+	endTime: string;
+	hasConflict: boolean;
+	conflictReason: string;
+}
+
+export interface ITeacherDirectoryEntry {
+	initials: string;
+	fullName: string;
+}
+
+export interface IRawScheduleData {
+	semester: string;
+	totalEntries: number;
+	tbaCount: number;
+	entries: IScheduleUploadEntry[];
+	teacherDirectory: ITeacherDirectoryEntry[];
+	errors: string[];
+	conflictCount: number;
+}
+
+export interface IOfferedCourse {
+	_id: string;
+	courseCode: string;
+	unicode: string;
+	section: string;
+	room: string;
+	teacherInitials: string;
+	teacherTBA: boolean;
+	isLab: boolean;
+	daySuffix: string;
+	days: string[];
+	blockedDays: string[];
+	startTime: string;
+	endTime: string;
+	semester: string;
+	hasConflict: boolean;
+	conflictReason: string;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface ITeacherDirectory {
+	_id: string;
+	initials: string;
+	fullName: string;
+	semester: string;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface IUploadLog {
+	_id: string;
+	fileName: string;
+	fileSize: number;
+	semester: string;
+	totalEntries: number;
+	errorCount: number;
+	uploadedBy: string;
+	createdAt: Date;
+}
+
 export interface IApiResponse<T = unknown> {
 	success: boolean;
 	message: string;
