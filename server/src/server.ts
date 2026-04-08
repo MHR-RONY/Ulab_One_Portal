@@ -22,6 +22,7 @@ import teacherRoutes from "./routes/teacher.routes";
 import adminRoutes from "./routes/admin.routes";
 import scheduleRoutes from "./routes/schedule.routes";
 import chatRoutes from "./routes/chat.routes";
+import scheduleUploadRoutes from "./routes/scheduleUpload.routes";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { initSocketServer } from "./socket/chat.socket";
 
@@ -31,7 +32,7 @@ const httpServer = createServer(app);
 // Middleware
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL as string, credentials: true }));
-app.use(express.json({ limit: "20kb" }));
+app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 
 // Connect to database
@@ -44,6 +45,7 @@ app.use("/api/teacher", teacherRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/admin/schedule", scheduleUploadRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

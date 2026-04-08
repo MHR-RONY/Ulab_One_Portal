@@ -194,8 +194,8 @@ const AdminTeacherDetail = () => {
 							{tabs.map((tab) => (
 								<button key={tab.id} onClick={() => setActiveTab(tab.id)}
 									className={`flex items-center gap-2 px-6 py-4 border-b-2 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id
-											? "border-primary text-primary font-bold"
-											: "border-transparent text-muted-foreground hover:text-foreground"
+										? "border-primary text-primary font-bold"
+										: "border-transparent text-muted-foreground hover:text-foreground"
 										}`}>
 									<tab.icon className="w-4 h-4" />
 									{tab.label}

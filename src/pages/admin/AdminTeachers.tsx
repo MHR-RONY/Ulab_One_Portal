@@ -241,8 +241,8 @@ const AdminTeachers = () => {
 								key={dept}
 								onClick={() => setActiveDept(dept)}
 								className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${activeDept === dept
-										? "bg-primary text-primary-foreground"
-										: "bg-card border border-border hover:border-primary/40 text-foreground"
+									? "bg-primary text-primary-foreground"
+									: "bg-card border border-border hover:border-primary/40 text-foreground"
 									}`}
 							>
 								{dept}
@@ -367,8 +367,8 @@ const AdminTeachers = () => {
 											key={page}
 											onClick={() => setCurrentPage(page)}
 											className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${currentPage === page
-													? "bg-primary text-primary-foreground"
-													: "border border-border hover:bg-secondary text-foreground"
+												? "bg-primary text-primary-foreground"
+												: "border border-border hover:bg-secondary text-foreground"
 												}`}
 										>
 											{page}
