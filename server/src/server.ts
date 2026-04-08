@@ -41,7 +41,7 @@ app.use(
 		origin: (origin, callback) => {
 			// Allow server-to-server requests (no origin) and whitelisted origins
 			if (!origin || allowedOrigins.includes(origin)) {
-				callback(null, true);
+				callback(null, origin || true);
 			} else {
 				callback(new Error(`CORS: origin '${origin}' is not allowed`));
 			}
@@ -67,6 +67,16 @@ app.use("/api/admin/schedule", scheduleUploadRoutes);
 // Health check
 app.get("/api/health", (_req, res) => {
 	res.status(200).json({ success: true, message: "Server is running" });
+});
+
+// Root — confirms API is reachable (nginx health checks / browser visits)
+app.get("/", (_req, res) => {
+	res.status(200).json({ success: true, message: "ULAB One Portal API" });
+});
+
+// 404 handler — all unmatched routes return JSON, never HTML
+app.use((_req, res) => {
+	res.status(404).json({ success: false, message: "Route not found" });
 });
 
 // Error middleware (must be last)
