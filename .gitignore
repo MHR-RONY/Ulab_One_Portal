@@ -19,6 +19,7 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+.env.production
 server/.env
 
 # Local instructions & prompts

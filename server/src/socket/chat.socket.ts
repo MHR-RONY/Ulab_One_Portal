@@ -44,7 +44,13 @@ export const initSocketServer = (httpServer: HttpServer): Server => {
 
 	const io = new Server(httpServer, {
 		cors: {
-			origin: allowedOrigins,
+			origin: (origin, callback) => {
+				if (!origin || allowedOrigins.includes(origin)) {
+					callback(null, origin || true);
+				} else {
+					callback(new Error(`CORS: origin '${origin}' is not allowed`));
+				}
+			},
 			credentials: true,
 		},
 		pingTimeout: 60000,
