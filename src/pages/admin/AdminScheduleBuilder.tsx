@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
 	UploadCloud, CheckCircle2, FileText, FileEdit,
-	Info, History, Pencil, Trash2, User, Save, X,
+	Info, History, Pencil, Trash2, Save, X,
 	BarChart3, Download, Upload, ChevronDown, Loader2, AlertCircle,
 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -156,12 +156,16 @@ const AdminScheduleBuilder = () => {
 
 	const [form, setForm] = useState({
 		courseCode: "",
-		courseName: "",
+		unicode: "",
 		section: "",
 		room: "",
-		day: "Monday",
-		time: "",
-		teacherSearch: "",
+		teacherInitials: "",
+		teacherFullName: "",
+		days: "Sun & Tue" as string,
+		startTime: "",
+		endTime: "",
+		daySuffix: "",
+		isLab: false,
 	});
 
 	const fetchUploadLogs = useCallback(async () => {
@@ -305,10 +309,60 @@ const AdminScheduleBuilder = () => {
 	};
 
 	const handleReset = () => {
-		setForm({ courseCode: "", courseName: "", section: "", room: "", day: "Monday", time: "", teacherSearch: "" });
+		setForm({ courseCode: "", unicode: "", section: "", room: "", teacherInitials: "", teacherFullName: "", days: "Sun & Tue", startTime: "", endTime: "", daySuffix: "", isLab: false });
 	};
 
-	const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); };
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!form.section || !form.room || !form.startTime || !form.endTime) return;
+
+		const DAY_MAP: Record<string, string[]> = {
+			"Sun & Tue": ["Sunday", "Tuesday"],
+			"Mon & Wed": ["Monday", "Wednesday"],
+			"Thu & Sat": ["Thursday", "Saturday"],
+			Sunday: ["Sunday"],
+			Monday: ["Monday"],
+			Tuesday: ["Tuesday"],
+			Wednesday: ["Wednesday"],
+			Thursday: ["Thursday"],
+			Saturday: ["Saturday"],
+		};
+
+		const days = DAY_MAP[form.days] ?? [form.days];
+		const teacherTBA = !form.teacherInitials || form.teacherInitials.toUpperCase() === "TBA";
+		const isLab = form.isLab || /\d+L$/i.test(form.section.trim());
+
+		const newEntry: PendingCourse = {
+			_tempId: `manual-${Date.now()}`,
+			courseCode: form.courseCode.trim(),
+			unicode: form.unicode.trim(),
+			section: form.section.trim(),
+			room: form.room.trim(),
+			teacher: teacherTBA ? "TBA" : form.teacherInitials.trim(),
+			teacherTBA,
+			isLab,
+			daySuffix: form.daySuffix,
+			days,
+			blockedDays: [],
+			startTime: form.startTime,
+			endTime: form.endTime,
+			hasConflict: false,
+			conflictReason: "",
+		};
+
+		setPendingCourses((prev) => [...prev, newEntry]);
+		if (!pendingMeta) {
+			setPendingMeta({
+				fileName: "Manual Entry",
+				fileSize: 0,
+				totalParsed: 1,
+				tbaCount: teacherTBA ? 1 : 0,
+				conflictCount: 0,
+				errors: [],
+			});
+		}
+		handleReset();
+	};
 
 	// --- Offered Courses helpers ---
 	// When pending courses exist, show them instead of saved courses
@@ -379,6 +433,7 @@ const AdminScheduleBuilder = () => {
 							startTime: editForm.startTime ?? c.startTime,
 							endTime: editForm.endTime ?? c.endTime,
 							daySuffix: editForm.daySuffix ?? c.daySuffix,
+							isLab: editForm.isLab !== undefined ? editForm.isLab : c.isLab,
 						}
 						: c
 				)
@@ -393,7 +448,7 @@ const AdminScheduleBuilder = () => {
 			const res = await api.patch(`/admin/schedule/offered-courses/${editingId}`, editForm);
 			if (res.data.success) {
 				setOfferedCourses((prev) =>
-					prev.map((c) => (c._id === editingId ? { ...c, ...res.data.data } : c))
+					prev.map((c) => (c._id === editingId ? { ...c, ...res.data.data.course } : c))
 				);
 				setEditingId(null);
 				setEditForm({});
@@ -623,61 +678,99 @@ const AdminScheduleBuilder = () => {
 											{/* Left column */}
 											<div className="space-y-6">
 												<FloatingInput id="courseCode" label="Course Code" value={form.courseCode} onChange={(v) => handleFormChange("courseCode", v)} />
-												<FloatingInput id="courseName" label="Course Name" value={form.courseName} onChange={(v) => handleFormChange("courseName", v)} />
+												<FloatingInput id="unicode" label="Unicode" value={form.unicode} onChange={(v) => handleFormChange("unicode", v)} />
 												<div className="grid grid-cols-2 gap-4">
 													<FloatingInput id="section" label="Section" value={form.section} onChange={(v) => handleFormChange("section", v)} />
 													<FloatingInput id="room" label="Room" value={form.room} onChange={(v) => handleFormChange("room", v)} />
 												</div>
-											</div>
-											{/* Right column */}
-											<div className="space-y-6">
 												<div className="grid grid-cols-2 gap-4">
-													{/* Schedule Day */}
+													{/* Suffix select */}
 													<div className="relative">
 														<select
-															value={form.day}
-															onChange={(e) => handleFormChange("day", e.target.value)}
+															value={form.daySuffix}
+															onChange={(e) => handleFormChange("daySuffix", e.target.value)}
 															className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none text-sm text-foreground"
 														>
-															{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((d) => (
-																<option key={d} value={d}>{d}</option>
+															<option value="">None</option>
+															{["S", "M", "T", "Wed", "Sat", "Thu"].map((s) => (
+																<option key={s} value={s}>{s}</option>
 															))}
 														</select>
 														<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
-															Schedule Day
+															Suffix
 														</label>
 														<ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-muted-foreground pointer-events-none" />
 													</div>
-													{/* Start Time */}
+													{/* Lab toggle */}
+													<div
+														className="relative flex items-center border border-border rounded-xl px-4 py-3 cursor-pointer select-none"
+														onClick={() => setForm((prev) => ({ ...prev, isLab: !prev.isLab }))}
+													>
+														<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
+															Lab
+														</label>
+														<div className="flex items-center gap-3 w-full">
+															<div className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${form.isLab ? "bg-primary" : "bg-muted"}`}>
+																<div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isLab ? "translate-x-4" : "translate-x-0"}`} />
+															</div>
+															<span className="text-sm text-foreground">{form.isLab ? "Yes" : "No"}</span>
+														</div>
+													</div>
+												</div>
+											</div>
+											{/* Right column */}
+											<div className="space-y-6">
+												{/* Teacher fields */}
+												<div className="grid grid-cols-2 gap-4">
+													<FloatingInput id="teacherInitials" label="Teacher Short Name" value={form.teacherInitials} onChange={(v) => handleFormChange("teacherInitials", v)} />
+													<FloatingInput id="teacherFullName" label="Teacher Full Name" value={form.teacherFullName} onChange={(v) => handleFormChange("teacherFullName", v)} />
+												</div>
+												{/* Schedule Day */}
+												<div className="relative">
+													<select
+														value={form.days}
+														onChange={(e) => handleFormChange("days", e.target.value)}
+														className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none text-sm text-foreground"
+													>
+														<optgroup label="Paired Days">
+															{["Sun & Tue", "Mon & Wed", "Thu & Sat"].map((d) => (
+																<option key={d} value={d}>{d}</option>
+															))}
+														</optgroup>
+														<optgroup label="Individual Days">
+															{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Saturday"].map((d) => (
+																<option key={d} value={d}>{d}</option>
+															))}
+														</optgroup>
+													</select>
+													<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
+														Schedule Day
+													</label>
+													<ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-muted-foreground pointer-events-none" />
+												</div>
+												{/* Time fields */}
+												<div className="grid grid-cols-2 gap-4">
 													<div className="relative">
 														<input
 															type="time"
-															value={form.time}
-															onChange={(e) => handleFormChange("time", e.target.value)}
+															value={form.startTime}
+															onChange={(e) => handleFormChange("startTime", e.target.value)}
 															className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm text-foreground"
 														/>
 														<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
 															Start Time
 														</label>
 													</div>
-												</div>
-												{/* Teacher Assignment */}
-												<div className="p-5 bg-secondary/50 rounded-2xl border border-border space-y-4">
-													<h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Teacher Assignment</h4>
-													<div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
-														<div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground shrink-0">
-															<User className="w-5 h-5" />
-														</div>
-														<div className="flex-1 min-w-0">
-															<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Search Teacher</p>
-															<input
-																type="text"
-																value={form.teacherSearch}
-																onChange={(e) => handleFormChange("teacherSearch", e.target.value)}
-																placeholder="Enter name or ID..."
-																className="w-full border-none p-0 focus:ring-0 bg-transparent text-sm font-semibold placeholder:text-muted-foreground/50 outline-none"
-															/>
-														</div>
+													<div className="relative">
+														<input
+															type="time"
+															value={form.endTime}
+															onChange={(e) => handleFormChange("endTime", e.target.value)}
+															className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm text-foreground"
+														/>
+														<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
+															End Time
+														</label>
 													</div>
 												</div>
 											</div>
@@ -686,14 +779,14 @@ const AdminScheduleBuilder = () => {
 										<div className="flex items-center justify-between pt-4 border-t border-border">
 											<p className="text-xs text-muted-foreground flex items-center gap-1.5">
 												<CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-												Drafts are automatically saved
+												Entry will be added to pending list
 											</p>
 											<div className="flex gap-3">
 												<Button type="button" variant="ghost" className="font-bold text-sm px-6" onClick={handleReset}>
 													Reset Form
 												</Button>
 												<Button type="submit" className="px-8 rounded-xl font-bold shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all">
-													Publish Entry
+													Add Entry
 												</Button>
 											</div>
 										</div>
