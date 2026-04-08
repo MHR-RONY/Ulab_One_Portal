@@ -29,9 +29,26 @@ import { initSocketServer } from "./socket/chat.socket";
 const app = express();
 const httpServer = createServer(app);
 
+// Parse comma-separated allowed origins (supports multiple domains for production)
+const allowedOrigins = (process.env.CLIENT_URL as string)
+	.split(",")
+	.map((o) => o.trim());
+
 // Middleware
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL as string, credentials: true }));
+app.use(
+	cors({
+		origin: (origin, callback) => {
+			// Allow server-to-server requests (no origin) and whitelisted origins
+			if (!origin || allowedOrigins.includes(origin)) {
+				callback(null, true);
+			} else {
+				callback(new Error(`CORS: origin '${origin}' is not allowed`));
+			}
+		},
+		credentials: true,
+	})
+);
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 
