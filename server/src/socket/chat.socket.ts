@@ -38,9 +38,13 @@ const removeOnlineUser = (userId: string, socketId: string) => {
 const isUserOnline = (userId: string): boolean => onlineUsers.has(userId);
 
 export const initSocketServer = (httpServer: HttpServer): Server => {
+	const allowedOrigins = (process.env.CLIENT_URL as string)
+		.split(",")
+		.map((o) => o.trim());
+
 	const io = new Server(httpServer, {
 		cors: {
-			origin: process.env.CLIENT_URL,
+			origin: allowedOrigins,
 			credentials: true,
 		},
 		pingTimeout: 60000,
