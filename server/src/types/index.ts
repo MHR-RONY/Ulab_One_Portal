@@ -71,6 +71,8 @@ export interface ITeacher extends IUser {
 	department: string;
 	assignedCourses: string[];
 	accentColorIndex: number;
+	avatar?: string;
+	bio?: string;
 }
 
 export interface IAdmin extends IUser {

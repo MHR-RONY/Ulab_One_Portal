@@ -6,6 +6,8 @@ export interface ITeacherDocument extends IUserDocument {
 	department: string;
 	assignedCourses: Schema.Types.ObjectId[];
 	accentColorIndex: number;
+	avatar?: string;
+	bio?: string;
 }
 
 const teacherSchema = new Schema<ITeacherDocument>({
@@ -31,6 +33,15 @@ const teacherSchema = new Schema<ITeacherDocument>({
 		default: 0,
 		min: 0,
 		max: 10,
+	},
+	avatar: {
+		type: String,
+		default: null,
+	},
+	bio: {
+		type: String,
+		default: "",
+		trim: true,
 	},
 });
 
