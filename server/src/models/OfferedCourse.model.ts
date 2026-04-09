@@ -30,6 +30,11 @@ const offeredCourseSchema = new Schema<IOfferedCourseDocument>(
 			default: "",
 			trim: true,
 		},
+		teacherFullName: {
+			type: String,
+			default: "",
+			trim: true,
+		},
 		teacherTBA: {
 			type: Boolean,
 			default: false,
