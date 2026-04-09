@@ -7,6 +7,10 @@ import {
 	getTeacherById,
 	updateTeacher,
 	deleteTeacher,
+	getAdminProfile,
+	getAllAdmins,
+	createAdmin,
+	deleteAdmin,
 } from "../controllers/admin.controller";
 import { protect, authorizeRole } from "../middleware/auth.middleware";
 
@@ -14,6 +18,10 @@ const router = Router();
 
 router.use(protect, authorizeRole("admin"));
 
+router.get("/me", getAdminProfile);
+router.get("/admins", getAllAdmins);
+router.post("/admin", createAdmin);
+router.delete("/admin/:id", deleteAdmin);
 router.post("/teacher", createTeacher);
 router.get("/teachers", getAllTeachers);
 router.get("/teacher/:id", getTeacherById);
@@ -23,3 +31,4 @@ router.get("/students", getAllStudents);
 router.delete("/student/:id", deleteStudent);
 
 export default router;
+

@@ -284,11 +284,11 @@ const AdminTeachers = () => {
 										{filteredTeachers.length === 0 ? (
 											<tr>
 												<td colSpan={5} className="px-6 py-16 text-center text-sm text-muted-foreground">
-													No teachers found{activeDept !== "All Departments" ? ` in ${activeDept}` : ""}. Click "Add New Teacher" to create one.
+													{searchQuery ? `No teachers match "${searchQuery}"` : `No teachers found${activeDept !== "All Departments" ? ` in ${activeDept}` : ""}. Click "Add New Teacher" to create one.`}
 												</td>
 											</tr>
 										) : (
-											filteredTeachers.map((teacher, i) => (
+											paginatedTeachers.map((teacher, i) => (
 												<motion.tr
 													key={teacher._id}
 													initial={{ opacity: 0 }}
@@ -359,22 +359,30 @@ const AdminTeachers = () => {
 									Showing <span className="text-foreground font-bold">{filteredTeachers.length}</span> teacher{filteredTeachers.length !== 1 ? "s" : ""}
 								</p>
 								<div className="flex items-center gap-2">
-									<button className="px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium text-foreground disabled:opacity-50" disabled>
+									<button
+										onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+										disabled={currentPage === 1}
+										className="px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+									>
 										Previous
 									</button>
-									{[1].map((page) => (
+									{Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
 										<button
 											key={page}
 											onClick={() => setCurrentPage(page)}
 											className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${currentPage === page
 												? "bg-primary text-primary-foreground"
 												: "border border-border hover:bg-secondary text-foreground"
-												}`}
+											}`}
 										>
 											{page}
 										</button>
 									))}
-									<button className="px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium text-foreground disabled:opacity-50" disabled>
+									<button
+										onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+										disabled={currentPage === totalPages}
+										className="px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+									>
 										Next
 									</button>
 								</div>
