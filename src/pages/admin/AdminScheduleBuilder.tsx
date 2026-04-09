@@ -163,7 +163,7 @@ const AdminScheduleBuilder = () => {
 	const [uploadError, setUploadError] = useState("");
 	const [uploadLogs, setUploadLogs] = useState<UploadLogEntry[]>([]);
 	const [stats, setStats] = useState<ScheduleStats>({ totalCourses: 0, totalSections: 0, tbaCount: 0, conflictCount: 0 });
-	const [semester, setSemester] = useState("Summer 2025");
+	const [semester, setSemester] = useState("Summer 2026");
 	const [saving, setSaving] = useState(false);
 
 	// Pending state: parsed but not yet saved to DB
@@ -925,8 +925,7 @@ const AdminScheduleBuilder = () => {
 											<button
 												key={opt}
 												onClick={() => setActiveDayTab(opt)}
-												className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
-													isActive
+												className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${isActive
 														? isPaired
 															? "bg-primary text-primary-foreground shadow-sm"
 															: opt === "All"
@@ -937,16 +936,15 @@ const AdminScheduleBuilder = () => {
 															: isPaired
 																? "bg-secondary text-muted-foreground hover:bg-primary/10 hover:text-primary"
 																: "bg-secondary/60 text-muted-foreground/70 hover:bg-secondary hover:text-muted-foreground"
-												}`}
+													}`}
 												disabled={count === 0 && opt !== "All"}
 											>
 												{opt}
 												{count > 0 && (
-													<span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
-														isActive
+													<span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${isActive
 															? "bg-white/20 text-inherit"
 															: "bg-muted text-muted-foreground"
-													}`}>
+														}`}>
 														{count}
 													</span>
 												)}

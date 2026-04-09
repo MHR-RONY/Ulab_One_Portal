@@ -4,7 +4,6 @@ import path from "path";
 import { parseScheduleXlsx } from "../utils/parseScheduleXlsx";
 import { OfferedCourseModel } from "../models/OfferedCourse.model";
 import { UploadLogModel } from "../models/UploadLog.model";
-import { TeacherDirectoryModel } from "../models/TeacherDirectory.model";
 import { sendResponse } from "../utils/apiResponse";
 
 // Multer config — store file in memory (not disk), max 50MB
@@ -53,6 +52,12 @@ export const uploadSchedule: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
+		// Build teacher initials -> fullName map from parsed directory
+		const teacherMap = new Map<string, string>();
+		for (const td of result.teacherDirectory) {
+			teacherMap.set(td.initials, td.fullName);
+		}
+
 		// Save entries to DB
 		const docsToInsert = result.entries.map((entry) => ({
 			courseCode: entry.courseCode,
@@ -60,6 +65,7 @@ export const uploadSchedule: RequestHandler = async (req, res, next) => {
 			section: entry.section,
 			room: entry.room,
 			teacherInitials: entry.teacher,
+			teacherFullName: teacherMap.get(entry.teacher) || "",
 			teacherTBA: entry.teacherTBA,
 			isLab: entry.isLab,
 			daySuffix: entry.daySuffix,
@@ -76,30 +82,6 @@ export const uploadSchedule: RequestHandler = async (req, res, next) => {
 			ordered: false,
 		});
 
-		// Save teacher directory if any found
-		let teachersSaved = 0;
-		if (result.teacherDirectory.length > 0) {
-			const teacherDocs = result.teacherDirectory.map((td) => ({
-				initials: td.initials,
-				fullName: td.fullName,
-				semester: trimmedSemester,
-			}));
-
-			// Use bulkWrite with upsert to avoid duplicates
-			const bulkOps = teacherDocs.map((doc) => ({
-				updateOne: {
-					filter: { initials: doc.initials, semester: doc.semester },
-					update: { $set: doc },
-					upsert: true,
-				},
-			}));
-
-			const bulkResult = await TeacherDirectoryModel.bulkWrite(bulkOps);
-			teachersSaved =
-				(bulkResult.upsertedCount || 0) +
-				(bulkResult.modifiedCount || 0);
-		}
-
 		// Log the upload
 		await UploadLogModel.create({
 			fileName: req.file.originalname,
@@ -115,8 +97,7 @@ export const uploadSchedule: RequestHandler = async (req, res, next) => {
 			totalSaved: inserted.length,
 			tbaCount: result.tbaCount,
 			conflictCount: result.conflictCount,
-			teachersSaved,
-			teacherDirectoryCount: result.teacherDirectory.length,
+			teachersMatched: teacherMap.size,
 			errors: result.errors,
 			sampleEntries: result.entries.slice(0, 5),
 		});
@@ -152,26 +133,12 @@ export const parsePreview: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
-		// Save teacher directory if any found
-		let teachersSaved = 0;
-		if (result.teacherDirectory.length > 0) {
-			const bulkOps = result.teacherDirectory.map((td) => ({
-				updateOne: {
-					filter: { initials: td.initials, semester: trimmedSemester },
-					update: { $set: { initials: td.initials, fullName: td.fullName, semester: trimmedSemester } },
-					upsert: true,
-				},
-			}));
-			const bulkResult = await TeacherDirectoryModel.bulkWrite(bulkOps);
-			teachersSaved = (bulkResult.upsertedCount || 0) + (bulkResult.modifiedCount || 0);
-		}
-
 		sendResponse(res, 200, true, "File parsed successfully — review and save", {
 			entries: result.entries,
+			teacherDirectory: result.teacherDirectory,
 			totalParsed: result.totalParsed,
 			tbaCount: result.tbaCount,
 			conflictCount: result.conflictCount,
-			teachersSaved,
 			errors: result.errors,
 			fileName: req.file.originalname,
 			fileSize: req.file.size,
@@ -187,11 +154,12 @@ export const parsePreview: RequestHandler = async (req, res, next) => {
  */
 export const confirmSave: RequestHandler = async (req, res, next) => {
 	try {
-		const { entries, semester, fileName, fileSize } = req.body as {
+		const { entries, semester, fileName, fileSize, teacherDirectory } = req.body as {
 			entries: unknown[];
 			semester: string;
 			fileName: string;
 			fileSize: number;
+			teacherDirectory?: { initials: string; fullName: string }[];
 		};
 
 		if (!semester || typeof semester !== "string" || semester.trim().length === 0) {
@@ -211,6 +179,7 @@ export const confirmSave: RequestHandler = async (req, res, next) => {
 			section?: string;
 			room?: string;
 			teacher?: string;
+			teacherFullName?: string;
 			teacherTBA?: boolean;
 			isLab?: boolean;
 			daySuffix?: string;
@@ -222,12 +191,21 @@ export const confirmSave: RequestHandler = async (req, res, next) => {
 			conflictReason?: string;
 		};
 
+		// Build teacher map from directory if provided
+		const teacherMap = new Map<string, string>();
+		if (Array.isArray(teacherDirectory)) {
+			for (const td of teacherDirectory) {
+				teacherMap.set(td.initials, td.fullName);
+			}
+		}
+
 		const docsToInsert = (entries as EntryBody[]).map((e) => ({
 			courseCode: e.courseCode ?? "",
 			unicode: e.unicode ?? "",
 			section: e.section ?? "",
 			room: e.room ?? "",
 			teacherInitials: e.teacher ?? "",
+			teacherFullName: e.teacherFullName || teacherMap.get(e.teacher ?? "") || "",
 			teacherTBA: e.teacherTBA ?? false,
 			isLab: e.isLab ?? false,
 			daySuffix: e.daySuffix ?? "",
@@ -385,7 +363,7 @@ export const updateOfferedCourse: RequestHandler = async (req, res, next) => {
 
 		const allowedFields = [
 			"courseCode", "unicode", "section", "room",
-			"teacherInitials", "teacherTBA", "isLab",
+			"teacherInitials", "teacherFullName", "teacherTBA", "isLab",
 			"daySuffix", "days", "blockedDays",
 			"startTime", "endTime", "hasConflict", "conflictReason",
 		];

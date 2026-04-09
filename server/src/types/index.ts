@@ -295,6 +295,7 @@ export interface IOfferedCourse {
 	section: string;
 	room: string;
 	teacherInitials: string;
+	teacherFullName: string;
 	teacherTBA: boolean;
 	isLab: boolean;
 	daySuffix: string;
