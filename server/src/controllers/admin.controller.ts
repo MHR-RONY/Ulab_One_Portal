@@ -2,6 +2,7 @@ import { RequestHandler } from "express";
 import { StudentModel } from "../models/Student.model";
 import { TeacherModel } from "../models/Teacher.model";
 import { AdminModel } from "../models/Admin.model";
+import { UserModel } from "../models/User.model";
 import { sendResponse } from "../utils/apiResponse";
 
 export const getAdminProfile: RequestHandler = async (req, res, next) => {
@@ -186,6 +187,62 @@ export const deleteTeacher: RequestHandler = async (req, res, next) => {
 		}
 
 		sendResponse(res, 200, true, "Teacher deleted successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getAllAdmins: RequestHandler = async (req, res, next) => {
+	try {
+		const admins = await AdminModel.find().select("-password -refreshToken").sort({ createdAt: -1 });
+		sendResponse(res, 200, true, "All admins fetched", { admins, total: admins.length });
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const createAdmin: RequestHandler = async (req, res, next) => {
+	try {
+		const { name, email, password } = req.body;
+
+		if (!name || !email || !password) {
+			sendResponse(res, 400, false, "Name, email, and password are required");
+			return;
+		}
+
+		if (password.length < 6) {
+			sendResponse(res, 400, false, "Password must be at least 6 characters");
+			return;
+		}
+
+		const existing = await UserModel.findOne({ email });
+		if (existing) {
+			sendResponse(res, 409, false, "Email already registered");
+			return;
+		}
+
+		const admin = await AdminModel.create({ name, email, password, role: "admin" });
+
+		sendResponse(res, 201, true, "Admin account created successfully", {
+			_id: admin._id,
+			name: admin.name,
+			email: admin.email,
+			role: admin.role,
+			createdAt: admin.createdAt,
+		});
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const deleteAdmin: RequestHandler = async (req, res, next) => {
+	try {
+		const admin = await AdminModel.findByIdAndDelete(req.params.id);
+		if (!admin) {
+			sendResponse(res, 404, false, "Admin not found");
+			return;
+		}
+		sendResponse(res, 200, true, "Admin deleted successfully");
 	} catch (error) {
 		next(error);
 	}

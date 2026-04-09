@@ -322,8 +322,8 @@ const TeacherSettings = () => {
 					<button
 						onClick={() => theme === "dark" && toggleTheme()}
 						className={`p-4 rounded-xl border-2 text-left transition-all ${theme === "light"
-								? "border-primary ring-4 ring-primary/10 bg-card"
-								: "border-border bg-secondary/30 hover:border-muted-foreground/30"
+							? "border-primary ring-4 ring-primary/10 bg-card"
+							: "border-border bg-secondary/30 hover:border-muted-foreground/30"
 							}`}
 					>
 						<div className="flex items-center gap-3 mb-3">
@@ -338,8 +338,8 @@ const TeacherSettings = () => {
 					<button
 						onClick={() => theme === "light" && toggleTheme()}
 						className={`p-4 rounded-xl border-2 text-left transition-all ${theme === "dark"
-								? "border-primary ring-4 ring-primary/10 bg-card"
-								: "border-border bg-secondary/30 hover:border-muted-foreground/30"
+							? "border-primary ring-4 ring-primary/10 bg-card"
+							: "border-border bg-secondary/30 hover:border-muted-foreground/30"
 							}`}
 					>
 						<div className="flex items-center gap-3 mb-3">
@@ -403,8 +403,8 @@ const TeacherSettings = () => {
 							key={tab.id}
 							onClick={() => setActiveTab(tab.id)}
 							className={`flex items-center gap-2 pb-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-									? "border-primary text-primary font-bold"
-									: "border-transparent text-muted-foreground hover:text-foreground"
+								? "border-primary text-primary font-bold"
+								: "border-transparent text-muted-foreground hover:text-foreground"
 								}`}
 						>
 							<tab.icon className="w-4 h-4" />

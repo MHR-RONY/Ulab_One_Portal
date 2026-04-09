@@ -315,11 +315,11 @@ const AdminTeachers = () => {
 										{filteredTeachers.length === 0 ? (
 											<tr>
 												<td colSpan={5} className="px-6 py-16 text-center text-sm text-muted-foreground">
-										{searchQuery ? `No teachers match "${searchQuery}"` : `No teachers found${activeDept !== "All Departments" ? ` in ${activeDept}` : ""}. Click "Add New Teacher" to create one.`}
+													{searchQuery ? `No teachers match "${searchQuery}"` : `No teachers found${activeDept !== "All Departments" ? ` in ${activeDept}` : ""}. Click "Add New Teacher" to create one.`}
 												</td>
 											</tr>
 										) : (
-										paginatedTeachers.map((teacher, i) => (
+											paginatedTeachers.map((teacher, i) => (
 												<motion.tr
 													key={teacher._id}
 													initial={{ opacity: 0 }}
