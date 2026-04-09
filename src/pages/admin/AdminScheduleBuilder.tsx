@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
 	UploadCloud, CheckCircle2, FileText, FileEdit,
 	Info, History, Pencil, Trash2, Save, X,
-	BarChart3, Download, Upload, ChevronDown, Loader2, AlertCircle,
+	BarChart3, Download, Upload, ChevronDown, Loader2, AlertCircle, CalendarDays,
 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -100,6 +100,29 @@ const dataGuidelines = [
 	"Duplicates will be automatically flagged for review.",
 ];
 
+const DAY_MAP: Record<string, string[]> = {
+	"Sun & Tue": ["Sunday", "Tuesday"],
+	"Mon & Wed": ["Monday", "Wednesday"],
+	"Thu & Sat": ["Thursday", "Saturday"],
+	Sunday: ["Sunday"],
+	Monday: ["Monday"],
+	Tuesday: ["Tuesday"],
+	Wednesday: ["Wednesday"],
+	Thursday: ["Thursday"],
+	Saturday: ["Saturday"],
+};
+
+const getDaysLabel = (days: string[]): string => {
+	const sorted = [...days].sort();
+	if (sorted.length === 2) {
+		if (sorted.includes("Sunday") && sorted.includes("Tuesday")) return "Sun & Tue";
+		if (sorted.includes("Monday") && sorted.includes("Wednesday")) return "Mon & Wed";
+		if (sorted.includes("Thursday") && sorted.includes("Saturday")) return "Thu & Sat";
+	}
+	if (sorted.length === 1) return sorted[0];
+	return days.join(", ");
+};
+
 // --- Sub-components ---
 interface FloatingInputProps {
 	id: string;
@@ -150,6 +173,7 @@ const AdminScheduleBuilder = () => {
 	// Offered courses state
 	const [offeredCourses, setOfferedCourses] = useState<OfferedCourse[]>([]);
 	const [activeDeptTab, setActiveDeptTab] = useState("All");
+	const [activeDayTab, setActiveDayTab] = useState("All");
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [editForm, setEditForm] = useState<Partial<OfferedCourse & PendingCourse>>({});
 	const [coursesLoading, setCoursesLoading] = useState(false);
@@ -316,18 +340,6 @@ const AdminScheduleBuilder = () => {
 		e.preventDefault();
 		if (!form.section || !form.room || !form.startTime || !form.endTime) return;
 
-		const DAY_MAP: Record<string, string[]> = {
-			"Sun & Tue": ["Sunday", "Tuesday"],
-			"Mon & Wed": ["Monday", "Wednesday"],
-			"Thu & Sat": ["Thursday", "Saturday"],
-			Sunday: ["Sunday"],
-			Monday: ["Monday"],
-			Tuesday: ["Tuesday"],
-			Wednesday: ["Wednesday"],
-			Thursday: ["Thursday"],
-			Saturday: ["Saturday"],
-		};
-
 		const days = DAY_MAP[form.days] ?? [form.days];
 		const teacherTBA = !form.teacherInitials || form.teacherInitials.toUpperCase() === "TBA";
 		const isLab = form.isLab || /\d+L$/i.test(form.section.trim());
@@ -377,14 +389,45 @@ const AdminScheduleBuilder = () => {
 		return match ? match[0].toUpperCase() : "OTHER";
 	}))).sort()];
 
-	const filteredCourses = activeDeptTab === "All"
+	const deptFilteredCourses = activeDeptTab === "All"
 		? allDisplayCourses
 		: allDisplayCourses.filter((c) => c.courseCode.toUpperCase().startsWith(activeDeptTab));
+
+	// Day filter options with counts
+	const DAY_FILTER_OPTIONS = [
+		"All", "Sun & Tue", "Mon & Wed", "Thu & Sat",
+		"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Saturday",
+	];
+
+	const dayFilterCounts: Record<string, number> = {};
+	DAY_FILTER_OPTIONS.forEach((opt) => {
+		if (opt === "All") {
+			dayFilterCounts[opt] = deptFilteredCourses.length;
+		} else {
+			const targetDays = DAY_MAP[opt] ?? [opt];
+			dayFilterCounts[opt] = deptFilteredCourses.filter((c) => {
+				const label = c.days.length > 0 ? getDaysLabel(c.days) : "Unassigned";
+				if (opt === label) return true;
+				if (targetDays.length === 1 && c.days.includes(targetDays[0]) && c.days.length === 1) return true;
+				return false;
+			}).length;
+		}
+	});
+
+	const filteredCourses = activeDayTab === "All"
+		? deptFilteredCourses
+		: deptFilteredCourses.filter((c) => {
+			const label = c.days.length > 0 ? getDaysLabel(c.days) : "Unassigned";
+			if (activeDayTab === label) return true;
+			const targetDays = DAY_MAP[activeDayTab] ?? [activeDayTab];
+			if (targetDays.length === 1 && c.days.includes(targetDays[0]) && c.days.length === 1) return true;
+			return false;
+		});
 
 	// Group by day for display
 	const coursesByDay: Record<string, typeof filteredCourses> = {};
 	filteredCourses.forEach((c) => {
-		const dayKey = c.days.length > 0 ? c.days.join(", ") : "Unassigned";
+		const dayKey = c.days.length > 0 ? getDaysLabel(c.days) : "Unassigned";
 		if (!coursesByDay[dayKey]) coursesByDay[dayKey] = [];
 		coursesByDay[dayKey].push(c);
 	});
@@ -403,6 +446,8 @@ const AdminScheduleBuilder = () => {
 			startTime: course.startTime,
 			endTime: course.endTime,
 			daySuffix: course.daySuffix,
+			days: course.days,
+			isLab: course.isLab,
 		});
 	};
 
@@ -433,6 +478,7 @@ const AdminScheduleBuilder = () => {
 							startTime: editForm.startTime ?? c.startTime,
 							endTime: editForm.endTime ?? c.endTime,
 							daySuffix: editForm.daySuffix ?? c.daySuffix,
+							days: editForm.days ?? c.days,
 							isLab: editForm.isLab !== undefined ? editForm.isLab : c.isLab,
 						}
 						: c
@@ -470,6 +516,25 @@ const AdminScheduleBuilder = () => {
 			if (res.data.success) {
 				setOfferedCourses((prev) => prev.filter((c) => c._id !== saved._id));
 				fetchStats();
+			}
+		} catch { /* silent */ }
+	};
+
+	const handleToggleLab = async (course: OfferedCourse | PendingCourse) => {
+		const newIsLab = !course.isLab;
+		if ("_tempId" in course && !("_id" in course)) {
+			setPendingCourses((prev) =>
+				prev.map((c) => c._tempId === (course as PendingCourse)._tempId ? { ...c, isLab: newIsLab } : c)
+			);
+			return;
+		}
+		const saved = course as OfferedCourse;
+		try {
+			const res = await api.patch(`/admin/schedule/offered-courses/${saved._id}`, { isLab: newIsLab });
+			if (res.data.success) {
+				setOfferedCourses((prev) =>
+					prev.map((c) => (c._id === saved._id ? { ...c, ...res.data.data.course } : c))
+				);
 			}
 		} catch { /* silent */ }
 	};
@@ -665,61 +730,45 @@ const AdminScheduleBuilder = () => {
 					>
 						{/* Manual Entry Form */}
 						<div className="lg:col-span-2">
-							<Card>
-								<div className="p-6 border-b border-border">
-									<h3 className="font-bold text-base flex items-center gap-2">
-										<FileEdit className="w-5 h-5 text-primary" />
-										2. Manual Data Entry
+							<Card className="overflow-hidden border-0 shadow-lg shadow-primary/5">
+								<div className="px-6 py-5 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+									<h3 className="font-extrabold text-base flex items-center gap-2.5 text-foreground">
+										<div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+											<FileEdit className="w-4 h-4 text-primary" />
+										</div>
+										Manual Data Entry
 									</h3>
+									<p className="text-xs text-muted-foreground mt-1 ml-[42px]">Add courses manually to the pending list</p>
 								</div>
-								<CardContent className="p-6">
+								<CardContent className="p-6 pt-8">
 									<form onSubmit={handleSubmit} className="space-y-0">
-										<div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6 mb-8">
 											{/* Left column */}
-											<div className="space-y-6">
+											<div className="space-y-5">
 												<FloatingInput id="courseCode" label="Course Code" value={form.courseCode} onChange={(v) => handleFormChange("courseCode", v)} />
 												<FloatingInput id="unicode" label="Unicode" value={form.unicode} onChange={(v) => handleFormChange("unicode", v)} />
 												<div className="grid grid-cols-2 gap-4">
 													<FloatingInput id="section" label="Section" value={form.section} onChange={(v) => handleFormChange("section", v)} />
 													<FloatingInput id="room" label="Room" value={form.room} onChange={(v) => handleFormChange("room", v)} />
 												</div>
-												<div className="grid grid-cols-2 gap-4">
-													{/* Suffix select */}
-													<div className="relative">
-														<select
-															value={form.daySuffix}
-															onChange={(e) => handleFormChange("daySuffix", e.target.value)}
-															className="w-full px-4 py-3 bg-transparent border border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none text-sm text-foreground"
-														>
-															<option value="">None</option>
-															{["S", "M", "T", "Wed", "Sat", "Thu"].map((s) => (
-																<option key={s} value={s}>{s}</option>
-															))}
-														</select>
-														<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
-															Suffix
-														</label>
-														<ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-muted-foreground pointer-events-none" />
-													</div>
-													{/* Lab toggle */}
-													<div
-														className="relative flex items-center border border-border rounded-xl px-4 py-3 cursor-pointer select-none"
-														onClick={() => setForm((prev) => ({ ...prev, isLab: !prev.isLab }))}
-													>
-														<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
-															Lab
-														</label>
-														<div className="flex items-center gap-3 w-full">
-															<div className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${form.isLab ? "bg-primary" : "bg-muted"}`}>
-																<div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isLab ? "translate-x-4" : "translate-x-0"}`} />
-															</div>
-															<span className="text-sm text-foreground">{form.isLab ? "Yes" : "No"}</span>
+												{/* Lab toggle */}
+												<div
+													className="relative flex items-center bg-secondary/40 rounded-xl px-4 py-3 cursor-pointer select-none w-fit hover:bg-secondary/60 transition-colors"
+													onClick={() => setForm((prev) => ({ ...prev, isLab: !prev.isLab }))}
+												>
+													<label className="pointer-events-none absolute left-4 -top-2.5 bg-card px-1 text-xs font-bold text-muted-foreground">
+														Lab
+													</label>
+													<div className="flex items-center gap-3">
+														<div className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${form.isLab ? "bg-primary" : "bg-muted"}`}>
+															<div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isLab ? "translate-x-4" : "translate-x-0"}`} />
 														</div>
+														<span className="text-sm text-foreground font-medium">{form.isLab ? "Yes" : "No"}</span>
 													</div>
 												</div>
 											</div>
 											{/* Right column */}
-											<div className="space-y-6">
+											<div className="space-y-5">
 												{/* Teacher fields */}
 												<div className="grid grid-cols-2 gap-4">
 													<FloatingInput id="teacherInitials" label="Teacher Short Name" value={form.teacherInitials} onChange={(v) => handleFormChange("teacherInitials", v)} />
@@ -776,13 +825,13 @@ const AdminScheduleBuilder = () => {
 											</div>
 										</div>
 
-										<div className="flex items-center justify-between pt-4 border-t border-border">
+										<div className="flex items-center justify-between pt-5 border-t border-dashed border-border/60">
 											<p className="text-xs text-muted-foreground flex items-center gap-1.5">
-												<CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+												<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
 												Entry will be added to pending list
 											</p>
 											<div className="flex gap-3">
-												<Button type="button" variant="ghost" className="font-bold text-sm px-6" onClick={handleReset}>
+												<Button type="button" variant="ghost" className="font-bold text-sm px-6 rounded-xl" onClick={handleReset}>
 													Reset Form
 												</Button>
 												<Button type="submit" className="px-8 rounded-xl font-bold shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all">
@@ -836,31 +885,74 @@ const AdminScheduleBuilder = () => {
 					{/* 3. Uploaded Schedule Data */}
 					<motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
 						<Card>
-							<div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-								<h3 className="font-bold text-base flex items-center gap-2">
-									<History className="w-5 h-5 text-primary" />
-									{hasPending ? "Parsed Schedule — Unsaved Preview" : "Uploaded Schedule Data"}
-									{hasPending ? (
-										<Badge variant="secondary" className="ml-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-											{pendingCourses.length} unsaved
-										</Badge>
-									) : offeredCourses.length > 0 ? (
-										<Badge variant="secondary" className="ml-2 text-xs">{offeredCourses.length} courses</Badge>
-									) : null}
-								</h3>
-								<div className="flex items-center gap-2 flex-wrap">
-									{departments.map((dept) => (
-										<button
-											key={dept}
-											onClick={() => setActiveDeptTab(dept)}
-											className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${activeDeptTab === dept
-												? "bg-primary text-primary-foreground"
-												: "bg-secondary text-muted-foreground hover:bg-secondary/80"
+							<div className="p-6 border-b border-border flex flex-col gap-4">
+								<div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+									<h3 className="font-bold text-base flex items-center gap-2">
+										<History className="w-5 h-5 text-primary" />
+										{hasPending ? "Parsed Schedule — Unsaved Preview" : "Uploaded Schedule Data"}
+										{hasPending ? (
+											<Badge variant="secondary" className="ml-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+												{pendingCourses.length} unsaved
+											</Badge>
+										) : offeredCourses.length > 0 ? (
+											<Badge variant="secondary" className="ml-2 text-xs">{offeredCourses.length} courses</Badge>
+										) : null}
+									</h3>
+									<div className="flex items-center gap-2 flex-wrap">
+										{departments.map((dept) => (
+											<button
+												key={dept}
+												onClick={() => setActiveDeptTab(dept)}
+												className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${activeDeptTab === dept
+													? "bg-primary text-primary-foreground"
+													: "bg-secondary text-muted-foreground hover:bg-secondary/80"
+													}`}
+											>
+												{dept}
+											</button>
+										))}
+									</div>
+								</div>
+
+								{/* Day filter tabs */}
+								<div className="flex items-center gap-1.5 flex-wrap">
+									<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mr-1">Days:</span>
+									{DAY_FILTER_OPTIONS.map((opt) => {
+										const count = dayFilterCounts[opt] ?? 0;
+										const isActive = activeDayTab === opt;
+										const isPaired = ["Sun & Tue", "Mon & Wed", "Thu & Sat"].includes(opt);
+										return (
+											<button
+												key={opt}
+												onClick={() => setActiveDayTab(opt)}
+												className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+													isActive
+														? isPaired
+															? "bg-primary text-primary-foreground shadow-sm"
+															: opt === "All"
+																? "bg-foreground text-background shadow-sm"
+																: "bg-primary/80 text-primary-foreground shadow-sm"
+														: count === 0
+															? "bg-secondary/50 text-muted-foreground/40 cursor-default"
+															: isPaired
+																? "bg-secondary text-muted-foreground hover:bg-primary/10 hover:text-primary"
+																: "bg-secondary/60 text-muted-foreground/70 hover:bg-secondary hover:text-muted-foreground"
 												}`}
-										>
-											{dept}
-										</button>
-									))}
+												disabled={count === 0 && opt !== "All"}
+											>
+												{opt}
+												{count > 0 && (
+													<span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+														isActive
+															? "bg-white/20 text-inherit"
+															: "bg-muted text-muted-foreground"
+													}`}>
+														{count}
+													</span>
+												)}
+											</button>
+										);
+									})}
 								</div>
 							</div>
 
@@ -902,8 +994,14 @@ const AdminScheduleBuilder = () => {
 									<div className="space-y-0">
 										{sortedDayKeys.map((dayKey) => (
 											<div key={dayKey}>
-												<div className="px-6 py-3 bg-secondary/60 border-b border-border">
-													<h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{dayKey}</h4>
+												<div className="px-6 py-4 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent border-b border-border border-l-4 border-l-primary flex items-center justify-between">
+													<div className="flex items-center gap-3">
+														<CalendarDays className="w-5 h-5 text-primary" />
+														<h4 className="text-sm font-extrabold text-foreground uppercase tracking-wide">{dayKey}</h4>
+														<Badge variant="secondary" className="text-[11px] font-bold bg-primary/15 text-primary border-0 px-2.5 py-0.5 rounded-full">
+															{coursesByDay[dayKey].length} {coursesByDay[dayKey].length === 1 ? "course" : "courses"}
+														</Badge>
+													</div>
 												</div>
 												<div className="overflow-x-auto">
 													<Table>
@@ -914,9 +1012,9 @@ const AdminScheduleBuilder = () => {
 																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16">Sec</TableHead>
 																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-20">Room</TableHead>
 																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-20">Teacher</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-28">Day</TableHead>
 																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-28">Time</TableHead>
-																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16">Suffix</TableHead>
-																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-12">Lab</TableHead>
+																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16">Lab</TableHead>
 																<TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right pr-6 w-24">Actions</TableHead>
 															</TableRow>
 														</TableHeader>
@@ -1019,6 +1117,31 @@ const AdminScheduleBuilder = () => {
 																		</TableCell>
 																		<TableCell>
 																			{isEditing ? (
+																				<select
+																					className="w-full px-2 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
+																					value={getDaysLabel(editForm.days ?? course.days)}
+																					onChange={(e) => {
+																						const newDays = DAY_MAP[e.target.value] ?? [e.target.value];
+																						setEditForm((prev) => ({ ...prev, days: newDays }));
+																					}}
+																				>
+																					<optgroup label="Paired Days">
+																						{["Sun & Tue", "Mon & Wed", "Thu & Sat"].map((d) => (
+																							<option key={d} value={d}>{d}</option>
+																						))}
+																					</optgroup>
+																					<optgroup label="Individual Days">
+																						{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Saturday"].map((d) => (
+																							<option key={d} value={d}>{d}</option>
+																						))}
+																					</optgroup>
+																				</select>
+																			) : (
+																				<span className="text-sm text-muted-foreground">{getDaysLabel(course.days)}</span>
+																			)}
+																		</TableCell>
+																		<TableCell>
+																			{isEditing ? (
 																				<div className="flex gap-1">
 																					<input
 																						className="w-16 px-1 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
@@ -1039,23 +1162,18 @@ const AdminScheduleBuilder = () => {
 																			)}
 																		</TableCell>
 																		<TableCell>
-																			{isEditing ? (
-																				<input
-																					className="w-full px-2 py-1 text-xs border border-border rounded bg-transparent focus:border-primary outline-none"
-																					value={editForm.daySuffix ?? ""}
-																					onChange={(e) => handleEditField("daySuffix", e.target.value)}
-																				/>
-																			) : (
-																				<span className="text-xs text-muted-foreground">{course.daySuffix || "-"}</span>
-																			)}
-																		</TableCell>
-																		<TableCell>
-																			<div className="flex flex-col gap-1">
-																				{course.isLab ? (
-																					<Badge variant="secondary" className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400 w-fit">LAB</Badge>
-																				) : (
-																					<span className="text-xs text-muted-foreground">-</span>
-																				)}
+																			<div className="flex items-center gap-2">
+																				<div
+																					className="flex items-center gap-2 cursor-pointer select-none"
+																					onClick={() => handleToggleLab(course as OfferedCourse | PendingCourse)}
+																				>
+																					<div className={`relative w-8 h-[18px] rounded-full transition-colors flex-shrink-0 ${course.isLab ? "bg-purple-500" : "bg-muted"}`}>
+																						<div className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] bg-white rounded-full shadow transition-transform ${course.isLab ? "translate-x-[14px]" : "translate-x-0"}`} />
+																					</div>
+																					<span className={`text-[10px] font-semibold ${course.isLab ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`}>
+																						{course.isLab ? "Lab" : "-"}
+																					</span>
+																				</div>
 																				{course.hasConflict && (
 																					<Tooltip>
 																						<TooltipTrigger asChild>
