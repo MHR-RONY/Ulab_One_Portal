@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
 	User, Lock, Bell, Palette, Camera, ShieldCheck, KeyRound,
@@ -47,11 +47,9 @@ const TeacherSettings = () => {
 	const { theme, toggleTheme } = useTheme();
 
 	const [activeTab, setActiveTab] = useState<TabId>("profile");
-	const [fullName, setFullName] = useState("Dr. Sarah Mitchell");
-	const [email, setEmail] = useState("sarah.m@ulab.edu");
-	const [bio, setBio] = useState(
-		"Senior Professor in Computer Science with a focus on Human-Computer Interaction and AI ethics. Serving ULAB for over 10 years."
-	);
+	const [fullName, setFullName] = useState("");
+	const [email, setEmail] = useState("");
+	const [bio, setBio] = useState("");
 	const [twoFactor, setTwoFactor] = useState(true);
 	const [emailNotifs, setEmailNotifs] = useState(true);
 	const [pushNotifs, setPushNotifs] = useState(false);
@@ -63,11 +61,37 @@ const TeacherSettings = () => {
 		return stored !== null ? parseInt(stored, 10) : 0;
 	});
 
-	const { profile } = useTeacherProfile();
+	const { profile, refetch } = useTeacherProfile();
+	const [uploading, setUploading] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		const form = new FormData();
+		form.append("avatar", file);
+		setUploading(true);
+		try {
+			await api.post("/teacher/profile/avatar", form, {
+				headers: { "Content-Type": "multipart/form-data" },
+			});
+			refetch();
+			toast.success("Profile photo updated!");
+		} catch {
+			toast.error("Failed to upload photo. Max size is 5MB.");
+		} finally {
+			setUploading(false);
+			if (fileInputRef.current) fileInputRef.current.value = "";
+		}
+	};
 
 	// Sync from DB once profile loads
 	useEffect(() => {
-		if (profile && typeof profile.accentColorIndex === "number") {
+		if (!profile) return;
+		setFullName(profile.name ?? "");
+		setEmail(profile.email ?? "");
+		setBio(profile.bio ?? "");
+		if (typeof profile.accentColorIndex === "number") {
 			setSelectedAccent(profile.accentColorIndex);
 			localStorage.setItem("teacher-accent-index", String(profile.accentColorIndex));
 		}
@@ -117,16 +141,40 @@ const TeacherSettings = () => {
 				{/* Avatar */}
 				<div className="flex items-center gap-6">
 					<div className="relative group">
-						<div className="w-24 h-24 rounded-full bg-primary/10 border-4 border-card shadow-sm flex items-center justify-center">
-							<User className="w-10 h-10 text-primary/50" />
+						<div className="w-24 h-24 rounded-full bg-primary/10 border-4 border-card shadow-sm flex items-center justify-center overflow-hidden">
+							{profile?.avatar ? (
+								<img
+									src={`${(import.meta.env.VITE_API_URL ?? "http://localhost:5003/api").replace(/\/api$/, "")}${profile.avatar}`}
+									alt={profile.name}
+									className="w-full h-full object-cover"
+									onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; (e.currentTarget.nextSibling as HTMLElement).style.display = "flex"; }}
+								/>
+							) : null}
+							<div
+								className="w-full h-full flex items-center justify-center"
+								style={{ display: profile?.avatar ? "none" : "flex" }}
+							>
+								<User className="w-10 h-10 text-primary/50" />
+							</div>
 						</div>
-						<button className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform">
+						<input
+							ref={fileInputRef}
+							type="file"
+							accept="image/jpeg,image/png,image/gif,image/webp"
+							className="hidden"
+							onChange={handleAvatarChange}
+						/>
+						<button
+							onClick={() => fileInputRef.current?.click()}
+							disabled={uploading}
+							className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform disabled:opacity-60 disabled:cursor-not-allowed"
+						>
 							<Camera className="w-3.5 h-3.5" />
 						</button>
 					</div>
 					<div>
 						<h4 className="font-semibold text-foreground text-sm">Avatar Image</h4>
-						<p className="text-xs text-muted-foreground">JPG, GIF or PNG. Max size 2MB.</p>
+						<p className="text-xs text-muted-foreground">JPG, GIF or PNG. Max size 5MB.</p>
 					</div>
 				</div>
 				{/* Name / Email */}

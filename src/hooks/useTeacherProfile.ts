@@ -8,11 +8,14 @@ interface ITeacherProfile {
 	teacherId: string;
 	department: string;
 	accentColorIndex: number;
+	avatar?: string | null;
+	bio?: string;
 }
 
 export const useTeacherProfile = () => {
 	const [profile, setProfile] = useState<ITeacherProfile | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [version, setVersion] = useState(0);
 
 	useEffect(() => {
 		const fetchProfile = async () => {
@@ -26,7 +29,9 @@ export const useTeacherProfile = () => {
 			}
 		};
 		fetchProfile();
-	}, []);
+	}, [version]);
 
-	return { profile, loading };
+	const refetch = () => setVersion((v) => v + 1);
+
+	return { profile, loading, refetch };
 };
