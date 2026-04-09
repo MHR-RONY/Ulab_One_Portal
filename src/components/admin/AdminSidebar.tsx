@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import api, { setAccessToken } from "@/lib/api";
 
 const navSections = [
@@ -53,8 +54,29 @@ interface AdminSidebarProps {
 	activePage?: string;
 }
 
+interface AdminProfile {
+	name: string;
+	email: string;
+	role: string;
+}
+
+const getInitials = (name: string) =>
+	name
+		.split(" ")
+		.map((n) => n[0])
+		.join("")
+		.toUpperCase()
+		.slice(0, 2);
+
 const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
 	const navigate = useNavigate();
+	const [profile, setProfile] = useState<AdminProfile | null>(null);
+
+	useEffect(() => {
+		api.get<{ data: AdminProfile }>("/admin/me")
+			.then((res) => setProfile(res.data.data))
+			.catch(() => null);
+	}, []);
 
 	return (
 		<aside className="admin-theme admin-sidebar-glossy w-72 h-screen flex-shrink-0 border-r border-white/10 flex flex-col sticky top-0 overflow-hidden">
@@ -121,11 +143,11 @@ const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
 					className="flex items-center gap-3 px-2 py-1"
 				>
 					<div className="admin-avatar-glow w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-xs">
-						AR
+						{profile ? getInitials(profile.name) : "AD"}
 					</div>
 					<div className="flex flex-col min-w-0">
-						<span className="text-sm font-bold text-foreground truncate">Alex Rivera</span>
-						<span className="text-xs text-primary/60 font-medium">Super Admin</span>
+						<span className="text-sm font-bold text-foreground truncate">{profile?.name ?? "Admin"}</span>
+						<span className="text-xs text-primary/60 font-medium capitalize">{profile?.role ?? "admin"}</span>
 					</div>
 				</motion.div>
 				<button

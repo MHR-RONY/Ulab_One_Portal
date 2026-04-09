@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
 	UserPlus, Eye, Pencil, CalendarDays, Trash2,
 	ChevronDown, Loader2, AlertCircle, CheckCircle2,
-	AtSign, Lock, User, Hash, BookOpen, Eye as EyeIcon, EyeOff
+	AtSign, Lock, User, Hash, BookOpen, Eye as EyeIcon, EyeOff, Search
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/select";
 import api from "@/lib/api";
 
-const DEPT_OPTIONS = ["CSE", "BBA", "English", "MSJ", "Bangla", "EEE", "Architecture"];
+const DEPT_OPTIONS = ["CSE", "BBA", "English", "MSJ", "Bangla", "EEE", "Architecture", "ULAB"];
 const DEPT_FILTERS = ["All Departments", ...DEPT_OPTIONS];
+const ITEMS_PER_PAGE = 20;
 
 const AVATAR_COLORS = [
 	"bg-primary/15 text-primary",
@@ -34,6 +35,8 @@ interface ITeacherRow {
 	email: string;
 	teacherId: string;
 	department: string;
+	avatar?: string | null;
+	avatar?: string | null;
 }
 
 const getInitials = (name: string) => {
@@ -45,6 +48,7 @@ const getInitials = (name: string) => {
 const AdminTeachers = () => {
 	const [activeDept, setActiveDept] = useState("All Departments");
 	const [currentPage, setCurrentPage] = useState(1);
+	const [searchQuery, setSearchQuery] = useState("");
 	const navigate = useNavigate();
 
 	// Teacher list state
@@ -87,10 +91,23 @@ const AdminTeachers = () => {
 
 	useEffect(() => { fetchTeachers(); }, []);
 
-	const filteredTeachers =
-		activeDept === "All Departments"
-			? teachers
-			: teachers.filter((t) => t.department === activeDept);
+	useEffect(() => { setCurrentPage(1); }, [searchQuery, activeDept]);
+
+	const filteredTeachers = teachers.filter((t) => {
+		const matchesDept = activeDept === "All Departments" || t.department === activeDept;
+		const q = searchQuery.trim().toLowerCase();
+		const matchesSearch =
+			!q ||
+			t.name.toLowerCase().includes(q) ||
+			t.email.toLowerCase().includes(q) ||
+			t.teacherId.toLowerCase().includes(q);
+		return matchesDept && matchesSearch;
+	});
+	const totalPages = Math.max(1, Math.ceil(filteredTeachers.length / ITEMS_PER_PAGE));
+	const paginatedTeachers = filteredTeachers.slice(
+		(currentPage - 1) * ITEMS_PER_PAGE,
+		currentPage * ITEMS_PER_PAGE
+	);
 
 	const validate = () => {
 		const errors: Partial<typeof form> = {};
@@ -229,26 +246,40 @@ const AdminTeachers = () => {
 						</button>
 					</motion.div>
 
-					{/* Department Filters */}
+					{/* Search + Department Filters */}
 					<motion.div
 						initial={{ opacity: 0, y: 10 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ delay: 0.1, duration: 0.4 }}
-						className="flex flex-wrap items-center gap-3 mb-6"
+						className="flex flex-col gap-4 mb-6"
 					>
-						{DEPT_FILTERS.map((dept) => (
-							<button
-								key={dept}
-								onClick={() => setActiveDept(dept)}
-								className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${activeDept === dept
-									? "bg-primary text-primary-foreground"
-									: "bg-card border border-border hover:border-primary/40 text-foreground"
-									}`}
-							>
-								{dept}
-								{dept !== "All Departments" && <ChevronDown className="w-3.5 h-3.5" />}
-							</button>
-						))}
+						{/* Search bar */}
+						<div className="relative max-w-sm">
+							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+							<input
+								type="text"
+								placeholder="Search by name, email or ID..."
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+							/>
+						</div>
+						{/* Dept filters */}
+						<div className="flex flex-wrap items-center gap-3">
+							{DEPT_FILTERS.map((dept) => (
+								<button
+									key={dept}
+									onClick={() => setActiveDept(dept)}
+									className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${activeDept === dept
+										? "bg-primary text-primary-foreground"
+										: "bg-card border border-border hover:border-primary/40 text-foreground"
+										}`}
+								>
+									{dept}
+									{dept !== "All Departments" && <ChevronDown className="w-3.5 h-3.5" />}
+								</button>
+							))}
+						</div>
 					</motion.div>
 
 					{/* Table */}
@@ -284,11 +315,11 @@ const AdminTeachers = () => {
 										{filteredTeachers.length === 0 ? (
 											<tr>
 												<td colSpan={5} className="px-6 py-16 text-center text-sm text-muted-foreground">
-													No teachers found{activeDept !== "All Departments" ? ` in ${activeDept}` : ""}. Click "Add New Teacher" to create one.
+										{searchQuery ? `No teachers match "${searchQuery}"` : `No teachers found${activeDept !== "All Departments" ? ` in ${activeDept}` : ""}. Click "Add New Teacher" to create one.`}
 												</td>
 											</tr>
 										) : (
-											filteredTeachers.map((teacher, i) => (
+										paginatedTeachers.map((teacher, i) => (
 												<motion.tr
 													key={teacher._id}
 													initial={{ opacity: 0 }}
@@ -298,8 +329,18 @@ const AdminTeachers = () => {
 												>
 													<td className="px-6 py-4">
 														<div className="flex items-center gap-3">
-															<div className={`w-10 h-10 rounded-full ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center font-bold text-xs`}>
-																{getInitials(teacher.name)}
+															<div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
+																{teacher.avatar && (
+																	<img
+																		src={`${(import.meta.env.VITE_API_URL ?? "http://localhost:5003/api").replace(/\/api$/, "")}${teacher.avatar}`}
+																		alt={teacher.name}
+																		className="w-full h-full object-cover absolute inset-0"
+																		onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+																	/>
+																)}
+																<div className={`w-full h-full ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center font-bold text-xs`}>
+																	{getInitials(teacher.name)}
+																</div>
 															</div>
 															<div>
 																<p className="text-sm font-bold text-foreground">{teacher.name}</p>
@@ -356,28 +397,43 @@ const AdminTeachers = () => {
 						{!loadingTeachers && !fetchError && (
 							<div className="px-6 py-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
 								<p className="text-sm text-muted-foreground font-medium">
-									Showing <span className="text-foreground font-bold">{filteredTeachers.length}</span> teacher{filteredTeachers.length !== 1 ? "s" : ""}
+									Showing{" "}
+									<span className="text-foreground font-bold">
+										{filteredTeachers.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}&ndash;{Math.min(currentPage * ITEMS_PER_PAGE, filteredTeachers.length)}
+									</span>{" of "}
+									<span className="text-foreground font-bold">{filteredTeachers.length}</span> teacher{filteredTeachers.length !== 1 ? "s" : ""}
 								</p>
-								<div className="flex items-center gap-2">
-									<button className="px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium text-foreground disabled:opacity-50" disabled>
-										Previous
-									</button>
-									{[1].map((page) => (
+								{totalPages > 1 && (
+									<div className="flex items-center gap-2">
 										<button
-											key={page}
-											onClick={() => setCurrentPage(page)}
-											className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${currentPage === page
-												? "bg-primary text-primary-foreground"
-												: "border border-border hover:bg-secondary text-foreground"
-												}`}
+											onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+											disabled={currentPage === 1}
+											className="px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
 										>
-											{page}
+											Previous
 										</button>
-									))}
-									<button className="px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium text-foreground disabled:opacity-50" disabled>
-										Next
-									</button>
-								</div>
+										{Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
+											<button
+												key={page}
+												onClick={() => setCurrentPage(page)}
+												className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${
+													currentPage === page
+														? "bg-primary text-primary-foreground"
+														: "border border-border hover:bg-secondary text-foreground"
+												}`}
+											>
+												{page}
+											</button>
+										))}
+										<button
+											onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+											disabled={currentPage === totalPages}
+											className="px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+										>
+											Next
+										</button>
+									</div>
+								)}
 							</div>
 						)}
 					</motion.div>
