@@ -11,6 +11,7 @@ for (const key of requiredEnvVars) {
 }
 
 import express from "express";
+import path from "path";
 import { createServer } from "http";
 import cors from "cors";
 import helmet from "helmet";
@@ -51,6 +52,17 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
+
+// Serve uploaded teacher photos as static files
+// crossOriginResourcePolicy must be disabled so the browser can load images cross-origin
+app.use(
+	"/uploads",
+	(req, res, next) => {
+		res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+		next();
+	},
+	express.static(path.join(__dirname, "../uploads"))
+);
 
 // Connect to database
 connectDB();
