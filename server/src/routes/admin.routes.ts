@@ -7,6 +7,7 @@ import {
 	getTeacherById,
 	updateTeacher,
 	deleteTeacher,
+	getAdminProfile,
 } from "../controllers/admin.controller";
 import { protect, authorizeRole } from "../middleware/auth.middleware";
 
@@ -14,6 +15,7 @@ const router = Router();
 
 router.use(protect, authorizeRole("admin"));
 
+router.get("/me", getAdminProfile);
 router.post("/teacher", createTeacher);
 router.get("/teachers", getAllTeachers);
 router.get("/teacher/:id", getTeacherById);
