@@ -28,11 +28,11 @@ export const getTeacherProfile: RequestHandler = async (req, res, next) => {
 
 export const updateTeacherProfile: RequestHandler = async (req, res, next) => {
 	try {
-		const { name, department } = req.body;
+		const { name, department, bio } = req.body;
 
 		const teacher = await TeacherModel.findByIdAndUpdate(
 			req.user?.id,
-			{ name, department },
+			{ name, department, bio },
 			{ new: true, runValidators: true }
 		).select("-password");
 
@@ -42,6 +42,32 @@ export const updateTeacherProfile: RequestHandler = async (req, res, next) => {
 		}
 
 		sendResponse(res, 200, true, "Teacher profile updated successfully", teacher);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const uploadTeacherAvatar: RequestHandler = async (req, res, next) => {
+	try {
+		if (!req.file) {
+			sendResponse(res, 400, false, "No image file provided");
+			return;
+		}
+
+		const avatarUrl = `/uploads/teacher-photos/${req.user!.id}.jpg`;
+
+		const teacher = await TeacherModel.findByIdAndUpdate(
+			req.user!.id,
+			{ avatar: avatarUrl },
+			{ new: true }
+		).select("-password");
+
+		if (!teacher) {
+			sendResponse(res, 404, false, "Teacher not found");
+			return;
+		}
+
+		sendResponse(res, 200, true, "Profile photo updated successfully", { avatar: avatarUrl });
 	} catch (error) {
 		next(error);
 	}

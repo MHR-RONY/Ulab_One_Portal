@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
 	getTeacherProfile,
 	updateTeacherProfile,
+	uploadTeacherAvatar,
 	updateTeacherSettings,
 	createCourse,
 	getTeacherCourses,
@@ -15,6 +16,7 @@ import {
 	unmarkHoliday,
 } from "../controllers/teacher.controller";
 import { protect, authorizeRole } from "../middleware/auth.middleware";
+import { uploadTeacherPhoto } from "../middleware/upload.middleware";
 
 const router = Router();
 
@@ -22,6 +24,7 @@ router.use(protect, authorizeRole("teacher"));
 
 router.get("/profile", getTeacherProfile);
 router.put("/profile", updateTeacherProfile);
+router.post("/profile/avatar", uploadTeacherPhoto, uploadTeacherAvatar);
 router.patch("/settings", updateTeacherSettings);
 
 router.get("/courses", getTeacherCourses);
