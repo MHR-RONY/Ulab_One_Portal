@@ -86,20 +86,14 @@ export const getAllStudents: RequestHandler = async (req, res, next) => {
 
 export const getAllTeachers: RequestHandler = async (req, res, next) => {
 	try {
-		const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-		const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10)));
-		const skip = (page - 1) * limit;
-
 		const [teachers, total] = await Promise.all([
-			TeacherModel.find().select("-password").skip(skip).limit(limit),
+			TeacherModel.find().select("-password -refreshToken").sort({ name: 1 }),
 			TeacherModel.countDocuments(),
 		]);
 
 		sendResponse(res, 200, true, "All teachers fetched successfully", {
 			teachers,
 			total,
-			page,
-			pages: Math.ceil(total / limit),
 		});
 	} catch (error) {
 		next(error);

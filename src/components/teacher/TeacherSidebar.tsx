@@ -260,10 +260,23 @@ const TeacherSidebar = ({ activePage = "Dashboard" }: TeacherSidebarProps) => {
 			<div className="p-4 border-t border-border space-y-3 relative z-10">
 				<div className="flex items-center gap-3 px-2">
 					<motion.div
-						className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-xs teacher-avatar-glow"
+						className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 teacher-avatar-glow"
 						whileHover={{ scale: 1.05 }}
 					>
-						{profile ? getInitials(profile.name) : "--"}
+						{profile?.avatar ? (
+							<img
+								src={`${(import.meta.env.VITE_API_URL ?? "http://localhost:5003/api").replace(/\/api$/, "")}${profile.avatar}`}
+								alt={profile.name}
+								className="w-full h-full object-cover"
+								onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; (e.currentTarget.nextSibling as HTMLElement).style.display = "flex"; }}
+							/>
+						) : null}
+						<div
+							className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-xs"
+							style={{ display: profile?.avatar ? "none" : "flex" }}
+						>
+							{profile ? getInitials(profile.name) : "--"}
+						</div>
 					</motion.div>
 					<div className="flex flex-col min-w-0">
 						<span className="text-sm font-bold text-foreground truncate">{profile?.name ?? "Loading..."}</span>
