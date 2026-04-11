@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { StudentRoute, TeacherRoute, AdminRoute } from "@/components/auth/RouteGuards";
+import GlobalLoader from "@/components/ui/GlobalLoader";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminStudents from "@/pages/admin/AdminStudents";
 import AdminStudentDetail from "@/pages/admin/AdminStudentDetail";
@@ -40,6 +41,7 @@ import AdminLogin from "@/pages/auth/AdminLogin";
 import TeacherLogin from "@/pages/auth/TeacherLogin";
 import StudentLogin from "@/pages/auth/StudentLogin";
 import StudentSignup from "@/pages/auth/StudentSignup";
+import StudentForgotPassword from "@/pages/auth/StudentForgotPassword";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +54,7 @@ const App = () => (
 					<Toaster />
 					<Sonner />
 					<BrowserRouter>
+						<GlobalLoader />
 						<Routes>
 							{/* Student Routes */}
 							<Route element={<StudentRoute />}>
@@ -100,6 +103,7 @@ const App = () => (
 							{/* Auth Routes */}
 							<Route path="/login" element={<StudentLogin />} />
 							<Route path="/signup" element={<StudentSignup />} />
+							<Route path="/forgot-password" element={<StudentForgotPassword />} />
 							<Route path="/admin/login" element={<AdminLogin />} />
 							<Route path="/teacher/login" element={<TeacherLogin />} />
 

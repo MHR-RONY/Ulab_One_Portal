@@ -1,4 +1,5 @@
 import axios from "axios";
+import { loadingStore } from "./loadingStore";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5003/api";
 
@@ -23,12 +24,17 @@ api.interceptors.request.use((config) => {
 	if (accessToken) {
 		config.headers.Authorization = `Bearer ${accessToken}`;
 	}
+	loadingStore.increment();
 	return config;
 });
 
 api.interceptors.response.use(
-	(response) => response,
+	(response) => {
+		loadingStore.decrement();
+		return response;
+	},
 	async (error) => {
+		loadingStore.decrement();
 		const originalRequest = error.config;
 		const isAuthEndpoint = originalRequest?.url?.includes("/auth/");
 
