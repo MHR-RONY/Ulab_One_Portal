@@ -168,9 +168,9 @@ const StudentLogin = () => {
 								<Switch />
 								<span className="text-sm text-foreground">Remember me</span>
 							</div>
-							<button type="button" className="text-xs font-bold hover:underline" style={{ color: "hsl(220 85% 55%)" }}>
+							<Link to="/forgot-password" className="text-xs font-bold hover:underline" style={{ color: "hsl(220 85% 55%)" }}>
 								Forgot password?
-							</button>
+							</Link>
 						</div>
 
 						{/* Submit */}

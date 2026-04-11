@@ -14,6 +14,12 @@ import {
 	getPendingRegistration,
 	deletePendingRegistration,
 	incrementOtpAttempts,
+	storePasswordReset,
+	getPasswordReset,
+	incrementResetOtpAttempts,
+	markResetVerified,
+	validateResetToken,
+	deletePasswordReset,
 } from "../utils/otp";
 import { sendOtpEmail } from "../utils/emailService";
 
@@ -411,6 +417,108 @@ export const logout: RequestHandler = async (req, res, next) => {
 		});
 
 		sendResponse(res, 200, true, "Logged out successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ─── Student Forgot Password ─────────────────────────────────
+
+export const forgotStudentPassword: RequestHandler = async (req, res, next) => {
+	try {
+		const { email } = req.body;
+
+		if (!email) {
+			sendResponse(res, 400, false, "Email is required");
+			return;
+		}
+
+		if (!email.endsWith("@ulab.edu.bd")) {
+			sendResponse(res, 400, false, "Email must end with @ulab.edu.bd");
+			return;
+		}
+
+		const student = await StudentModel.findOne({ email });
+		if (!student) {
+			// Return success even if not found to prevent email enumeration
+			sendResponse(res, 200, true, "If the email is registered, an OTP has been sent");
+			return;
+		}
+
+		const otp = generateOtp();
+		storePasswordReset(email, otp);
+		await sendOtpEmail(email, student.name, otp);
+
+		sendResponse(res, 200, true, "OTP sent to your email");
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const verifyResetOtp: RequestHandler = async (req, res, next) => {
+	try {
+		const { email, otp } = req.body;
+
+		if (!email || !otp) {
+			sendResponse(res, 400, false, "Email and OTP are required");
+			return;
+		}
+
+		const pending = getPasswordReset(email);
+		if (!pending) {
+			sendResponse(res, 400, false, "OTP expired or no pending reset. Please try again.");
+			return;
+		}
+
+		if (pending.otp !== otp) {
+			const stillValid = incrementResetOtpAttempts(email);
+			if (!stillValid) {
+				sendResponse(res, 429, false, "Too many failed attempts. Please request a new OTP.");
+			} else {
+				sendResponse(res, 400, false, "Invalid OTP");
+			}
+			return;
+		}
+
+		const resetToken = markResetVerified(email);
+
+		sendResponse(res, 200, true, "OTP verified successfully", { resetToken });
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const resetStudentPassword: RequestHandler = async (req, res, next) => {
+	try {
+		const { email, resetToken, newPassword } = req.body;
+
+		if (!email || !resetToken || !newPassword) {
+			sendResponse(res, 400, false, "Email, reset token, and new password are required");
+			return;
+		}
+
+		if (newPassword.length < 6) {
+			sendResponse(res, 400, false, "Password must be at least 6 characters");
+			return;
+		}
+
+		if (!validateResetToken(email, resetToken)) {
+			sendResponse(res, 400, false, "Invalid or expired reset token. Please start over.");
+			return;
+		}
+
+		const student = await StudentModel.findOne({ email });
+		if (!student) {
+			sendResponse(res, 404, false, "Student not found");
+			return;
+		}
+
+		student.password = newPassword;
+		await student.save();
+
+		deletePasswordReset(email);
+
+		sendResponse(res, 200, true, "Password reset successfully. You can now login with your new password.");
 	} catch (error) {
 		next(error);
 	}

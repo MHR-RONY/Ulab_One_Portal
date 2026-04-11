@@ -10,6 +10,9 @@ import {
 	loginAdmin,
 	refreshToken,
 	logout,
+	forgotStudentPassword,
+	verifyResetOtp,
+	resetStudentPassword,
 } from "../controllers/auth.controller";
 import { protect } from "../middleware/auth.middleware";
 
@@ -43,6 +46,11 @@ router.post("/register/student/verify-otp", otpLimiter, verifyStudentOtp);
 router.post("/login/student", loginLimiter, loginStudent);
 router.post("/login/teacher", loginLimiter, loginTeacher);
 router.post("/login/admin", loginLimiter, loginAdmin);
+
+// Student forgot password
+router.post("/forgot-password/student/send-otp", otpLimiter, forgotStudentPassword);
+router.post("/forgot-password/student/verify-otp", otpLimiter, verifyResetOtp);
+router.post("/forgot-password/student/reset", otpLimiter, resetStudentPassword);
 
 // Token management
 router.post("/refresh-token", refreshToken);
