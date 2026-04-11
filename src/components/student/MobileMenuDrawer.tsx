@@ -48,7 +48,7 @@ const MobileMenuDrawer = ({ activePage }: MobileMenuDrawerProps) => {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative z-50 w-72 bg-card/95 backdrop-blur-xl h-full shadow-2xl flex flex-col border-l border-border/50"
+              className="relative z-50 w-72 bg-card h-screen shadow-2xl flex flex-col border-l border-border/50"
             >
               <div className="p-5 flex items-center justify-between border-b border-border/50">
                 <div className="flex items-center gap-2.5">
