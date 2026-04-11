@@ -12,6 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTheme } from "@/contexts/ThemeContext";
 import { motion } from "framer-motion";
 import { useStudentSettings } from "@/hooks/useStudentSettings";
+import { toast } from "sonner";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -233,10 +234,10 @@ const Settings = () => {
                         </div>
                       </div>
                       <button
-                        onClick={() => setTwoFactor(!twoFactor)}
-                        className={`relative w-11 h-6 rounded-full transition-colors ${twoFactor ? "bg-primary" : "bg-muted"}`}
+                        onClick={() => toast("Two-Factor Authentication is coming soon!")}
+                        className="relative w-11 h-6 rounded-full transition-colors bg-muted cursor-not-allowed opacity-60"
                       >
-                        <div className={`absolute top-[2px] w-5 h-5 bg-card rounded-full shadow transition-transform ${twoFactor ? "translate-x-[22px]" : "translate-x-[2px]"}`} />
+                        <div className="absolute top-[2px] w-5 h-5 bg-card rounded-full shadow transition-transform translate-x-[2px]" />
                       </button>
                     </div>
                   </div>
@@ -259,14 +260,13 @@ const Settings = () => {
                   <div className="space-y-5">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Language</label>
-                      <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="w-full bg-muted/50 border-none rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                      <div
+                        onClick={() => toast("Language selection is coming soon!")}
+                        className="w-full bg-muted/50 border-none rounded-lg px-3 py-2.5 text-sm text-foreground flex items-center justify-between cursor-not-allowed opacity-60 select-none"
                       >
-                        <option>English (US)</option>
-                        <option>Bengali</option>
-                      </select>
+                        <span>English (US)</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-sm font-medium text-foreground">Dark Mode</span>
@@ -366,44 +366,56 @@ const Settings = () => {
 
       {/* Change Password Dialog */}
       <Dialog open={pwDialogOpen} onOpenChange={setPwDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="student-theme sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Lock className="w-4 h-4" />
+              </div>
+              <DialogTitle className="text-foreground">Change Password</DialogTitle>
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Current Password</label>
+              <label className="text-xs font-bold text-primary uppercase tracking-wider">Current Password</label>
               <Input
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter current password"
+                className="focus-visible:ring-primary/30 focus-visible:border-primary/50"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">New Password</label>
+              <label className="text-xs font-bold text-primary uppercase tracking-wider">New Password</label>
               <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password"
+                className="focus-visible:ring-primary/30 focus-visible:border-primary/50"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Confirm New Password</label>
+              <label className="text-xs font-bold text-primary uppercase tracking-wider">Confirm New Password</label>
               <Input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
+                className="focus-visible:ring-primary/30 focus-visible:border-primary/50"
               />
             </div>
             {pwError && <p className="text-sm text-destructive font-medium">{pwError}</p>}
             {pwSuccess && <p className="text-sm text-stat-emerald font-medium">{pwSuccess}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPwDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handlePasswordChange} disabled={pwLoading}>
+            <Button variant="outline" className="rounded-xl border-border hover:border-primary/40 hover:text-primary" onClick={() => setPwDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handlePasswordChange}
+              disabled={pwLoading}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20"
+            >
               {pwLoading ? "Changing..." : "Change Password"}
             </Button>
           </DialogFooter>

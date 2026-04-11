@@ -174,6 +174,21 @@ export function generateScheduleVariations(
 		return { variations: [], hasConflicts: false, conflictMessages: [] };
 	}
 
+	// 2b. When teacher is the top priority, reorder sections so preferred
+	//     teacher's section comes first per course — backtracking tries it first
+	const teacherIsTop = modes.length > 0 && modes[0] === "teacher";
+	if (teacherIsTop) {
+		for (const [unicode, list] of groups) {
+			const prefTeacher = preferredTeachers.get(unicode);
+			if (!prefTeacher || prefTeacher === "TBA") continue;
+			list.sort((a, b) => {
+				const aMatch = a.teacher === prefTeacher ? 0 : 1;
+				const bMatch = b.teacher === prefTeacher ? 0 : 1;
+				return aMatch - bMatch;
+			});
+		}
+	}
+
 	// 3. Backtracking — collect conflict-free combos
 	const valid: SectionMeta[][] = [];
 	const MAX_VALID = 500;
@@ -294,6 +309,9 @@ export function generateScheduleVariations(
 	scored.sort((a, b) => {
 		// Fewer conflicts first (only matters when hasConflicts)
 		if (a.con !== b.con) return a.con - b.con;
+		// When teacher is the top priority, sort by teacher match count first
+		// This ensures maximum teacher matches always wins regardless of other scores
+		if (teacherIsTop && a.tm !== b.tm) return b.tm - a.tm;
 		return b.score - a.score;
 	});
 

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Sidebar from "@/components/student/Sidebar";
 import BottomNav from "@/components/student/BottomNav";
 import MobileMenuDrawer from "@/components/student/MobileMenuDrawer";
@@ -175,9 +177,51 @@ const ScheduleBuilder = () => {
 	const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
 	const [sectionsData, setSectionsData] = useState<Record<string, Section[]>>({});
 	const [instructorsData, setInstructorsData] = useState<Record<string, Instructor>>({});
+	const [showManualAdd, setShowManualAdd] = useState(false);
+	const [manualCourseId, setManualCourseId] = useState<string>("");
+	const [manualSectionId, setManualSectionId] = useState<string>("");
+	const [manualConflictMsg, setManualConflictMsg] = useState<string>("");
 	const [isLoading, setIsLoading] = useState(true);
+	const [savedMode, setSavedMode] = useState(false);
+	const [isLoadingSaved, setIsLoadingSaved] = useState(true);
 
 	const API_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:5003/api").replace(/\/api$/, "");
+
+	// Fetch saved schedule on mount — if exists, show it instead of builder
+	useEffect(() => {
+		const fetchSavedSchedule = async () => {
+			try {
+				const { data } = await api.get<{ data: { sections: GeneratedSection[]; semester: string; savedAt: string } | null }>("/schedule/my-schedule?semester=Summer 2026");
+				if (data.data && data.data.sections && data.data.sections.length > 0) {
+					const sections = data.data.sections;
+					const dayOrder = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
+					const daysUsed = dayOrder.filter((d) => sections.some((s) => s.days.includes(d)));
+					const variation: ScheduleVariation = {
+						label: "Saved Schedule",
+						isBest: true,
+						score: 100,
+						totalDays: daysUsed.length,
+						daysUsed,
+						avgGapMinutes: 0,
+						teacherMatchCount: 0,
+						totalCourses: sections.length,
+						conflicts: [],
+						sections,
+					};
+					setScheduleVariations([variation]);
+					setSelectedSchedule(0);
+					setSavedMode(true);
+					setStep(4);
+					clearDraft();
+				}
+			} catch {
+				// No saved schedule or error — continue to builder
+			} finally {
+				setIsLoadingSaved(false);
+			}
+		};
+		fetchSavedSchedule();
+	}, []);
 
 	// Fetch courses immediately on mount — do NOT wait for profile
 	useEffect(() => {
@@ -280,13 +324,20 @@ const ScheduleBuilder = () => {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 	}, [step, selected, activeTab, selectedSections, selectedModes, scheduleVariations, selectedSchedule, generationConflicts, saved]);
 
+	// On mobile, skip the variation cards step and go straight to finalize
+	useEffect(() => {
+		if (isMobile && step === 4 && scheduleVariations.length > 0) {
+			setStep(5);
+		}
+	}, [isMobile, step, scheduleVariations.length]);
+
 	const resetAll = () => {
 		clearDraft();
 		setStep(1); setSearch(""); setSelected([]); setActiveTab("");
 		setSelectedSections({}); setViewingInstructor(null); setSelectedModes(["teacher", "gap", "days"]);
 		setScheduleVariations([]); setGenerationConflicts([]);
 		setSelectedSchedule(null); setStep4Tab("weekly"); setSaved(false);
-		setMobileFilter("All Courses");
+		setMobileFilter("All Courses"); setSavedMode(false);
 	};
 
 	const handleSave = async () => {
@@ -299,6 +350,7 @@ const ScheduleBuilder = () => {
 			await api.post("/schedule/save-sections", { sectionIds, semester: "Summer 2026" });
 			clearDraft();
 			setSaved(true);
+			setSavedMode(true);
 			toast.success("Schedule saved successfully");
 		} catch (err) {
 			const error = err as { response?: { data?: { message?: string } } };
@@ -336,7 +388,7 @@ const ScheduleBuilder = () => {
 			if (result.variations.length > 0) {
 				setSelectedSchedule(0);
 			}
-			setStep(4);
+			setStep(isMobile ? 5 : 4);
 		} catch {
 			toast.error("Failed to generate schedules. Please try again.");
 		} finally {
@@ -427,6 +479,98 @@ const ScheduleBuilder = () => {
 		const section = (sectionsData[courseKey] || []).find((s) => s.id === sectionId);
 		setViewingInstructor(section?.instructor ?? null);
 		setSelectedSections((prev) => ({ ...prev, [courseKey]: sectionId }));
+	};
+
+	/** Check if a candidate section conflicts with the active variation schedule */
+	const checkManualConflict = (courseKey: string, sectionId: string): string | null => {
+		if (!activeVariation) return null;
+		const section = (sectionsData[courseKey] || []).find((s) => s.id === sectionId);
+		if (!section) return null;
+
+		const candDays = section.days.split(",").map((d) => d.trim());
+		const [candStart, candEnd] = section.time.split("-").map((t) => parseTimeToMin(t.trim()));
+
+		for (const existing of activeVariation.sections) {
+			const existStart = parseTimeToMin(existing.startTime);
+			const existEnd = parseTimeToMin(existing.endTime);
+			for (const cd of candDays) {
+				for (const ed of existing.days) {
+					const cdNorm = cd.toLowerCase();
+					const edNorm = ed.toLowerCase().startsWith(cd.toLowerCase().slice(0, 3)) ? cdNorm : ed.toLowerCase();
+					const dayMatches = cd.toLowerCase() === ed.toLowerCase() ||
+						ed.toLowerCase().startsWith(cd.toLowerCase().slice(0, 3)) ||
+						cd.toLowerCase().startsWith(ed.toLowerCase().slice(0, 3));
+					if (dayMatches && candStart < existEnd && existStart < candEnd) {
+						return `Time conflict with ${existing.courseCode} (${existing.teacher}) on ${ed}: ${existing.startTime}-${existing.endTime}`;
+					}
+				}
+			}
+		}
+		return null;
+	};
+
+	/** Handle manual add of a course section to the active variation */
+	const handleManualAdd = () => {
+		if (!activeVariation || !manualCourseId || !manualSectionId) return;
+
+		const course = availableCourses.find((c) => c.id === manualCourseId);
+		const section = (sectionsData[manualCourseId] || []).find((s) => s.id === manualSectionId);
+		if (!course || !section) return;
+
+		// Check for duplicate course
+		const alreadyHas = activeVariation.sections.some((s) => s.courseCode === course.code || s.unicode === course.unicode);
+		if (alreadyHas) {
+			toast.error(`${course.code} is already in your schedule.`);
+			return;
+		}
+
+		// Check conflict
+		const conflict = checkManualConflict(manualCourseId, manualSectionId);
+		if (conflict) {
+			toast.error(conflict);
+			return;
+		}
+
+		// Parse days from "Saturday, Monday" format to full day names
+		const dayMap: Record<string, string> = { sat: "Saturday", sun: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday" };
+		const parsedDays = section.days.split(",").map((d) => {
+			const trimmed = d.trim().toLowerCase();
+			return dayMap[trimmed] || dayMap[trimmed.slice(0, 3)] || d.trim();
+		});
+
+		const [startTime, endTime] = section.time.split("-").map((t) => t.trim());
+		const newSection: GeneratedSection = {
+			sectionId: section.id,
+			courseCode: course.code,
+			unicode: course.unicode,
+			title: course.title,
+			section: section.label.replace(/^S/, ""),
+			teacher: section.instructor,
+			days: parsedDays,
+			startTime,
+			endTime,
+			room: section.room,
+			isLab: course.credits <= 1,
+			isPreferredTeacher: false,
+		};
+
+		setScheduleVariations((prev) => {
+			const updated = [...prev];
+			if (selectedSchedule !== null && updated[selectedSchedule]) {
+				updated[selectedSchedule] = {
+					...updated[selectedSchedule],
+					sections: [...updated[selectedSchedule].sections, newSection],
+					totalCourses: updated[selectedSchedule].totalCourses + 1,
+				};
+			}
+			return updated;
+		});
+
+		toast.success(`${course.code} - ${section.label} added to your schedule.`);
+		setShowManualAdd(false);
+		setManualCourseId("");
+		setManualSectionId("");
+		setManualConflictMsg("");
 	};
 
 	const currentSections = sectionsData[activeTab] || [];
@@ -653,7 +797,7 @@ const ScheduleBuilder = () => {
 							</button>
 							<div className="flex-1">
 								<h1 className="text-lg font-bold leading-tight text-foreground">Step 2: Section Selection</h1>
-								<p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Registration Spring 2024</p>
+								<p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Registration Summer 2026</p>
 							</div>
 							<MobileMenuDrawer activePage="Schedule Builder" />
 						</div>
@@ -884,7 +1028,7 @@ const ScheduleBuilder = () => {
 							<div className="flex-1 flex flex-col gap-6 min-w-0">
 								<div className="flex flex-col gap-1">
 									<h2 className="text-2xl font-bold text-foreground">{activeCourse?.code}: {activeCourse?.title}</h2>
-									<p className="text-muted-foreground">Available sections for Spring 2024</p>
+									<p className="text-muted-foreground">Available sections for Summer 2026</p>
 								</div>
 
 								{/* Section Tabs */}
@@ -1379,26 +1523,36 @@ const ScheduleBuilder = () => {
 				<>
 					{/* Desktop Step 4 */}
 					<div className="px-8 pt-6 pb-2">
-						<div className="flex items-center gap-2 text-sm flex-wrap">
-							<button onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground transition-colors">Schedule Builder</button>
-							<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-							<button onClick={() => { setScheduleVariations([]); setSelectedSchedule(null); setStep(3); }} className="text-muted-foreground hover:text-foreground transition-colors">Step 3: Review</button>
-							<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-							<span className="text-schedule-accent font-semibold">Step 4: Final Edit & Save</span>
-						</div>
+						{savedMode ? (
+							<div className="flex items-center gap-2 text-sm">
+								<span className="text-schedule-accent font-semibold">Your Saved Schedule</span>
+							</div>
+						) : (
+							<div className="flex items-center gap-2 text-sm flex-wrap">
+								<button onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground transition-colors">Schedule Builder</button>
+								<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+								<button onClick={() => { setScheduleVariations([]); setSelectedSchedule(null); setStep(3); }} className="text-muted-foreground hover:text-foreground transition-colors">Step 3: Review</button>
+								<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+								<span className="text-schedule-accent font-semibold">Step 4: Final Edit & Save</span>
+							</div>
+						)}
 					</div>
 					<div className="px-8 pb-4">
 						<div className="flex items-start justify-between">
 							<div>
-								<h1 className="text-2xl font-bold text-foreground">Finalize Your Schedule</h1>
-								<p className="text-muted-foreground text-sm mt-1">Drag sections to swap timings or manually add missing requirements.</p>
+								<h1 className="text-2xl font-bold text-foreground">{savedMode ? "Your Schedule" : "Finalize Your Schedule"}</h1>
+								<p className="text-muted-foreground text-sm mt-1">{savedMode ? "This is your saved schedule for Summer 2026." : "Drag sections to swap timings or manually add missing requirements."}</p>
 							</div>
-							<div className="flex items-center gap-3">
-								<Button variant="outline" className="gap-2"><PlusCircle className="w-4 h-4" />Manual Add</Button>
-								<motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-									<Button onClick={handleSave} className="gap-2 rounded-xl bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold shadow-[0_6px_24px_-4px_hsl(var(--schedule-accent)/0.55)]"><Save className="w-4 h-4" />Save Schedule</Button>
-								</motion.div>
-							</div>
+							{savedMode ? (
+								<Button onClick={resetAll} variant="outline" className="gap-2"><Plus className="w-4 h-4" />Rebuild Schedule</Button>
+							) : (
+								<div className="flex items-center gap-3">
+									<Button variant="outline" className="gap-2" onClick={() => { setManualCourseId(""); setManualSectionId(""); setManualConflictMsg(""); setShowManualAdd(true); }}><PlusCircle className="w-4 h-4" />Manual Add</Button>
+									<motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+										<Button onClick={handleSave} className="gap-2 rounded-xl bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold shadow-[0_6px_24px_-4px_hsl(var(--schedule-accent)/0.55)]"><Save className="w-4 h-4" />Save Schedule</Button>
+									</motion.div>
+								</div>
+							)}
 						</div>
 					</div>
 					<div className="flex-1 overflow-y-auto px-8 pb-28">
@@ -1488,30 +1642,44 @@ const ScheduleBuilder = () => {
 								)}
 							</div>
 						</div>
-						<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-							className="mt-6 bg-schedule-accent/5 border border-dashed border-schedule-accent/30 rounded-2xl p-6 text-center">
-							<div className="w-10 h-10 rounded-full bg-schedule-accent/10 flex items-center justify-center mx-auto mb-3"><Info className="w-5 h-5 text-schedule-accent" /></div>
-							<h3 className="font-bold text-foreground">Checking for Conflicts</h3>
-							<p className="text-sm text-muted-foreground mt-1">No schedule overlaps detected. You are ready to save and proceed to formal advising.</p>
-						</motion.div>
-						<AnimatePresence>
-							{saved && (
-								<motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mt-6 bg-stat-emerald/5 border border-stat-emerald/30 rounded-2xl p-8 text-center">
-									<div className="w-14 h-14 rounded-full bg-stat-emerald/10 flex items-center justify-center mx-auto mb-4"><CheckCircle2 className="w-7 h-7 text-stat-emerald" /></div>
-									<h3 className="font-bold text-foreground text-lg">Schedule Saved Successfully!</h3>
-									<p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">Your schedule has been saved. You can now proceed to formal advising or create a new schedule.</p>
-									<div className="flex items-center justify-center gap-3 mt-5">
-										<Button variant="outline" onClick={resetAll} className="gap-2"><Plus className="w-4 h-4" />Create New Schedule</Button>
-										<Button className="gap-2 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold">Proceed to Advising<ArrowRight className="w-4 h-4" /></Button>
-									</div>
+						{savedMode ? (
+							<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+								className="mt-6 bg-schedule-accent/5 border border-dashed border-schedule-accent/30 rounded-2xl p-8 text-center">
+								<div className="w-14 h-14 rounded-full bg-schedule-accent/10 flex items-center justify-center mx-auto mb-4"><Calendar className="w-7 h-7 text-schedule-accent" /></div>
+								<h3 className="font-bold text-foreground text-lg">Want to change your schedule?</h3>
+								<p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">You can rebuild your schedule from scratch. Your current schedule will be replaced when you save a new one.</p>
+								<div className="flex items-center justify-center gap-3 mt-5">
+									<Button onClick={resetAll} variant="outline" className="gap-2"><Plus className="w-4 h-4" />Rebuild Schedule</Button>
+								</div>
+							</motion.div>
+						) : (
+							<>
+								<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+									className="mt-6 bg-schedule-accent/5 border border-dashed border-schedule-accent/30 rounded-2xl p-6 text-center">
+									<div className="w-10 h-10 rounded-full bg-schedule-accent/10 flex items-center justify-center mx-auto mb-3"><Info className="w-5 h-5 text-schedule-accent" /></div>
+									<h3 className="font-bold text-foreground">Checking for Conflicts</h3>
+									<p className="text-sm text-muted-foreground mt-1">No schedule overlaps detected. You are ready to save and proceed to formal advising.</p>
 								</motion.div>
-							)}
-						</AnimatePresence>
+								<AnimatePresence>
+									{saved && (
+										<motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mt-6 bg-stat-emerald/5 border border-stat-emerald/30 rounded-2xl p-8 text-center">
+											<div className="w-14 h-14 rounded-full bg-stat-emerald/10 flex items-center justify-center mx-auto mb-4"><CheckCircle2 className="w-7 h-7 text-stat-emerald" /></div>
+											<h3 className="font-bold text-foreground text-lg">Schedule Saved Successfully!</h3>
+											<p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">Your schedule has been saved. You can now proceed to formal advising or create a new schedule.</p>
+											<div className="flex items-center justify-center gap-3 mt-5">
+												<Button variant="outline" onClick={resetAll} className="gap-2"><Plus className="w-4 h-4" />Create New Schedule</Button>
+												<Button className="gap-2 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold">Proceed to Advising<ArrowRight className="w-4 h-4" /></Button>
+											</div>
+										</motion.div>
+									)}
+								</AnimatePresence>
+							</>
+						)}
 					</div>
 				</>
 			)}
 			<div className={`border-t border-border ${isMobile ? "px-4" : "px-8"} py-3 flex items-center justify-between text-xs text-muted-foreground`}>
-				<div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-stat-emerald" /><span className="font-medium text-stat-emerald">System Ready</span><span className="mx-2">|</span><span>Summer 2024 Enrollment Phase 1</span></div>
+				<div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-stat-emerald" /><span className="font-medium text-stat-emerald">System Ready</span><span className="mx-2">|</span><span>Summer 2026 Enrollment Phase 1</span></div>
 				<span>Last Auto-saved: 2 mins ago</span>
 			</div>
 		</div>
@@ -1519,18 +1687,21 @@ const ScheduleBuilder = () => {
 
 	// ===================== STEP 5 (Mobile Finalize) =====================
 	const [mobileStep5Tab, setMobileStep5Tab] = useState<"weekly" | "list" | "conflicts">("weekly");
+	const [mobileListDay, setMobileListDay] = useState<string>("SAT");
 
 	const step5Content = (
 		<div className="flex-1 flex flex-col min-h-0">
 			{/* Header */}
 			<div className="sticky top-0 z-20 bg-card border-b border-border">
 				<div className="flex items-center px-4 py-3 gap-3">
-					<button onClick={() => setStep(4)} className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors">
-						<ArrowLeft className="w-5 h-5 text-muted-foreground" />
-					</button>
+					{!savedMode && (
+						<button onClick={() => setStep(3)} className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors">
+							<ArrowLeft className="w-5 h-5 text-muted-foreground" />
+						</button>
+					)}
 					<div className="flex-1">
-						<h1 className="text-lg font-bold leading-tight text-foreground">Final Edit & Save</h1>
-						<p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Step 4 of 4</p>
+						<h1 className="text-lg font-bold leading-tight text-foreground">{savedMode ? "Your Schedule" : "Finalize Your Schedule"}</h1>
+						<p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{savedMode ? "Summer 2026" : "Step 4 of 4"}</p>
 					</div>
 					<button className="flex items-center justify-center w-10 h-10 rounded-full bg-schedule-accent/10 text-schedule-accent">
 						<HelpCircle className="w-5 h-5" />
@@ -1599,13 +1770,14 @@ const ScheduleBuilder = () => {
 
 				{mobileStep5Tab === "list" && (
 					<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-						{/* Day selector - weekly days only */}
+						{/* Day selector */}
 						<div className="flex gap-2 mb-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-							{["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"].map((day, di) => {
-								const isActive = di === 1;
+							{["SAT", "SUN", "MON", "TUE", "WED", "THU"].map((day) => {
+								const isActive = mobileListDay === day;
 								return (
 									<button
 										key={day}
+										onClick={() => setMobileListDay(day)}
 										className={`flex items-center justify-center min-w-[52px] py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${isActive
 											? "bg-schedule-accent text-primary-foreground shadow-md"
 											: "bg-card border border-border text-muted-foreground"
@@ -1618,16 +1790,34 @@ const ScheduleBuilder = () => {
 						</div>
 
 						{/* Classes count */}
-						<div className="flex items-center justify-between mb-3">
-							<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Schedule</p>
-							<Badge className="bg-schedule-accent/10 text-schedule-accent border-schedule-accent/20 text-[10px] font-semibold">
-								{activeVariation?.sections.length || 0} Classes
-							</Badge>
-						</div>
+						{(() => {
+							const dayFullMap: Record<string, string> = { SAT: "Saturday", SUN: "Sunday", MON: "Monday", TUE: "Tuesday", WED: "Wednesday", THU: "Thursday" };
+							const filteredSections = (activeVariation?.sections ?? []).filter((sec) =>
+								sec.days.some((d) => d.toLowerCase().startsWith(mobileListDay.toLowerCase().slice(0, 3)))
+							);
+							return (
+								<>
+									<div className="flex items-center justify-between mb-3">
+										<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{dayFullMap[mobileListDay]}</p>
+										<Badge className="bg-schedule-accent/10 text-schedule-accent border-schedule-accent/20 text-[10px] font-semibold">
+											{filteredSections.length} Classes
+										</Badge>
+									</div>
+									{filteredSections.length === 0 && (
+										<div className="flex flex-col items-center justify-center py-10">
+											<p className="text-sm font-semibold text-foreground">No classes on {dayFullMap[mobileListDay]}</p>
+											<p className="text-xs text-muted-foreground mt-1">Enjoy your free day!</p>
+										</div>
+									)}
+								</>
+							);
+						})()}
 
 						{/* Compact class cards */}
 						<div className="space-y-2.5">
-							{activeVariation?.sections.map((sec, ci) => {
+							{(activeVariation?.sections ?? []).filter((sec) =>
+								sec.days.some((d) => d.toLowerCase().startsWith(mobileListDay.toLowerCase().slice(0, 3)))
+							).map((sec, ci) => {
 								const color = timetableColors[ci % timetableColors.length];
 								return (
 									<motion.div
@@ -1703,41 +1893,57 @@ const ScheduleBuilder = () => {
 					</motion.div>
 				)}
 
-				{/* Conflict check info */}
-				<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-					className="mt-6 bg-schedule-accent/5 border border-dashed border-schedule-accent/30 rounded-2xl p-5 text-center">
-					<div className="w-10 h-10 rounded-full bg-schedule-accent/10 flex items-center justify-center mx-auto mb-3">
-						<Info className="w-5 h-5 text-schedule-accent" />
-					</div>
-					<h3 className="font-bold text-foreground text-sm">Checking for Conflicts</h3>
-					<p className="text-xs text-muted-foreground mt-1">No schedule overlaps detected. You are ready to save.</p>
-				</motion.div>
-
-				{/* Save success */}
-				<AnimatePresence>
-					{saved && (
-						<motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-							className="mt-5 bg-stat-emerald/5 border border-stat-emerald/30 rounded-2xl p-6 text-center">
-							<div className="w-14 h-14 rounded-full bg-stat-emerald/10 flex items-center justify-center mx-auto mb-4">
-								<CheckCircle2 className="w-7 h-7 text-stat-emerald" />
+				{savedMode ? (
+					<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+						className="mt-6 bg-schedule-accent/5 border border-dashed border-schedule-accent/30 rounded-2xl p-6 text-center">
+						<div className="w-12 h-12 rounded-full bg-schedule-accent/10 flex items-center justify-center mx-auto mb-3">
+							<Calendar className="w-6 h-6 text-schedule-accent" />
+						</div>
+						<h3 className="font-bold text-foreground text-sm">Want to change your schedule?</h3>
+						<p className="text-xs text-muted-foreground mt-1">Rebuild your schedule from scratch. Your current schedule will be replaced when you save a new one.</p>
+						<Button onClick={resetAll} variant="outline" className="gap-2 mt-4">
+							<Plus className="w-4 h-4" />Rebuild Schedule
+						</Button>
+					</motion.div>
+				) : (
+					<>
+						{/* Conflict check info */}
+						<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+							className="mt-6 bg-schedule-accent/5 border border-dashed border-schedule-accent/30 rounded-2xl p-5 text-center">
+							<div className="w-10 h-10 rounded-full bg-schedule-accent/10 flex items-center justify-center mx-auto mb-3">
+								<Info className="w-5 h-5 text-schedule-accent" />
 							</div>
-							<h3 className="font-bold text-foreground text-lg">Schedule Saved!</h3>
-							<p className="text-sm text-muted-foreground mt-2">Your schedule has been saved. Proceed to advising or create a new one.</p>
-							<div className="flex flex-col gap-3 mt-5">
-								<Button onClick={resetAll} variant="outline" className="w-full gap-2">
-									<Plus className="w-4 h-4" />Create New Schedule
-								</Button>
-								<Button className="w-full gap-2 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold">
-									Proceed to Advising <ArrowRight className="w-4 h-4" />
-								</Button>
-							</div>
+							<h3 className="font-bold text-foreground text-sm">Checking for Conflicts</h3>
+							<p className="text-xs text-muted-foreground mt-1">No schedule overlaps detected. You are ready to save.</p>
 						</motion.div>
-					)}
-				</AnimatePresence>
+
+						{/* Save success */}
+						<AnimatePresence>
+							{saved && (
+								<motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+									className="mt-5 bg-stat-emerald/5 border border-stat-emerald/30 rounded-2xl p-6 text-center">
+									<div className="w-14 h-14 rounded-full bg-stat-emerald/10 flex items-center justify-center mx-auto mb-4">
+										<CheckCircle2 className="w-7 h-7 text-stat-emerald" />
+									</div>
+									<h3 className="font-bold text-foreground text-lg">Schedule Saved!</h3>
+									<p className="text-sm text-muted-foreground mt-2">Your schedule has been saved. Proceed to advising or create a new one.</p>
+									<div className="flex flex-col gap-3 mt-5">
+										<Button onClick={resetAll} variant="outline" className="w-full gap-2">
+											<Plus className="w-4 h-4" />Create New Schedule
+										</Button>
+										<Button className="w-full gap-2 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold">
+											Proceed to Advising <ArrowRight className="w-4 h-4" />
+										</Button>
+									</div>
+								</motion.div>
+							)}
+						</AnimatePresence>
+					</>
+				)}
 			</div>
 
 			{/* Bottom Save Bar */}
-			{!saved && (
+			{!saved && !savedMode && (
 				<div className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border px-4 py-4 pb-6">
 					<div className="flex gap-3">
 						<Button variant="outline" className="flex-1 gap-2">
@@ -1754,7 +1960,100 @@ const ScheduleBuilder = () => {
 		</div>
 	);
 
+	const manualAddDialog = (
+		<Dialog open={showManualAdd} onOpenChange={setShowManualAdd}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>Manually Add Course</DialogTitle>
+				</DialogHeader>
+				<div className="space-y-4 pt-2">
+					<div>
+						<label className="text-sm font-medium text-foreground mb-1.5 block">Course</label>
+						<Select value={manualCourseId} onValueChange={(val) => { setManualCourseId(val); setManualSectionId(""); setManualConflictMsg(""); }}>
+							<SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger>
+							<SelectContent className="max-h-60">
+								{availableCourses.map((c) => (
+									<SelectItem key={c.id} value={c.id}>{c.code} - {c.title}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					{manualCourseId && (sectionsData[manualCourseId] || []).length > 0 && (
+						<div>
+							<label className="text-sm font-medium text-foreground mb-1.5 block">Section</label>
+							<Select value={manualSectionId} onValueChange={(val) => {
+								setManualSectionId(val);
+								const conflict = checkManualConflict(manualCourseId, val);
+								setManualConflictMsg(conflict || "");
+							}}>
+								<SelectTrigger><SelectValue placeholder="Select a section" /></SelectTrigger>
+								<SelectContent className="max-h-60">
+									{(sectionsData[manualCourseId] || []).map((s) => (
+										<SelectItem key={s.id} value={s.id}>
+											{s.label} - {s.instructor} ({s.days}, {s.time})
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
+					{manualSectionId && (() => {
+						const sec = (sectionsData[manualCourseId] || []).find((s) => s.id === manualSectionId);
+						if (!sec) return null;
+						return (
+							<div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
+								<div className="flex justify-between"><span className="text-muted-foreground">Instructor</span><span className="font-medium">{sec.instructor}</span></div>
+								<div className="flex justify-between"><span className="text-muted-foreground">Days</span><span className="font-medium">{sec.days}</span></div>
+								<div className="flex justify-between"><span className="text-muted-foreground">Time</span><span className="font-medium">{sec.time}</span></div>
+								<div className="flex justify-between"><span className="text-muted-foreground">Room</span><span className="font-medium">{sec.room}</span></div>
+								<div className="flex justify-between"><span className="text-muted-foreground">Seats</span><span className="font-medium">{sec.seats}/{sec.totalSeats}</span></div>
+							</div>
+						);
+					})()}
+					{manualConflictMsg && (
+						<div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+							<AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+							<p className="text-sm text-destructive">{manualConflictMsg}</p>
+						</div>
+					)}
+					<Button
+						className="w-full gap-2 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold"
+						disabled={!manualCourseId || !manualSectionId || !!manualConflictMsg}
+						onClick={handleManualAdd}
+					>
+						<PlusCircle className="w-4 h-4" />Add to Schedule
+					</Button>
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
+
 	const content = step === 1 ? step1Content : step === 2 ? step2Content : step === 3 ? step3Content : step === 4 ? step4Content : step5Content;
+
+	// Show loading while checking for saved schedule
+	if (isLoadingSaved) {
+		if (isMobile) {
+			return (
+				<div className="h-screen bg-background flex items-center justify-center">
+					<div className="flex flex-col items-center gap-3">
+						<div className="w-8 h-8 border-3 border-schedule-accent border-t-transparent rounded-full animate-spin" />
+						<p className="text-sm text-muted-foreground">Loading your schedule...</p>
+					</div>
+				</div>
+			);
+		}
+		return (
+			<div className="min-h-screen bg-background flex">
+				<Sidebar activePage="Schedule Builder" />
+				<main className="flex-1 flex items-center justify-center">
+					<div className="flex flex-col items-center gap-3">
+						<div className="w-8 h-8 border-3 border-schedule-accent border-t-transparent rounded-full animate-spin" />
+						<p className="text-sm text-muted-foreground">Loading your schedule...</p>
+					</div>
+				</main>
+			</div>
+		);
+	}
 
 	if (isMobile) {
 		return (
@@ -1766,6 +2065,7 @@ const ScheduleBuilder = () => {
 				<div className="mobile-schedule-builder flex-1 flex flex-col min-h-0">
 					{content}
 				</div>
+				{manualAddDialog}
 			</div>
 		);
 	}
@@ -1774,6 +2074,7 @@ const ScheduleBuilder = () => {
 		<div className="min-h-screen bg-background flex">
 			<Sidebar activePage="Schedule Builder" />
 			<main className="flex-1 flex flex-col overflow-hidden">{content}</main>
+			{manualAddDialog}
 		</div>
 	);
 };

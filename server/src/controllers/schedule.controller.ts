@@ -48,11 +48,55 @@ export const buildSchedule: RequestHandler = async (req, res, next) => {
 
 export const getMySchedule: RequestHandler = async (req, res, next) => {
 	try {
-		const schedule = await ScheduleModel.find({ student: req.user?.id })
+		const semester = (req.query.semester as string)?.trim();
+		const query: Record<string, unknown> = { student: req.user?.id };
+		if (semester) query.semester = semester;
+
+		const schedule = await ScheduleModel.findOne(query)
 			.populate("courses")
 			.sort({ createdAt: -1 });
 
-		sendResponse(res, 200, true, "Schedule fetched successfully", schedule);
+		if (!schedule) {
+			sendResponse(res, 200, true, "No saved schedule found", null);
+			return;
+		}
+
+		const sections = (schedule.courses as unknown as Array<{
+			_id: { toString(): string };
+			courseCode: string;
+			unicode: string;
+			title: string;
+			section: string;
+			teacherTBA: boolean;
+			teacherFullName: string;
+			teacherInitials: string;
+			days: string[];
+			startTime: string;
+			endTime: string;
+			room: string;
+			isLab: boolean;
+		}>).map((c) => ({
+			sectionId: c._id.toString(),
+			courseCode: c.courseCode,
+			unicode: c.unicode,
+			title: c.title,
+			section: c.section,
+			teacher: c.teacherTBA ? "TBA" : (c.teacherFullName || c.teacherInitials || "TBA"),
+			days: c.days,
+			startTime: c.startTime,
+			endTime: c.endTime,
+			room: c.room,
+			isLab: c.isLab,
+			isPreferredTeacher: false,
+		}));
+
+		sendResponse(res, 200, true, "Schedule fetched successfully", {
+			_id: schedule._id,
+			semester: schedule.semester,
+			isConflictFree: schedule.isConflictFree,
+			savedAt: schedule.createdAt,
+			sections,
+		});
 	} catch (error) {
 		next(error);
 	}
@@ -118,19 +162,26 @@ export const saveScheduleSections: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
-		// Prevent double-save: check if student already saved a schedule this semester
+		// If student already has a schedule for this semester, replace it (restore old seats first)
 		const existing = await ScheduleModel.findOne({ student: studentId, semester: semester.trim() });
 		if (existing) {
-			sendResponse(res, 409, false, "You have already saved a schedule for this semester");
-			return;
+			const oldSectionIds = existing.courses.map((c) => c.toString());
+			if (oldSectionIds.length > 0) {
+				await Promise.all(
+					oldSectionIds.map((id) =>
+						OfferedCourseModel.findByIdAndUpdate(id, { $inc: { seats: 1 } })
+					)
+				);
+			}
+			await ScheduleModel.findByIdAndDelete(existing._id);
 		}
 
-		// Atomically decrement seats only if seats > 0
+		// Atomically decrement seats only if seats > 0 (or seats field is missing — treated as available)
 		const results = await Promise.all(
 			sectionIds.map((id: string) =>
 				OfferedCourseModel.findOneAndUpdate(
-					{ _id: id, seats: { $gt: 0 } },
-					{ $inc: { seats: -1 } },
+					{ _id: id, $or: [{ seats: { $gt: 0 } }, { seats: { $exists: false } }, { seats: null }] },
+					[{ $set: { seats: { $subtract: [{ $ifNull: ["$seats", 45] }, 1] } } }],
 					{ new: true }
 				)
 			)

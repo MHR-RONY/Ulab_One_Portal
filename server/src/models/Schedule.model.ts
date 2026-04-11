@@ -13,7 +13,7 @@ const scheduleSchema = new Schema<IScheduleDocument>(
 		courses: [
 			{
 				type: Schema.Types.ObjectId,
-				ref: "Course",
+				ref: "OfferedCourse",
 			},
 		],
 		semester: {

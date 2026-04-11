@@ -72,18 +72,18 @@ The platform is deployed on a **self-managed VPS** with a Node.js/Express REST A
 
 ### Student Portal
 
-| Feature                | Description                                                                                                                                                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **OTP Registration**   | Students sign up by entering their name, student ID, department, semester, and email. A 6-digit OTP is sent to their email (5-minute expiry) and verified before the account is created                                                           |
-| **Dashboard**          | Personalized welcome screen with a stats grid (GPA, attendance, assignments), today's classes panel, an attendance summary card, recent academic resources, and a quick-task widget                                                               |
+| Feature                | Description                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OTP Registration**   | Students sign up by entering their name, student ID, department, semester, and email. A 6-digit OTP is sent to their email (5-minute expiry) and verified before the account is created                                                                                                                                                                               |
+| **Dashboard**          | Personalized welcome screen with a stats grid (GPA, attendance, assignments), today's classes panel, an attendance summary card, recent academic resources, and a quick-task widget                                                                                                                                                                                   |
 | **Schedule Builder**   | 5-step wizard: browse offered courses → pick preferred sections/teachers per course (with real-time conflict prevention) → select priority-ordered optimization modes (Preferred Teachers, Minimize Gaps, Fewer Days) → review 3 algorithmically generated schedule variations on a 6-day timetable (SAT–THU) → save with atomic seat reservation and rollback safety |
-| **Attendance Tracker** | Subject-wise attendance progress bars, overall stats (classes attended / total, overall %), a month-view calendar with color-coded day cells (present, absent, holiday, no class), and a recent activity log table. Data is live from the backend |
-| **Notes Library**      | Searchable, department-filtered library of crowd-sourced course notes. Filter by subject department, search by course name or code                                                                                                                |
-| **Course Notes**       | Per-course note feed with a community upvote/downvote system. Notes re-rank live after each vote. Top 3 notes receive gold/silver/bronze trophy badges                                                                                            |
-| **Real-Time Chat**     | Conversation list + message thread view powered by Socket.io. Direct messages to teachers and peers, course group chats (auto-synced from enrolled courses), block/unblock contacts, online presence indicators                                   |
-| **Profile**            | Student ID, degree program, CGPA, credits completed, enrolled subjects with per-subject attendance bars                                                                                                                                           |
-| **Settings**           | Edit name/email, toggle dark mode, change language (English/Bengali), configure email/push notifications, toggle two-factor authentication, change password                                                                                       |
-| **Mobile Layout**      | Dedicated mobile UI: sticky MobileHeader, BottomNav, slide-out MobileMenuDrawer, MobileSchedule, MobileTasks, MobileAcademicOverview                                                                                                              |
+| **Attendance Tracker** | Subject-wise attendance progress bars, overall stats (classes attended / total, overall %), a month-view calendar with color-coded day cells (present, absent, holiday, no class), and a recent activity log table. Data is live from the backend                                                                                                                     |
+| **Notes Library**      | Searchable, department-filtered library of crowd-sourced course notes. Filter by subject department, search by course name or code                                                                                                                                                                                                                                    |
+| **Course Notes**       | Per-course note feed with a community upvote/downvote system. Notes re-rank live after each vote. Top 3 notes receive gold/silver/bronze trophy badges                                                                                                                                                                                                                |
+| **Real-Time Chat**     | Conversation list + message thread view powered by Socket.io. Direct messages to teachers and peers, course group chats (auto-synced from enrolled courses), block/unblock contacts, online presence indicators                                                                                                                                                       |
+| **Profile**            | Student ID, degree program, CGPA, credits completed, enrolled subjects with per-subject attendance bars                                                                                                                                                                                                                                                               |
+| **Settings**           | Edit name/email, toggle dark mode, change language (English/Bengali), configure email/push notifications, toggle two-factor authentication, change password                                                                                                                                                                                                           |
+| **Mobile Layout**      | Dedicated mobile UI: sticky MobileHeader, BottomNav, slide-out MobileMenuDrawer, MobileSchedule, MobileTasks, MobileAcademicOverview                                                                                                                                                                                                                                  |
 
 ---
 
@@ -272,13 +272,13 @@ The schedule generator (`scheduleGenerator.ts`) uses a **backtracking search wit
 
 #### Student-Facing Wizard (5 Steps)
 
-| Step | What Happens | Where |
-|---|---|---|
-| **1. Course Selection** | Student browses all offered courses for the semester (fetched from `GET /schedule/offered-courses`), grouped by `unicode`. Searches, filters by department, and selects up to **15 credits**. State is persisted to `localStorage` so students can resume later. | Frontend |
-| **2. Section & Teacher Preference** | For each selected course, the student sees every available section with teacher name, schedule, room, and remaining seats. Picking a section stores it as a preferred teacher hint. **Real-time conflict prevention**: if a section overlaps with an already-selected section from another course, the selection is blocked with a toast error. | Frontend |
-| **3. Optimization Priorities** | Student selects 1–3 optimization modes: **Preferred Teachers**, **Minimize Gaps**, **Fewer Days**. Selection order matters — the first-selected mode gets the highest weight. The UI shows numbered priority badges (1, 2, 3) and a summary bar. | Frontend |
-| **4. Generated Schedules** | Backend returns 3 diverse schedule variations. Desktop shows a 6-day timetable (SAT–THU) with sidebar details; mobile shows full variation cards. Student can switch between variations, view conflicts, and compare scores. | Backend + Frontend |
-| **5. Save & Confirm** | Student reviews and saves. Backend atomically decrements seats, rolls back on failure, and prevents double saves. | Backend + Frontend |
+| Step                                | What Happens                                                                                                                                                                                                                                                                                                                                    | Where              |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| **1. Course Selection**             | Student browses all offered courses for the semester (fetched from `GET /schedule/offered-courses`), grouped by `unicode`. Searches, filters by department, and selects up to **15 credits**. State is persisted to `localStorage` so students can resume later.                                                                                | Frontend           |
+| **2. Section & Teacher Preference** | For each selected course, the student sees every available section with teacher name, schedule, room, and remaining seats. Picking a section stores it as a preferred teacher hint. **Real-time conflict prevention**: if a section overlaps with an already-selected section from another course, the selection is blocked with a toast error. | Frontend           |
+| **3. Optimization Priorities**      | Student selects 1–3 optimization modes: **Preferred Teachers**, **Minimize Gaps**, **Fewer Days**. Selection order matters — the first-selected mode gets the highest weight. The UI shows numbered priority badges (1, 2, 3) and a summary bar.                                                                                                | Frontend           |
+| **4. Generated Schedules**          | Backend returns 3 diverse schedule variations. Desktop shows a 6-day timetable (SAT–THU) with sidebar details; mobile shows full variation cards. Student can switch between variations, view conflicts, and compare scores.                                                                                                                    | Backend + Frontend |
+| **5. Save & Confirm**               | Student reviews and saves. Backend atomically decrements seats, rolls back on failure, and prevents double saves.                                                                                                                                                                                                                               | Backend + Frontend |
 
 #### Algorithm Internals (7 Phases)
 
@@ -294,11 +294,11 @@ The schedule generator (`scheduleGenerator.ts`) uses a **backtracking search wit
 
 5. **Priority-weighted scoring** — Each combo is scored on a 0–1 scale using three normalized metrics:
 
-   | Metric | Formula | Meaning |
-   |---|---|---|
-   | **Teacher Match** | `matchedCourses / totalCourses` | Fraction of courses that got the student's preferred teacher |
-   | **Gap Efficiency** | `1 - (thisGap / maxGapAcrossAllCombos)` | Lower gap = higher score. Zero gap = 1.0 |
-   | **Day Compactness** | `1 - (daysUsed - 1) / 5` | Fewer days = higher score. 1 day = 1.0, 6 days = 0.0 |
+   | Metric              | Formula                                 | Meaning                                                      |
+   | ------------------- | --------------------------------------- | ------------------------------------------------------------ |
+   | **Teacher Match**   | `matchedCourses / totalCourses`         | Fraction of courses that got the student's preferred teacher |
+   | **Gap Efficiency**  | `1 - (thisGap / maxGapAcrossAllCombos)` | Lower gap = higher score. Zero gap = 1.0                     |
+   | **Day Compactness** | `1 - (daysUsed - 1) / 5`                | Fewer days = higher score. 1 day = 1.0, 6 days = 0.0         |
 
    The final score is a **weighted sum**. Weights are assigned by a triangular descending formula based on selection order — the first-selected mode gets the largest share:
 
@@ -306,10 +306,10 @@ The schedule generator (`scheduleGenerator.ts`) uses a **backtracking search wit
    weight(position i) = (N - i) / (N*(N+1)/2)
    ```
 
-   | Selection order | Weight distribution |
-   |---|---|
-   | 1 mode | 100% |
-   | 2 modes: [A, B] | A = 67%, B = 33% |
+   | Selection order    | Weight distribution       |
+   | ------------------ | ------------------------- |
+   | 1 mode             | 100%                      |
+   | 2 modes: [A, B]    | A = 67%, B = 33%          |
    | 3 modes: [A, B, C] | A = 50%, B = 33%, C = 17% |
 
    **Example**: A student selects `["days", "teacher", "gap"]` — Fewer Days gets 50% influence, Preferred Teachers gets 33%, Minimize Gaps gets 17%.
@@ -322,22 +322,22 @@ The schedule generator (`scheduleGenerator.ts`) uses a **backtracking search wit
 
 The `POST /schedule/save-sections` endpoint has four layers of protection:
 
-| Protection | Implementation |
-|---|---|
-| **Seats can't go negative** | Atomic MongoDB filter: `{ _id: id, seats: { $gt: 0 } }` — check and decrement in one operation |
-| **No double-save** | `ScheduleModel.findOne({ student, semester })` rejects with 409 if a record already exists |
-| **Partial failure rollback** | If any section is full, all previously decremented seats are restored via `$inc: { seats: 1 }` |
-| **Student record** | On success, a `Schedule` document is created linking the student to their saved sections and semester |
+| Protection                   | Implementation                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Seats can't go negative**  | Atomic MongoDB filter: `{ _id: id, seats: { $gt: 0 } }` — check and decrement in one operation        |
+| **No double-save**           | `ScheduleModel.findOne({ student, semester })` rejects with 409 if a record already exists            |
+| **Partial failure rollback** | If any section is full, all previously decremented seats are restored via `$inc: { seats: 1 }`        |
+| **Student record**           | On success, a `Schedule` document is created linking the student to their saved sections and semester |
 
 #### Performance
 
-| Factor | Bound |
-|---|---|
-| Max valid combos | 500 |
-| Max tree nodes | 200,000 |
-| Time complexity | O(S^C) worst case (S = sections/course, C = courses) |
-| Typical response | < 100ms for 5–6 courses with ~10 sections each |
-| Fallback pruning | Branch-and-bound skips subtrees exceeding best conflict count |
+| Factor            | Bound                                                                   |
+| ----------------- | ----------------------------------------------------------------------- |
+| Max valid combos  | 500                                                                     |
+| Max tree nodes    | 200,000                                                                 |
+| Time complexity   | O(S^C) worst case (S = sections/course, C = courses)                    |
+| Typical response  | < 100ms for 5–6 courses with ~10 sections each                          |
+| Fallback pruning  | Branch-and-bound skips subtrees exceeding best conflict count           |
 | Sort optimization | Conflict counts pre-computed once, not inside the O(n log n) comparator |
 
 ### Theme System
@@ -553,7 +553,7 @@ All endpoints return the standard response envelope:
 | POST   | `/generate`        | Generate 3 optimised schedule variations via backtracking engine |
 | POST   | `/save-sections`   | Save chosen variation with atomic seat reservation & rollback    |
 | GET    | `/my-schedule`     | Retrieve the student's saved schedule                            |
-| GET    | `/offered-courses` | Fetch all offered sections for the student's current semester     |
+| GET    | `/offered-courses` | Fetch all offered sections for the student's current semester    |
 
 ### Chat (`/api/chat`) — requires JWT
 
@@ -577,21 +577,21 @@ All endpoints return the standard response envelope:
 
 ## Database Models
 
-| Model              | Key Fields                                                                                                                           | Notes                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| `User`             | `name, email, password, role, refreshToken, blockedUsers`                                                                            | Base discriminator — never instantiated directly |
-| `Student`          | extends User + `studentId, department, semester, phone, emailAlerts, pushNotifications, language, twoFactorEnabled, enrolledCourses` |                                                  |
-| `Teacher`          | extends User + `teacherId, department, assignedCourses, accentColorIndex, avatar, bio`                                               |                                                  |
-| `Admin`            | extends User + `permissions[]`                                                                                                       |                                                  |
-| `Course`           | `courseCode, courseName, section, teacher, students[], slots[], semester, credits`                                                   |                                                  |
+| Model              | Key Fields                                                                                                                                                | Notes                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `User`             | `name, email, password, role, refreshToken, blockedUsers`                                                                                                 | Base discriminator — never instantiated directly        |
+| `Student`          | extends User + `studentId, department, semester, phone, emailAlerts, pushNotifications, language, twoFactorEnabled, enrolledCourses`                      |                                                         |
+| `Teacher`          | extends User + `teacherId, department, assignedCourses, accentColorIndex, avatar, bio`                                                                    |                                                         |
+| `Admin`            | extends User + `permissions[]`                                                                                                                            |                                                         |
+| `Course`           | `courseCode, courseName, section, teacher, students[], slots[], semester, credits`                                                                        |                                                         |
 | `OfferedCourse`    | `courseCode, unicode, title, section, room, teacherInitials, teacherFullName, teacherTBA, isLab, days[], startTime, endTime, semester, seats, totalSeats` | Uploaded by admin from Excel; seats decremented on save |
-| `Schedule`         | `student, courses[] (OfferedCourse refs), semester, isConflictFree`                                                                   | Created by `/save-sections`; refs are section IDs |
-| `Attendance`       | `student, course, date, status, time`                                                                                                | Unique index on `(student, course, date)`        |
-| `Holiday`          | `course, date, addedBy`                                                                                                              | Excludes date from attendance calculations       |
-| `ChatGroup`        | `name, type, course, members[], createdBy`                                                                                           | `type: "direct" \| "group"`                      |
-| `Message`          | `sender, group, content, readBy[]`                                                                                                   |                                                  |
-| `TeacherDirectory` | `name, email, teacherId, department, photoUrl`                                                                                       | Seeded from external source                      |
-| `UploadLog`        | `filename, semester, totalRows, insertedCount, skippedCount, uploadedBy`                                                             |                                                  |
+| `Schedule`         | `student, courses[] (OfferedCourse refs), semester, isConflictFree`                                                                                       | Created by `/save-sections`; refs are section IDs       |
+| `Attendance`       | `student, course, date, status, time`                                                                                                                     | Unique index on `(student, course, date)`               |
+| `Holiday`          | `course, date, addedBy`                                                                                                                                   | Excludes date from attendance calculations              |
+| `ChatGroup`        | `name, type, course, members[], createdBy`                                                                                                                | `type: "direct" \| "group"`                             |
+| `Message`          | `sender, group, content, readBy[]`                                                                                                                        |                                                         |
+| `TeacherDirectory` | `name, email, teacherId, department, photoUrl`                                                                                                            | Seeded from external source                             |
+| `UploadLog`        | `filename, semester, totalRows, insertedCount, skippedCount, uploadedBy`                                                                                  |                                                         |
 
 ---
 
