@@ -396,8 +396,14 @@ const ScheduleBuilder = () => {
 		}
 	};
 
+	const strippedSearch = search.replace(/[^a-z0-9]/gi, "").toLowerCase();
 	const filtered = availableCourses.filter((c) => {
-		const matchesSearch = c.code.toLowerCase().includes(search.toLowerCase()) || c.title.toLowerCase().includes(search.toLowerCase());
+		const strippedCode = c.code.replace(/[^a-z0-9]/gi, "").toLowerCase();
+		const strippedUnicode = (c.unicode || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+		const strippedCombined = (strippedCode + strippedUnicode);
+		const matchesCode = strippedCode.includes(strippedSearch) || strippedUnicode.includes(strippedSearch) || strippedCombined.includes(strippedSearch);
+		const matchesTitle = c.title.toLowerCase().includes(search.trim().toLowerCase());
+		const matchesSearch = matchesCode || matchesTitle;
 		const matchesFilter = mobileFilter === "All Courses" || c.category === mobileFilter;
 		return matchesSearch && (isMobile ? matchesFilter : true);
 	});

@@ -18,10 +18,7 @@ const formatDate = (dateStr: string) => {
 
 const formatTime = (time: string | null) => {
 	if (!time) return "N/A";
-	const [h, m] = time.split(":").map(Number);
-	const ampm = h >= 12 ? "PM" : "AM";
-	const hour12 = h % 12 === 0 ? 12 : h % 12;
-	return `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
+	return time;
 };
 
 const getProgressColor = (pct: number) => {
@@ -115,7 +112,7 @@ const Attendance = () => {
 						{/* Header */}
 						<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
 							<div>
-								<h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Attendance Tracker</h1>
+<h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">Attendance Tracker</h1>
 								<p className="text-muted-foreground mt-1 text-sm md:text-base">Real-time monitoring of your academic presence and participation.</p>
 							</div>
 							<div className="flex gap-2">
@@ -146,7 +143,7 @@ const Attendance = () => {
 											</span>
 										</div>
 										<div className="flex items-baseline gap-2">
-											<span className="text-4xl font-bold text-foreground">{data?.overallStats.percentage ?? 0}%</span>
+											<span className="text-3xl md:text-4xl font-semibold text-foreground">{data?.overallStats.percentage ?? 0}%</span>
 										</div>
 										<div className="mt-4 h-2 bg-secondary rounded-full overflow-hidden">
 											<div className="h-full bg-primary rounded-full" style={{ width: `${data?.overallStats.percentage ?? 0}%` }} />
@@ -161,7 +158,7 @@ const Attendance = () => {
 											</span>
 										</div>
 										<div className="flex items-baseline gap-2">
-											<span className="text-4xl font-bold text-foreground">{data?.overallStats.attended ?? 0}</span>
+											<span className="text-3xl md:text-4xl font-semibold text-foreground">{data?.overallStats.attended ?? 0}</span>
 											<span className="text-muted-foreground text-sm">/ {data?.overallStats.total ?? 0} Total Sessions</span>
 										</div>
 									</div>
@@ -174,7 +171,7 @@ const Attendance = () => {
 											</span>
 										</div>
 										<div className="flex items-baseline gap-2">
-											<span className="text-4xl font-bold text-foreground">{data?.overallStats.coursesAtRisk ?? 0}</span>
+											<span className="text-3xl md:text-4xl font-semibold text-foreground">{data?.overallStats.coursesAtRisk ?? 0}</span>
 											<span className="text-muted-foreground text-sm">Courses below 75%</span>
 										</div>
 										<p className="text-xs text-muted-foreground mt-4">
@@ -192,7 +189,7 @@ const Attendance = () => {
 										{/* Subject-wise Progress */}
 										<div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
 											<div className="p-6 border-b border-border">
-												<h2 className="text-lg font-bold text-foreground">Subject-wise Progress</h2>
+												<h2 className="text-base md:text-lg font-medium text-foreground">Subject-wise Progress</h2>
 											</div>
 											<div className="p-6 space-y-6">
 												{(data?.subjectProgress ?? []).length === 0 ? (
@@ -201,7 +198,7 @@ const Attendance = () => {
 													(data?.subjectProgress ?? []).map((s) => (
 														<div key={s.courseCode} className="space-y-2">
 															<div className="flex justify-between items-center text-sm">
-																<span className="font-semibold text-foreground">
+																<span className="font-normal text-foreground">
 																	{s.courseCode}: {s.courseName}
 																</span>
 																<span className="text-muted-foreground">
@@ -223,17 +220,17 @@ const Attendance = () => {
 										{/* Recent Activity Table */}
 										<div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
 											<div className="p-6 border-b border-border">
-												<h2 className="text-lg font-bold text-foreground">Recent Activity</h2>
+												<h2 className="text-base md:text-lg font-medium text-foreground">Recent Activity</h2>
 											</div>
 											<div className="overflow-x-auto">
 												<table className="w-full text-left">
 													<thead>
 														<tr className="text-xs uppercase text-muted-foreground bg-secondary/50">
-															<th className="px-6 py-4 font-semibold">Date</th>
-															<th className="px-6 py-4 font-semibold">Course Code</th>
-															<th className="px-6 py-4 font-semibold">Section</th>
-															<th className="px-6 py-4 font-semibold">Status</th>
-															<th className="px-6 py-4 font-semibold">Time</th>
+															<th className="px-6 py-4 font-medium">Date</th>
+															<th className="px-6 py-4 font-medium">Course Code</th>
+															<th className="px-6 py-4 font-medium">Section</th>
+															<th className="px-6 py-4 font-medium">Status</th>
+															<th className="px-6 py-4 font-medium">Time</th>
 														</tr>
 													</thead>
 													<tbody className="divide-y divide-border text-sm">
@@ -250,7 +247,7 @@ const Attendance = () => {
 																	<td className="px-6 py-4 font-medium text-foreground">{row.courseCode}</td>
 																	<td className="px-6 py-4 text-foreground">Sec {row.section}</td>
 																	<td className="px-6 py-4">
-																		<span className={`px-2 py-1 rounded-full text-[10px] font-bold ${row.status === "present"
+																		<span className={`px-2 py-1 rounded-full text-[10px] font-medium ${row.status === "present"
 																				? "bg-stat-emerald/10 text-stat-emerald"
 																				: "bg-destructive/10 text-destructive"
 																			}`}>
@@ -271,7 +268,7 @@ const Attendance = () => {
 									<div className="lg:col-span-1">
 										<div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden sticky top-8">
 											<div className="p-6 border-b border-border flex justify-between items-center">
-												<h2 className="font-bold text-foreground">Attendance Calendar</h2>
+												<h2 className="font-medium text-foreground">Attendance Calendar</h2>
 												<div className="flex gap-2">
 													<ChevronLeft
 														className="w-5 h-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
@@ -285,11 +282,11 @@ const Attendance = () => {
 											</div>
 											<div className="p-6">
 												<div className="mb-4 text-center">
-													<p className="text-sm font-semibold text-foreground">
+													<p className="text-sm font-medium text-foreground">
 														{MONTHS[calMonth - 1]} {calYear}
 													</p>
 												</div>
-												<div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-muted-foreground mb-2">
+														<div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-muted-foreground mb-2">
 													{["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((d) => (
 														<span key={d}>{d}</span>
 													))}
@@ -311,7 +308,7 @@ const Attendance = () => {
 															<div
 																key={i}
 																onClick={() => handleDayClick(dateStr, cell.type)}
-																className={`h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all
+																	className={`h-8 flex items-center justify-center rounded-lg text-xs font-normal md:font-bold transition-all
                                   ${classMap[cell.type]}
                                   ${isClickable ? "cursor-pointer hover:opacity-80" : ""}
                                   ${isSelected ? "ring-2 ring-offset-1 ring-foreground" : ""}

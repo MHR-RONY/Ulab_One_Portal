@@ -385,15 +385,24 @@ export const getStudentAttendance: RequestHandler = async (req, res, next) => {
 		const coursesAtRisk = subjectProgress.filter((s) => s.total > 0 && s.percentage < 75).length;
 
 		// Recent activity (last 20 records)
+		const JS_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 		const recentRecords = allRecords.slice(0, 20);
 		const recentActivity: IAttendanceActivity[] = recentRecords.map((record) => {
 			const course = courseMap.get(String(record.course));
+			// Derive time from schedule slot if not stored
+			let time = record.time ?? null;
+			if (!time && course) {
+				const dateObj = new Date(record.date + "T00:00:00");
+				const dayName = JS_DAY_NAMES[dateObj.getDay()];
+				const slot = course.scheduleSlots?.find((s) => s.day === dayName);
+				if (slot) time = slot.startTime;
+			}
 			return {
 				date: record.date,
 				courseCode: course?.courseCode ?? "",
 				section: course?.section ?? "",
 				status: record.status as "present" | "absent",
-				time: record.time ?? null,
+				time,
 			};
 		});
 

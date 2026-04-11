@@ -1,16 +1,25 @@
 import { Bell } from "lucide-react";
 import MobileMenuDrawer from "@/components/student/MobileMenuDrawer";
 
-const MobileHeader = () => {
+interface MobileHeaderProps {
+  studentName?: string;
+}
+
+const MobileHeader = ({ studentName }: MobileHeaderProps) => {
+  const firstName = studentName?.split(" ")[0] ?? "there";
+  const initials = studentName
+    ? studentName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+    : "..";
+
   return (
     <header className="md:hidden flex items-center justify-between p-4 bg-card/80 backdrop-blur-xl border-b border-border/50 sticky top-0 z-10">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm ring-2 ring-primary/10">
-          AT
+          {initials}
         </div>
         <div className="flex flex-col">
-          <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Welcome back,</span>
-          <h2 className="text-foreground text-lg font-extrabold leading-tight">Alex Rivera</h2>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Welcome back,</span>
+          <h2 className="text-foreground text-lg font-bold leading-tight">{firstName}</h2>
         </div>
       </div>
       <div className="flex items-center gap-1">

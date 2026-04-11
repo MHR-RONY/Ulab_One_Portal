@@ -32,12 +32,12 @@ const Index = () => {
         </div>
 
         {/* Mobile header */}
-        <MobileHeader />
+        <MobileHeader studentName={data?.student.name} />
 
         <main className="flex-1 overflow-y-auto">
           {/* Mobile-only content */}
-          <MobileAcademicOverview />
-          <MobileSchedule />
+          <MobileAcademicOverview attendance={data?.attendance} semester={data?.student.semester} loading={loading} />
+          <MobileSchedule classes={data?.todaysClasses} loading={loading} />
           <MobileTasks />
 
           {/* Desktop-only content */}

@@ -11,6 +11,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+	AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+	AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import api from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
@@ -105,6 +109,10 @@ const TeacherAttendance = () => {
 	const [isDateHoliday, setIsDateHoliday] = useState(false);
 	const [togglingHoliday, setTogglingHoliday] = useState<string | null>(null);
 	const [viewDate, setViewDate] = useState<string>(todayString());
+	const [dirtyDays, setDirtyDays] = useState<Set<string>>(new Set());
+	const [showConfirm, setShowConfirm] = useState(false);
+	const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+	const [confirmMessage, setConfirmMessage] = useState("");
 	// 5-day window: viewDate-4 ... viewDate (no tomorrow)
 	const dayWindow = useMemo(() => {
 		return Array.from({ length: 5 }, (_, i) => {
@@ -210,6 +218,7 @@ const TeacherAttendance = () => {
 
 	const toggleCell = (date: string, studentId: string) => {
 		if (holidayDates.has(date)) return;
+		setDirtyDays((prev) => new Set(prev).add(date));
 		setDayStatuses((prev) => {
 			const dateMap = { ...(prev[date] ?? {}) };
 			const current = dateMap[studentId] ?? "not-marked";
@@ -224,6 +233,7 @@ const TeacherAttendance = () => {
 			setStudents((prev) => prev.map((s) => ({ ...s, status: "present" as TAttendanceStatus })));
 		} else {
 			if (holidayDates.has(viewDate)) return;
+			setDirtyDays((prev) => new Set(prev).add(viewDate));
 			setDayStatuses((prev) => {
 				const dateMap = { ...(prev[viewDate] ?? {}) };
 				baseStudents.forEach((s) => { dateMap[s._id] = "present"; });
@@ -238,6 +248,7 @@ const TeacherAttendance = () => {
 			setStudents((prev) => prev.map((s) => ({ ...s, status: "absent" as TAttendanceStatus })));
 		} else {
 			if (holidayDates.has(viewDate)) return;
+			setDirtyDays((prev) => new Set(prev).add(viewDate));
 			setDayStatuses((prev) => {
 				const dateMap = { ...(prev[viewDate] ?? {}) };
 				baseStudents.forEach((s) => { dateMap[s._id] = "absent"; });
@@ -246,7 +257,7 @@ const TeacherAttendance = () => {
 		}
 	};
 
-	const handleSave = async () => {
+	const executeSaveMobile = async () => {
 		if (!selectedCourse || isDateHoliday) return;
 		try {
 			setSaving(true);
@@ -267,22 +278,41 @@ const TeacherAttendance = () => {
 		}
 	};
 
-	const handleSaveAll = async () => {
+	const handleSave = () => {
+		if (!selectedCourse || isDateHoliday) return;
+		const presentCount = students.filter((s) => s.status === "present").length;
+		if (presentCount === 0) {
+			setConfirmMessage(`You are about to mark all ${students.length} students as absent for ${selectedDate}. Are you sure?`);
+			setConfirmAction(() => () => executeSaveMobile());
+			setShowConfirm(true);
+			return;
+		}
+		executeSaveMobile();
+	};
+
+	const executeSaveAll = async () => {
 		if (!selectedCourse) return;
-		if (holidayDates.has(viewDate)) {
-			toast({ title: "Selected date is a holiday. No attendance to save.", variant: "destructive" });
+		// Collect all dirty days that are not holidays
+		const daysToSave = Array.from(dirtyDays).filter((d) => !holidayDates.has(d));
+		if (daysToSave.length === 0) {
+			toast({ title: "No changes to save.", variant: "destructive" });
 			return;
 		}
 		try {
 			setSavingAll(true);
-			const statuses = dayStatuses[viewDate] ?? {};
-			const records = baseStudents.map((s) => ({
-				student: s._id,
-				status: statuses[s._id] === "present" ? "present" : "absent",
-			}));
-			await api.post(`/teacher/courses/${selectedCourse._id}/attendance`, { date: viewDate, records });
+			await Promise.all(
+				daysToSave.map((date) => {
+					const statuses = dayStatuses[date] ?? {};
+					const records = baseStudents.map((s) => ({
+						student: s._id,
+						status: statuses[s._id] === "present" ? "present" : "absent",
+					}));
+					return api.post(`/teacher/courses/${selectedCourse._id}/attendance`, { date, records });
+				})
+			);
+			setDirtyDays(new Set());
 			await fetchMultiDay(selectedCourse);
-			toast({ title: "Attendance saved successfully" });
+			toast({ title: `Attendance saved for ${daysToSave.length} day${daysToSave.length > 1 ? "s" : ""}` });
 		} catch {
 			toast({ title: "Failed to save attendance", variant: "destructive" });
 		} finally {
@@ -290,11 +320,34 @@ const TeacherAttendance = () => {
 		}
 	};
 
+	const handleSaveAll = () => {
+		if (!selectedCourse) return;
+		const daysToSave = Array.from(dirtyDays).filter((d) => !holidayDates.has(d));
+		if (daysToSave.length === 0) {
+			toast({ title: "No changes to save.", variant: "destructive" });
+			return;
+		}
+		// Check if any day has 0 present
+		const zeroDays = daysToSave.filter((date) => {
+			const statuses = dayStatuses[date] ?? {};
+			return baseStudents.every((s) => statuses[s._id] !== "present");
+		});
+		if (zeroDays.length > 0) {
+			const daysList = zeroDays.join(", ");
+			setConfirmMessage(`All students are marked absent for: ${daysList}. Are you sure you want to save?`);
+			setConfirmAction(() => () => executeSaveAll());
+			setShowConfirm(true);
+			return;
+		}
+		executeSaveAll();
+	};
+
 	const handleBack = () => {
 		setSelectedCourse(null);
 		setStudents([]);
 		setBaseStudents([]);
 		setDayStatuses({});
+		setDirtyDays(new Set());
 		setHolidayDates(new Set());
 		setIsDateHoliday(false);
 		setSearch("");
@@ -714,9 +767,9 @@ const TeacherAttendance = () => {
 										<Button variant="outline" onClick={markAllAbsent} disabled={viewDateIsHoliday} className="gap-2">
 											<UserX className="w-4 h-4" /> All Absent Today
 										</Button>
-										<Button onClick={handleSaveAll} disabled={savingAll || loadingDays || viewDateIsHoliday} className="gap-2">
+										<Button onClick={handleSaveAll} disabled={savingAll || loadingDays || dirtyDays.size === 0} className="gap-2">
 											<Save className="w-4 h-4" />
-											{savingAll ? "Saving..." : "Save Attendance"}
+											{savingAll ? "Saving..." : dirtyDays.size > 0 ? `Save (${dirtyDays.size} day${dirtyDays.size > 1 ? "s" : ""})` : "Save Attendance"}
 										</Button>
 										<div className="w-px h-8 bg-border" />
 										<div className="flex items-center gap-2">
@@ -985,6 +1038,31 @@ const TeacherAttendance = () => {
 					</motion.div>
 				</div>
 			</div>
+
+			{/* Confirmation Dialog */}
+			<AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Confirm Save</AlertDialogTitle>
+						<AlertDialogDescription>{confirmMessage}</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={() => { setShowConfirm(false); setConfirmAction(null); }}>
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => {
+								setShowConfirm(false);
+								confirmAction?.();
+								setConfirmAction(null);
+							}}
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+						>
+							Yes, Save
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 };

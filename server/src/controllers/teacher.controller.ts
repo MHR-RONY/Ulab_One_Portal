@@ -399,18 +399,19 @@ export const saveAttendance: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
-		// Derive class time from schedule slot for this day of week
-		const JS_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-		const dateObj = new Date(date + "T00:00:00");
-		const dayName = JS_DAY_NAMES[dateObj.getDay()];
-		const slot = course.scheduleSlots?.find((s) => s.day === dayName) ?? null;
-		const classTime = slot ? slot.startTime : null;
+		// Record the current time when teacher saves attendance
+		const now = new Date();
+		const hours = now.getHours();
+		const minutes = String(now.getMinutes()).padStart(2, "0");
+		const period = hours >= 12 ? "PM" : "AM";
+		const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+		const savedTime = `${displayHour}:${minutes} ${period}`;
 
 		await Promise.all(
 			records.map(({ student, status }) =>
 				AttendanceModel.findOneAndUpdate(
 					{ student, course: id, date },
-					{ status, time: classTime },
+					{ status, time: savedTime },
 					{ upsert: true }
 				)
 			)
