@@ -15,6 +15,11 @@ const offeredCourseSchema = new Schema<IOfferedCourseDocument>(
 			default: "",
 			trim: true,
 		},
+		title: {
+			type: String,
+			default: "",
+			trim: true,
+		},
 		section: {
 			type: String,
 			required: [true, "Section is required"],
@@ -78,6 +83,14 @@ const offeredCourseSchema = new Schema<IOfferedCourseDocument>(
 			default: "",
 			trim: true,
 		},
+		seats: {
+			type: Number,
+			default: 45,
+		},
+		totalSeats: {
+			type: Number,
+			default: 45,
+		},
 	},
 	{ timestamps: true }
 );
@@ -85,6 +98,7 @@ const offeredCourseSchema = new Schema<IOfferedCourseDocument>(
 offeredCourseSchema.index({ unicode: 1, section: 1, semester: 1 }, { sparse: true });
 offeredCourseSchema.index({ courseCode: 1, section: 1, semester: 1 }, { sparse: true });
 offeredCourseSchema.index({ semester: 1 });
+offeredCourseSchema.index({ semester: 1, courseCode: 1, section: 1 });
 
 export const OfferedCourseModel: Model<IOfferedCourseDocument> =
 	mongoose.model<IOfferedCourseDocument>("OfferedCourse", offeredCourseSchema);
