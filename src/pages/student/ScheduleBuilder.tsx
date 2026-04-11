@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Calendar, ArrowRight, ArrowLeft, Clock, Star, User, BookOpen, ChevronRight, GraduationCap, CheckCircle2, Sun, Moon, Sparkles, Plus, Shuffle, Zap, Save, PlusCircle, Info, Check, Building2, HelpCircle, Coffee, SlidersHorizontal, Scale } from "lucide-react";
+import { toast } from "sonner";
+import { Search, Calendar, ArrowRight, ArrowLeft, Clock, Star, User, BookOpen, ChevronRight, CheckCircle2, Sun, Moon, Sparkles, Plus, Zap, Save, PlusCircle, Info, Check, Building2, HelpCircle, Scale, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,10 +12,13 @@ import BottomNav from "@/components/student/BottomNav";
 import MobileMenuDrawer from "@/components/student/MobileMenuDrawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
+import { useStudentProfile } from "@/hooks/useStudentProfile";
+import api from "@/lib/api";
 
 interface Course {
 	id: string;
 	code: string;
+	unicode: string;
 	title: string;
 	type: "Required" | "Elective";
 	department: string;
@@ -41,80 +45,304 @@ interface Instructor {
 	department: string;
 	rating: number;
 	reviews: number;
-	experience: number;
 	bio: string;
+	avatar: string;
 }
 
-const availableCourses: Course[] = [
-	{ id: "1", code: "CSE101", title: "Introduction to Computer Science", type: "Required", department: "School of Science & Engineering", credits: 3.0, category: "Engineering" },
-	{ id: "2", code: "MAT202", title: "Discrete Mathematics", type: "Required", department: "Department of Mathematics", credits: 4.0, category: "Engineering" },
-	{ id: "3", code: "PSY105", title: "Cognitive Psychology Foundations", type: "Elective", department: "Humanities & Social Sciences", credits: 3.0, category: "Arts" },
-	{ id: "4", code: "ENG210", title: "Technical Writing & Comm.", type: "Elective", department: "Humanities & Social Sciences", credits: 2.0, category: "Arts" },
-	{ id: "5", code: "CSE205", title: "Data Structures & Algorithms", type: "Required", department: "School of Science & Engineering", credits: 4.0, category: "Engineering" },
-	{ id: "6", code: "ART101", title: "History of Modern Art", type: "Elective", department: "Liberal Arts", credits: 3.0, category: "Arts" },
-	{ id: "7", code: "BUS201", title: "Principles of Marketing", type: "Elective", department: "Business School", credits: 4.0, category: "Business" },
-];
+interface DbOfferedCourse {
+	_id: string;
+	courseCode: string;
+	unicode: string;
+	title: string;
+	section: string;
+	room: string;
+	teacherInitials: string;
+	teacherFullName: string;
+	teacherTBA: boolean;
+	isLab: boolean;
+	days: string[];
+	startTime: string;
+	endTime: string;
+	semester: string;
+	teacherAvatar: string;
+	teacherDepartment: string;
+	teacherBio: string;
+	seats: number;
+	totalSeats: number;
+}
 
-const sectionsData: Record<string, Section[]> = {
-	"1": [
-		{ id: "s1", label: "S1", instructor: "Dr. Ahmed", days: "Mon, Wed", time: "08:00 - 09:30", seats: 12, totalSeats: 35, status: "Available", room: "Room 402", building: "Science Bldg" },
-		{ id: "s2", label: "S2", instructor: "Ms. Sarah Jenkins", days: "Tue, Thu", time: "11:00 - 12:30", seats: 3, totalSeats: 40, status: "Filling Fast", room: "Room 105", building: "Main Hall" },
-		{ id: "s3", label: "S3", instructor: "Dr. Robert Chen", days: "Fri", time: "14:00 - 17:00", seats: 0, totalSeats: 30, status: "Full", room: "Room 312", building: "Lab Center" },
-		{ id: "s4", label: "S4", instructor: "Prof. Emily Davis", days: "Mon, Wed", time: "04:00 - 05:30", seats: 8, totalSeats: 40, status: "Available", room: "Room 201", building: "Arts Wing" },
-		{ id: "s5", label: "S5", instructor: "Dr. Ali Hassan", days: "Tue, Thu", time: "10:00 - 11:30", seats: 30, totalSeats: 40, status: "Available", room: "Room 118", building: "Tech Block" },
-	],
-	"2": [
-		{ id: "s6", label: "S1", instructor: "Prof. Williams", days: "Mon, Wed", time: "09:00 - 10:30", seats: 18, totalSeats: 35, status: "Available", room: "Room 305", building: "Math Bldg" },
-		{ id: "s7", label: "S2", instructor: "Dr. Nadia Rahman", days: "Sun, Tue", time: "01:00 - 02:30", seats: 5, totalSeats: 35, status: "Filling Fast", room: "Room 210", building: "Main Hall" },
-	],
-	"3": [
-		{ id: "s8", label: "S1", instructor: "Ms. Thompson", days: "Mon, Wed", time: "10:00 - 11:30", seats: 22, totalSeats: 30, status: "Available", room: "Room 104", building: "Humanities" },
-		{ id: "s9", label: "S2", instructor: "Dr. James Lee", days: "Sun, Tue", time: "11:30 - 01:00", seats: 15, totalSeats: 30, status: "Available", room: "Room 207", building: "Library" },
-	],
+type TScheduleMode = "teacher" | "gap" | "days";
+
+interface GeneratedSection {
+	sectionId: string;
+	courseCode: string;
+	unicode: string;
+	title: string;
+	section: string;
+	teacher: string;
+	days: string[];
+	startTime: string;
+	endTime: string;
+	room: string;
+	isLab: boolean;
+	isPreferredTeacher: boolean;
+}
+
+interface ScheduleConflict {
+	course1: string;
+	course2: string;
+	day: string;
+	overlap: string;
+}
+
+interface ScheduleVariation {
+	label: string;
+	isBest: boolean;
+	score: number;
+	totalDays: number;
+	daysUsed: string[];
+	avgGapMinutes: number;
+	teacherMatchCount: number;
+	totalCourses: number;
+	conflicts: ScheduleConflict[];
+	sections: GeneratedSection[];
+}
+
+interface GenerateResponse {
+	variations: ScheduleVariation[];
+	hasConflicts: boolean;
+	conflictMessages: string[];
+}
+
+const getCategory = (code: string): string => {
+	const match = code.match(/^[A-Za-z]+/);
+	return match ? match[0].toUpperCase() : "GEN";
 };
 
-const instructorsData: Record<string, Instructor> = {
-	"Dr. Ahmed": { name: "Dr. Ahmed", title: "Associate Professor", department: "Dept. of Computer Science & Engineering", rating: 4.8, reviews: 212, experience: 12, bio: "Specializes in Distributed Systems and Cloud Computing. Received PhD from MIT in 2010. Known for practical lab-based teaching approach." },
-	"Ms. Sarah Jenkins": { name: "Ms. Sarah Jenkins", title: "Lecturer", department: "Dept. of Computer Science & Engineering", rating: 4.5, reviews: 98, experience: 6, bio: "Expert in Software Engineering and Web Development. Passionate about project-based learning." },
-	"Dr. Robert Chen": { name: "Dr. Robert Chen", title: "Assistant Professor", department: "Dept. of Computer Science & Engineering", rating: 4.3, reviews: 67, experience: 4, bio: "Focuses on AI and Machine Learning. Recently published in top-tier conferences." },
-	"Prof. Emily Davis": { name: "Prof. Emily Davis", title: "Professor", department: "Dept. of Computer Science & Engineering", rating: 4.9, reviews: 340, experience: 20, bio: "Pioneer in Database Systems. Has authored 3 textbooks used internationally." },
-	"Dr. Ali Hassan": { name: "Dr. Ali Hassan", title: "Associate Professor", department: "Dept. of Computer Science & Engineering", rating: 4.6, reviews: 155, experience: 9, bio: "Specializes in Cybersecurity and Network Systems. Industry consultant." },
-	"Prof. Williams": { name: "Prof. Williams", title: "Professor", department: "Dept. of Mathematics", rating: 4.7, reviews: 280, experience: 18, bio: "Award-winning educator in Applied Mathematics and Calculus." },
-	"Dr. Nadia Rahman": { name: "Dr. Nadia Rahman", title: "Assistant Professor", department: "Dept. of Mathematics", rating: 4.4, reviews: 72, experience: 5, bio: "Researcher in Pure Mathematics with focus on Number Theory." },
-	"Ms. Thompson": { name: "Ms. Thompson", title: "Senior Lecturer", department: "Dept. of English", rating: 4.6, reviews: 190, experience: 10, bio: "Published author and composition specialist. Mentors student writers." },
-	"Dr. James Lee": { name: "Dr. James Lee", title: "Associate Professor", department: "Dept. of English", rating: 4.2, reviews: 88, experience: 7, bio: "Focuses on academic writing and critical thinking pedagogy." },
+const getDeptPrefix = (department: string): string => {
+	const dept = department.toLowerCase();
+	if (dept.includes("computer science") || dept.includes("cse")) return "CSE";
+	if (dept.includes("electrical") || dept.includes("electronic") || dept.includes("eee")) return "EEE";
+	if (dept.includes("business") || dept.includes("bba") || dept.includes("mba")) return "BBA";
+	if (dept.includes("english")) return "ENG";
+	if (dept.includes("pharmacy") || dept.includes("pharma")) return "PHA";
+	if (dept.includes("law")) return "LAW";
+	return "";
 };
 
-const filterCategories = ["All Courses", "Engineering", "Business", "Arts"];
+const STORAGE_KEY = "schedule_builder_draft";
+
+const loadDraft = () => {
+	try {
+		const raw = localStorage.getItem(STORAGE_KEY);
+		if (!raw) return null;
+		return JSON.parse(raw) as {
+			step: number;
+			selected: string[];
+			activeTab: string;
+			selectedSections: Record<string, string>;
+			selectedModes: TScheduleMode[];
+			scheduleVariations?: ScheduleVariation[];
+			selectedSchedule?: number | null;
+			generationConflicts?: string[];
+		};
+	} catch {
+		return null;
+	}
+};
+
+const clearDraft = () => localStorage.removeItem(STORAGE_KEY);
 
 const ScheduleBuilder = () => {
 	const navigate = useNavigate();
 	const isMobile = useIsMobile();
-	const [step, setStep] = useState(1);
+	const { profile } = useStudentProfile();
+	const draft = loadDraft();
+	const [step, setStep] = useState(draft?.step ?? 1);
 	const [search, setSearch] = useState("");
-	const [selected, setSelected] = useState<string[]>([]);
-	const [activeTab, setActiveTab] = useState<string>("");
-	const [selectedSections, setSelectedSections] = useState<Record<string, string>>({});
+	const [selected, setSelected] = useState<string[]>(draft?.selected ?? []);
+	const [activeTab, setActiveTab] = useState<string>(draft?.activeTab ?? "");
+	const [selectedSections, setSelectedSections] = useState<Record<string, string>>(draft?.selectedSections ?? {});
 	const [viewingInstructor, setViewingInstructor] = useState<string | null>(null);
-	const [shiftPref, setShiftPref] = useState<"morning" | "evening" | "none">("morning");
-	const [breakTimes, setBreakTimes] = useState<string[]>(["12:00 - 13:00"]);
-	const [generatedSchedules, setGeneratedSchedules] = useState(false);
-	const [selectedSchedule, setSelectedSchedule] = useState<number | null>(null);
+	const [selectedModes, setSelectedModes] = useState<TScheduleMode[]>(draft?.selectedModes ?? ["teacher", "gap", "days"]);
+	const [scheduleVariations, setScheduleVariations] = useState<ScheduleVariation[]>(draft?.scheduleVariations ?? []);
+	const [generationConflicts, setGenerationConflicts] = useState<string[]>(draft?.generationConflicts ?? []);
+	const [isGenerating, setIsGenerating] = useState(false);
+	const [selectedSchedule, setSelectedSchedule] = useState<number | null>(draft?.selectedSchedule ?? null);
 	const [step4Tab, setStep4Tab] = useState<"weekly" | "list" | "conflicts">("weekly");
 	const [saved, setSaved] = useState(false);
 	const [mobileFilter, setMobileFilter] = useState("All Courses");
-	const [breakDuration, setBreakDuration] = useState(60);
-	const [avoidBackToBack, setAvoidBackToBack] = useState(true);
+	const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
+	const [sectionsData, setSectionsData] = useState<Record<string, Section[]>>({});
+	const [instructorsData, setInstructorsData] = useState<Record<string, Instructor>>({});
+	const [isLoading, setIsLoading] = useState(true);
+
+	const API_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:5003/api").replace(/\/api$/, "");
+
+	// Fetch courses immediately on mount — do NOT wait for profile
+	useEffect(() => {
+		const fetchOfferedCourses = async () => {
+			try {
+				const { data } = await api.get<{ data: { courses: DbOfferedCourse[] } }>("/schedule/offered-courses?semester=Summer 2026");
+				const docs = data.data.courses;
+
+				const courseMap = new Map<string, DbOfferedCourse[]>();
+				for (const doc of docs) {
+					const key = doc.unicode || doc.courseCode;
+					const existing = courseMap.get(key) ?? [];
+					existing.push(doc);
+					courseMap.set(key, existing);
+				}
+
+				const courses: Course[] = [];
+				const newSectionsData: Record<string, Section[]> = {};
+				const newInstructorsData: Record<string, Instructor> = {};
+
+				for (const [key, sections] of courseMap.entries()) {
+					const code = sections[0].courseCode || key;
+					courses.push({
+						id: key,
+						code,
+						unicode: sections[0].unicode || "",
+						title: sections[0].title || code,
+						type: "Required",
+						department: "ULAB",
+						credits: sections.some((s) => !s.isLab) ? 3.0 : 1.0,
+						category: getCategory(code),
+					});
+
+					newSectionsData[key] = sections.map((s) => {
+						const instructorName = s.teacherTBA ? "TBA" : (s.teacherFullName || s.teacherInitials || "TBA");
+						if (instructorName !== "TBA" && !newInstructorsData[instructorName]) {
+							newInstructorsData[instructorName] = {
+								name: instructorName,
+								title: "",
+								department: s.teacherDepartment || "",
+								rating: 4.0,
+								reviews: 0,
+								bio: s.teacherBio || "",
+								avatar: s.teacherAvatar || "",
+							};
+						}
+						return {
+							id: s._id,
+							label: `S${s.section}`,
+							instructor: instructorName,
+							days: s.days.join(", "),
+							time: `${s.startTime} - ${s.endTime}`,
+							seats: s.seats ?? 45,
+							totalSeats: s.totalSeats ?? 45,
+							status: (s.seats ?? 45) <= 0 ? "Full" as const : (s.seats ?? 45) <= 5 ? "Filling Fast" as const : "Available" as const,
+							room: s.room,
+							building: "",
+						};
+					});
+				}
+
+				courses.sort((a, b) => {
+					const aCSE = a.code.toUpperCase().startsWith("CSE") ? 0 : 1;
+					const bCSE = b.code.toUpperCase().startsWith("CSE") ? 0 : 1;
+					if (aCSE !== bCSE) return aCSE - bCSE;
+					return a.code.localeCompare(b.code);
+				});
+
+				setAvailableCourses(courses);
+				setSectionsData(newSectionsData);
+				setInstructorsData(newInstructorsData);
+			} catch {
+				// keep empty state on error
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		fetchOfferedCourses();
+	}, []);
+
+	// Re-sort courses by department prefix once profile loads (no re-fetch needed)
+	useEffect(() => {
+		if (!profile?.department || availableCourses.length === 0) return;
+		const deptPrefix = getDeptPrefix(profile.department);
+		setAvailableCourses((prev) =>
+			[...prev].sort((a, b) => {
+				const aMatch = a.code.toUpperCase().startsWith(deptPrefix) ? 0 : 1;
+				const bMatch = b.code.toUpperCase().startsWith(deptPrefix) ? 0 : 1;
+				if (aMatch !== bMatch) return aMatch - bMatch;
+				return a.code.localeCompare(b.code);
+			})
+		);
+	}, [profile?.department]);
+
+	// Persist draft to localStorage on changes
+	useEffect(() => {
+		if (saved) return;
+		const data = { step, selected, activeTab, selectedSections, selectedModes, scheduleVariations, selectedSchedule, generationConflicts };
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+	}, [step, selected, activeTab, selectedSections, selectedModes, scheduleVariations, selectedSchedule, generationConflicts, saved]);
 
 	const resetAll = () => {
+		clearDraft();
 		setStep(1); setSearch(""); setSelected([]); setActiveTab("");
-		setSelectedSections({}); setViewingInstructor(null); setShiftPref("morning");
-		setBreakTimes(["12:00 - 13:00"]); setGeneratedSchedules(false);
+		setSelectedSections({}); setViewingInstructor(null); setSelectedModes(["teacher", "gap", "days"]);
+		setScheduleVariations([]); setGenerationConflicts([]);
 		setSelectedSchedule(null); setStep4Tab("weekly"); setSaved(false);
 		setMobileFilter("All Courses");
 	};
 
-	const handleSave = () => setSaved(true);
+	const handleSave = async () => {
+		if (!activeVariation) {
+			toast.error("No schedule selected to save");
+			return;
+		}
+		try {
+			const sectionIds = activeVariation.sections.map((s) => s.sectionId);
+			await api.post("/schedule/save-sections", { sectionIds, semester: "Summer 2026" });
+			clearDraft();
+			setSaved(true);
+			toast.success("Schedule saved successfully");
+		} catch (err) {
+			const error = err as { response?: { data?: { message?: string } } };
+			const msg = error.response?.data?.message || "Failed to save schedule";
+			toast.error(msg);
+		}
+	};
+
+	const toggleMode = (mode: TScheduleMode) => {
+		setSelectedModes((prev) => {
+			if (prev.includes(mode)) {
+				if (prev.length === 1) return prev; // at least one must stay
+				return prev.filter((m) => m !== mode);
+			}
+			return [...prev, mode];
+		});
+	};
+
+	const handleGenerate = async () => {
+		if (selectedModes.length === 0) {
+			toast.error("Select at least one optimization mode.");
+			return;
+		}
+		setIsGenerating(true);
+		try {
+			const { data } = await api.post<{ data: GenerateResponse }>("/schedule/generate", {
+				courseUnicodes: selected,
+				preferredSections: selectedSections,
+				modes: selectedModes,
+				semester: "Summer 2026",
+			});
+			const result = data.data;
+			setScheduleVariations(result.variations);
+			setGenerationConflicts(result.conflictMessages);
+			if (result.variations.length > 0) {
+				setSelectedSchedule(0);
+			}
+			setStep(4);
+		} catch {
+			toast.error("Failed to generate schedules. Please try again.");
+		} finally {
+			setIsGenerating(false);
+		}
+	};
 
 	const filtered = availableCourses.filter((c) => {
 		const matchesSearch = c.code.toLowerCase().includes(search.toLowerCase()) || c.title.toLowerCase().includes(search.toLowerCase());
@@ -123,14 +351,82 @@ const ScheduleBuilder = () => {
 	});
 
 	const toggle = (id: string) =>
-		setSelected((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
+		setSelected((prev) => {
+			if (prev.includes(id)) return prev.filter((i) => i !== id);
+			const course = availableCourses.find((c) => c.id === id);
+			const addedCredits = course?.credits ?? 0;
+			const currentTotal = availableCourses.filter((c) => prev.includes(c.id)).reduce((sum, c) => sum + c.credits, 0);
+			if (currentTotal + addedCredits > maxCredits) {
+				toast.error("15 credits is the maximum allowed per semester.");
+				return prev;
+			}
+			return [...prev, id];
+		});
 
 	const selectedCourses = availableCourses.filter((c) => selected.includes(c.id));
 	const totalCredits = selectedCourses.reduce((sum, c) => sum + c.credits, 0);
-	const maxCredits = 18;
+	const maxCredits = 15;
 
 	const goToStep2 = () => {
 		if (selected.length > 0) { setActiveTab(selected[0]); setStep(2); }
+	};
+
+	/** Parse "09:25 am" / "01:35 pm" to minutes since midnight */
+	const parseTimeToMin = (raw: string): number => {
+		const m = raw.trim().toLowerCase().match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/);
+		if (!m) return 0;
+		let h = parseInt(m[1], 10);
+		const min = parseInt(m[2], 10);
+		if (m[3] === "am" && h === 12) h = 0;
+		if (m[3] === "pm" && h !== 12) h += 12;
+		return h * 60 + min;
+	};
+
+	/** Check if a candidate section conflicts with any already-selected section */
+	const findSectionConflict = (candidateId: string, courseKey: string): string | null => {
+		const candidate = (sectionsData[courseKey] || []).find((s) => s.id === candidateId);
+		if (!candidate) return null;
+
+		const candDays = candidate.days.split(",").map((d) => d.trim());
+		const [candStart, candEnd] = candidate.time.split("-").map((t) => parseTimeToMin(t.trim()));
+
+		for (const [otherKey, otherId] of Object.entries(selectedSections)) {
+			if (otherKey === courseKey) continue; // same course — will be replaced, not a conflict
+			const otherSection = (sectionsData[otherKey] || []).find((s) => s.id === otherId);
+			if (!otherSection) continue;
+
+			const otherDays = otherSection.days.split(",").map((d) => d.trim());
+			const [otherStart, otherEnd] = otherSection.time.split("-").map((t) => parseTimeToMin(t.trim()));
+
+			for (const cd of candDays) {
+				for (const od of otherDays) {
+					if (cd === od && candStart < otherEnd && otherStart < candEnd) {
+						const otherCourse = availableCourses.find((c) => c.id === otherKey);
+						return `Time conflict with ${otherCourse?.code || otherKey} (${otherSection.instructor}) on ${cd}`;
+					}
+				}
+			}
+		}
+		return null;
+	};
+
+	/** Handle section selection with conflict check */
+	const handleSectionSelect = (sectionId: string, courseKey: string) => {
+		// Deselecting — always allowed
+		if (selectedSections[courseKey] === sectionId) {
+			setSelectedSections((prev) => { const next = { ...prev }; delete next[courseKey]; return next; });
+			setViewingInstructor(null);
+			return;
+		}
+		// Check for time conflict
+		const conflict = findSectionConflict(sectionId, courseKey);
+		if (conflict) {
+			toast.error(conflict);
+			return;
+		}
+		const section = (sectionsData[courseKey] || []).find((s) => s.id === sectionId);
+		setViewingInstructor(section?.instructor ?? null);
+		setSelectedSections((prev) => ({ ...prev, [courseKey]: sectionId }));
 	};
 
 	const currentSections = sectionsData[activeTab] || [];
@@ -143,6 +439,16 @@ const ScheduleBuilder = () => {
 			: currentSections[0] ? instructorsData[currentSections[0].instructor] : null;
 
 	const creditPercent = Math.round((totalCredits / maxCredits) * 100);
+
+	const priorityPrefixes = ["CSE", "BBA", "EEE"];
+	const mobileFilterCategories = ["All Courses", ...Array.from(new Set(availableCourses.map((c) => c.category ?? "GEN"))).sort((a, b) => {
+		const ai = priorityPrefixes.indexOf(a);
+		const bi = priorityPrefixes.indexOf(b);
+		if (ai !== -1 && bi !== -1) return ai - bi;
+		if (ai !== -1) return -1;
+		if (bi !== -1) return 1;
+		return a.localeCompare(b);
+	})];
 
 	// ===================== STEP 1 =====================
 	const step1Content = (
@@ -171,13 +477,13 @@ const ScheduleBuilder = () => {
 						</div>
 						{/* Filter Chips */}
 						<div className="flex gap-2 overflow-x-auto pb-1">
-							{filterCategories.map((cat) => (
+							{mobileFilterCategories.map((cat) => (
 								<button
 									key={cat}
 									onClick={() => setMobileFilter(cat)}
 									className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${mobileFilter === cat
-											? "bg-schedule-accent text-primary-foreground"
-											: "bg-muted text-muted-foreground"
+										? "bg-schedule-accent text-primary-foreground"
+										: "bg-muted text-muted-foreground"
 										}`}
 								>
 									{cat}
@@ -199,27 +505,29 @@ const ScheduleBuilder = () => {
 									animate={{ opacity: 1, y: 0 }}
 									transition={{ delay: i * 0.03 }}
 									onClick={() => toggle(course.id)}
-									className={`bg-card rounded-xl border-2 px-3.5 py-3 cursor-pointer transition-all ${isSelected
-											? "border-schedule-accent shadow-[0_2px_8px_-2px_hsl(var(--schedule-accent)/0.2)]"
-											: "border-border"
+									className={`bg-card rounded-xl border-2 px-3.5 py-4 cursor-pointer transition-all ${isSelected
+										? "border-schedule-accent shadow-[0_2px_8px_-2px_hsl(var(--schedule-accent)/0.2)]"
+										: "border-border"
 										}`}
 								>
 									<div className="flex items-center justify-between">
 										<div className="flex-1 min-w-0">
-											<span className={`inline-block px-2 py-px rounded text-[9px] font-bold uppercase tracking-wider ${badgeColor}`}>
-												{badgeLabel}
-											</span>
-											<div className="flex items-baseline gap-2 mt-1">
+											<div className="flex items-baseline gap-2">
 												<p className="text-sm font-bold text-foreground">{course.code}</p>
-												<span className="text-xs text-muted-foreground">{course.credits.toFixed(1)} Credits</span>
+												{course.unicode && course.unicode !== course.code && (
+													<span className="text-xs text-muted-foreground">{course.unicode}</span>
+												)}
 											</div>
-											<p className="text-xs text-muted-foreground leading-tight">{course.title}</p>
+											<p className="text-xs text-muted-foreground leading-tight mt-0.5">{course.title}</p>
 										</div>
-										<div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-3 transition-all ${isSelected
+										<div className="flex items-center gap-2 flex-shrink-0 ml-3">
+											<span className="text-sm font-semibold text-foreground">{course.credits.toFixed(1)}</span>
+											<div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
 												? "bg-schedule-accent border-schedule-accent"
 												: "border-muted-foreground/30 bg-transparent"
-											}`}>
-											{isSelected && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+												}`}>
+												{isSelected && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+											</div>
 										</div>
 									</div>
 								</motion.div>
@@ -286,8 +594,8 @@ const ScheduleBuilder = () => {
 					<div className="flex-1 overflow-y-auto px-8 pb-32">
 						<h2 className="font-semibold text-foreground text-lg mb-3">Available Courses</h2>
 						<div className="bg-card rounded-xl border border-border overflow-hidden">
-							<div className="grid grid-cols-[48px_160px_1fr_80px] items-center px-4 py-3 border-b border-border bg-muted/50">
-								<div /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Code</span>
+							<div className="grid grid-cols-[48px_240px_1fr_80px] items-center px-4 py-3 border-b border-border bg-muted/50">
+								<div /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Class Code</span>
 								<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Course Title</span>
 								<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Credits</span>
 							</div>
@@ -296,15 +604,16 @@ const ScheduleBuilder = () => {
 								return (
 									<motion.div key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
 										onClick={() => toggle(course.id)}
-										className={`cursor-pointer transition-colors border-b border-border last:border-b-0 grid grid-cols-[48px_160px_1fr_80px] items-center px-4 py-4 ${isSelected ? "bg-schedule-accent/5" : "hover:bg-muted/50"}`}>
+										className={`cursor-pointer transition-colors border-b border-border last:border-b-0 grid grid-cols-[48px_240px_1fr_80px] items-center px-4 py-6 ${isSelected ? "bg-schedule-accent/5" : "hover:bg-muted/50"}`}>
 										<Checkbox checked={isSelected} onCheckedChange={() => toggle(course.id)} />
-										<span className="text-sm font-semibold text-schedule-accent">{course.code}</span>
-										<div><p className="text-sm font-medium text-foreground">{course.title}</p><p className="text-xs text-muted-foreground">{course.type} · {course.department}</p></div>
+										<span className="text-sm font-semibold text-schedule-accent">{course.unicode ? `${course.code}/${course.unicode}` : course.code}</span>
+										<div><p className="text-sm font-medium text-foreground">{course.title}</p></div>
 										<span className="text-sm font-bold text-foreground text-right">{course.credits.toFixed(1)}</span>
 									</motion.div>
 								);
 							})}
-							{filtered.length === 0 && <div className="py-12 text-center text-muted-foreground text-sm">No courses match your search.</div>}
+							{isLoading && <div className="py-12 text-center text-muted-foreground text-sm">Loading courses...</div>}
+							{!isLoading && filtered.length === 0 && <div className="py-12 text-center text-muted-foreground text-sm">No courses match your search.</div>}
 						</div>
 					</div>
 					<AnimatePresence>
@@ -361,7 +670,7 @@ const ScheduleBuilder = () => {
 											className={`flex flex-col items-center justify-center pb-3 pt-2 shrink-0 border-b-2 transition-colors ${isActive ? "border-schedule-accent text-schedule-accent" : "border-transparent text-muted-foreground"
 												}`}
 										>
-											<span className="text-sm font-bold">{course.code}</span>
+											<span className="text-sm font-bold">{course.unicode ? `${course.code}/${course.unicode}` : course.code}</span>
 											<span className="text-[10px] opacity-80">{hasSection ? "Selected" : "Pending"}</span>
 										</button>
 									);
@@ -388,11 +697,12 @@ const ScheduleBuilder = () => {
 										initial={{ opacity: 0, y: 12 }}
 										animate={{ opacity: 1, y: 0 }}
 										transition={{ delay: i * 0.06 }}
-										className={`bg-card rounded-2xl border-2 p-4 transition-all ${isSelected
-												? "border-schedule-accent shadow-[0_0_0_1px_hsl(var(--schedule-accent)/0.15)]"
-												: isFull
-													? "border-border opacity-60"
-													: "border-border"
+										onClick={() => { if (isFull) return; handleSectionSelect(section.id, activeTab); }}
+										className={`bg-card rounded-2xl border-2 p-4 transition-all cursor-pointer ${isSelected
+											? "border-schedule-accent shadow-[0_0_0_1px_hsl(var(--schedule-accent)/0.15)]"
+											: isFull
+												? "border-border opacity-60 cursor-not-allowed"
+												: "border-border"
 											}`}
 									>
 										{/* Selected badge */}
@@ -405,7 +715,11 @@ const ScheduleBuilder = () => {
 										{/* Section label + Professor info */}
 										<div className="flex items-start gap-3">
 											<div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-												<User className="w-7 h-7 text-muted-foreground" />
+												{instructor?.avatar ? (
+													<img src={`${API_BASE}${instructor.avatar}`} alt={instructor.name} className="w-full h-full object-cover" />
+												) : (
+													<User className="w-7 h-7 text-muted-foreground" />
+												)}
 											</div>
 											<div className="flex-1 min-w-0">
 												<p className="text-[10px] font-bold text-schedule-accent uppercase tracking-wider">Section {sectionLetter}</p>
@@ -415,7 +729,6 @@ const ScheduleBuilder = () => {
 													<span className="text-sm font-bold text-foreground">{instructor?.rating || "4.0"}</span>
 													<span className="text-xs text-muted-foreground">({instructor?.reviews || 0} reviews)</span>
 												</div>
-												<p className="text-xs text-muted-foreground">{instructor?.experience || 0} yrs experience</p>
 											</div>
 										</div>
 
@@ -454,12 +767,9 @@ const ScheduleBuilder = () => {
 											) : isFull ? (
 												<span className="text-sm text-muted-foreground font-medium px-4 py-2">Full</span>
 											) : (
-												<button
-													onClick={() => { setSelectedSections((prev) => ({ ...prev, [activeTab]: section.id })); setViewingInstructor(section.instructor); }}
-													className="border border-schedule-accent text-schedule-accent px-4 py-2 rounded-full text-sm font-semibold hover:bg-schedule-accent/5 transition-colors"
-												>
+												<span className="border border-schedule-accent text-schedule-accent px-4 py-2 rounded-full text-sm font-semibold">
 													Select Section
-												</button>
+												</span>
 											)}
 										</div>
 									</motion.div>
@@ -526,8 +836,8 @@ const ScheduleBuilder = () => {
 												key={course.id}
 												onClick={() => { setActiveTab(course.id); setViewingInstructor(null); }}
 												className={`flex items-center justify-between p-3 rounded-lg text-left group transition-all ${isActive
-														? "border-2 border-primary bg-primary/5"
-														: "border border-border hover:border-primary/50"
+													? "border-2 border-primary bg-primary/5"
+													: "border border-border hover:border-primary/50"
 													}`}
 											>
 												<div className="flex items-center gap-3">
@@ -536,8 +846,10 @@ const ScheduleBuilder = () => {
 														<BookOpen className="w-4 h-4" />
 													</div>
 													<div className="min-w-0">
-														<p className="text-sm font-bold text-foreground">{course.code}</p>
-														<p className="text-xs text-muted-foreground truncate">{course.title.length > 22 ? course.title.substring(0, 22) + "…" : course.title}</p>
+														<p className="text-[11px] font-semibold text-muted-foreground">
+															{course.code}{course.unicode && course.unicode !== course.code ? `/${course.unicode}` : ""}
+														</p>
+														<p className="text-sm font-bold text-foreground truncate">{course.title.length > 22 ? course.title.substring(0, 22) + "…" : course.title}</p>
 													</div>
 												</div>
 												{isActive ? (
@@ -556,8 +868,8 @@ const ScheduleBuilder = () => {
 										onClick={() => setStep(3)}
 										disabled={sectionsSelectedCount < selectedCourses.length}
 										className={`w-full gap-2 rounded-lg py-3 font-bold ${sectionsSelectedCount >= selectedCourses.length
-												? "bg-primary hover:bg-primary/90 text-primary-foreground"
-												: "bg-muted text-muted-foreground cursor-not-allowed"
+											? "bg-primary hover:bg-primary/90 text-primary-foreground"
+											: "bg-muted text-muted-foreground cursor-not-allowed"
 											}`}
 									>
 										Next: Preferences <ArrowRight className="w-4 h-4" />
@@ -578,7 +890,6 @@ const ScheduleBuilder = () => {
 								{/* Section Tabs */}
 								<div className="flex border-b border-border gap-8">
 									<button className="border-b-2 border-primary text-primary pb-3 font-bold text-sm">Lecture Only</button>
-									<button className="border-b-2 border-transparent text-muted-foreground hover:text-foreground pb-3 font-medium text-sm transition-colors">Lab / Recitation</button>
 								</div>
 
 								{/* Section Cards */}
@@ -595,12 +906,12 @@ const ScheduleBuilder = () => {
 												initial={{ opacity: 0, y: 10 }}
 												animate={{ opacity: 1, y: 0 }}
 												transition={{ delay: i * 0.05 }}
-												onClick={() => { if (!isFull) { setSelectedSections((prev) => ({ ...prev, [activeTab]: section.id })); setViewingInstructor(section.instructor); } }}
+												onClick={() => { if (!isFull) { handleSectionSelect(section.id, activeTab); } }}
 												className={`bg-card rounded-xl p-5 relative group transition-all cursor-pointer ${isSelected
-														? "border-2 border-primary shadow-lg ring-4 ring-primary/5"
-														: isFull
-															? "border border-border opacity-60 grayscale cursor-not-allowed"
-															: "border border-border hover:border-primary"
+													? "border-2 border-primary shadow-lg ring-4 ring-primary/5"
+													: isFull
+														? "border border-border opacity-60 grayscale cursor-not-allowed"
+														: "border border-border hover:border-primary"
 													}`}
 											>
 												{/* Selected Badge */}
@@ -614,7 +925,11 @@ const ScheduleBuilder = () => {
 													<div className="flex gap-4 flex-1 min-w-0">
 														{/* Professor Avatar */}
 														<div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border border-border shrink-0 bg-muted flex items-center justify-center">
-															<User className="w-7 h-7 sm:w-8 sm:h-8 text-muted-foreground" />
+															{instructor?.avatar ? (
+																<img src={`${API_BASE}${instructor.avatar}`} alt={instructor?.name} className="w-full h-full object-cover" />
+															) : (
+																<User className="w-7 h-7 sm:w-8 sm:h-8 text-muted-foreground" />
+															)}
 														</div>
 														<div className="flex flex-col gap-1 min-w-0">
 															<div className="flex flex-wrap items-center gap-2">
@@ -628,10 +943,6 @@ const ScheduleBuilder = () => {
 																	<Star className="w-4 h-4 fill-amber-500 text-amber-500" />
 																	<span className="font-bold text-foreground">{instructor?.rating || "4.0"}</span>
 																	<span className="text-xs">({instructor?.reviews || 0} ratings)</span>
-																</div>
-																<div className="flex items-center gap-1">
-																	<GraduationCap className="w-4 h-4 text-primary" />
-																	<span>{instructor?.experience || 0} yrs exp.</span>
 																</div>
 															</div>
 														</div>
@@ -719,31 +1030,10 @@ const ScheduleBuilder = () => {
 	);
 
 	// ===================== STEP 3 =====================
-	const suggestedSchedules = [
-		{
-			label: "Best Match (Morning Optimized)", icon: <Star className="w-4 h-4" />, isBest: true, days: "Sun-Thu", credits: totalCredits, avgGap: "30 mins",
-			courses: selectedCourses.map((c, i) => ({ code: c.code, title: c.title, room: `Room: ${400 + i}${i + 2}, Building ${String.fromCharCode(65 + i)}`, time: ["08:30 - 10:00 (Sun, Tue)", "10:00 - 11:30 (Mon, Wed)", "11:30 - 13:00 (Sun, Tue)"][i % 3] }))
-		},
-		{
-			label: "Variation 2 (Balanced)", icon: <Shuffle className="w-4 h-4" />, isBest: false, days: "Sun-Thu", credits: totalCredits, avgGap: "1.5 hrs",
-			courses: selectedCourses.map((c, i) => ({ code: c.code, title: c.title, room: `Room: ${405 + i}${i + 2}, Building ${String.fromCharCode(65 + i)}`, time: ["11:30 - 13:00 (Sun, Tue)", "13:00 - 14:30 (Mon, Wed)", "15:30 - 17:00 (Sun, Tue)"][i % 3] }))
-		},
-		{
-			label: "Variation 3 (Compressed)", icon: <Zap className="w-4 h-4" />, isBest: false, days: "Sun-Thu", credits: totalCredits, avgGap: "0 mins",
-			courses: selectedCourses.map((c, i) => ({ code: c.code, title: c.title, room: `Room: ${400 + i}${i + 2}, Building ${String.fromCharCode(65 + i)}`, time: ["08:30 - 10:00 (Sun, Tue)", "10:00 - 11:30 (Sun, Tue)", "11:30 - 13:00 (Sun, Tue)"][i % 3] }))
-		},
-	];
-
-	const defaultBreaks = [
-		{ time: "12:00 - 13:00", label: "Lunch Break" },
-		{ time: "13:30 - 14:30", label: "Prayer Break" },
-		{ time: "17:00 - 18:00", label: "Evening Tea" },
-	];
-
-	const shiftOptions: { value: "morning" | "evening" | "none"; label: string; subtitle: string; icon: React.ReactNode }[] = [
-		{ value: "morning", label: "Morning Shift", subtitle: "08:30 AM - 01:30 PM", icon: <Sun className="w-5 h-5" /> },
-		{ value: "evening", label: "Afternoon Shift", subtitle: "01:45 PM - 05:45 PM", icon: <Sun className="w-5 h-5" /> },
-		{ value: "none", label: "Evening Shift", subtitle: "06:00 PM - 09:00 PM", icon: <Moon className="w-5 h-5" /> },
+	const modeOptions: { key: TScheduleMode; label: string; icon: React.ReactNode; desc: string; hint: string }[] = [
+		{ key: "teacher", label: "Favourite Teacher", icon: <Star className="w-5 h-5" />, desc: "Prioritize sections taught by the teachers you picked in Step 2", hint: "Matches your preferred teachers first" },
+		{ key: "gap", label: "Less Time Gap", icon: <Zap className="w-5 h-5" />, desc: "Minimize waiting time between back-to-back classes", hint: "Classes scheduled close together" },
+		{ key: "days", label: "Less Days", icon: <Calendar className="w-5 h-5" />, desc: "Pack all classes into the fewest weekdays possible", hint: "More free days in your week" },
 	];
 
 	const step3Content = (
@@ -757,7 +1047,7 @@ const ScheduleBuilder = () => {
 								<ArrowLeft className="w-5 h-5 text-muted-foreground" />
 							</button>
 							<div className="flex-1">
-								<h1 className="text-lg font-bold leading-tight text-foreground">Preferences</h1>
+								<h1 className="text-lg font-bold leading-tight text-foreground">Optimize</h1>
 							</div>
 							<MobileMenuDrawer activePage="Schedule Builder" />
 						</div>
@@ -765,114 +1055,74 @@ const ScheduleBuilder = () => {
 
 					{/* Mobile Step 3 Content */}
 					<div className="flex-1 overflow-y-auto px-4 pt-6 pb-40" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-						{/* Progress Stepper */}
 						<div className="mb-8">
 							<div className="flex justify-between items-end mb-2">
 								<div>
-									<p className="text-schedule-accent font-semibold text-xs uppercase tracking-wider">Step 2 of 3</p>
-									<h2 className="text-2xl font-bold text-foreground mt-1">Schedule Settings</h2>
+									<p className="text-schedule-accent font-semibold text-xs uppercase tracking-wider">Step 3 of 4</p>
+									<h2 className="text-2xl font-bold text-foreground mt-1">Choose Priorities</h2>
 								</div>
-								<p className="text-muted-foreground text-sm font-medium">66% Complete</p>
+								<p className="text-muted-foreground text-sm font-medium">75% Complete</p>
 							</div>
 							<div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-								<div className="h-full bg-schedule-accent rounded-full transition-all duration-500" style={{ width: '66%' }} />
+								<div className="h-full bg-schedule-accent rounded-full transition-all duration-500" style={{ width: '75%' }} />
 							</div>
 						</div>
 
-						{/* Preferred Shift */}
-						<section className="mb-8">
-							<div className="flex items-center gap-2 mb-4">
-								<Clock className="w-5 h-5 text-schedule-accent" />
-								<h3 className="text-lg font-semibold text-foreground">Preferred Shift</h3>
-							</div>
-							<div className="space-y-3">
-								{shiftOptions.map((option) => {
-									const isActive = shiftPref === option.value;
-									return (
-										<motion.button
-											key={option.value}
-											onClick={() => setShiftPref(option.value)}
-											whileTap={{ scale: 0.98 }}
-											className={`w-full relative flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${isActive
-													? "border-schedule-accent bg-schedule-accent/5"
-													: "border-border bg-card hover:border-muted-foreground/30"
-												}`}
-										>
-											<div className="flex items-center gap-4">
-												<div className={`p-2 rounded-lg ${isActive ? "bg-schedule-accent/10 text-schedule-accent" : "bg-muted text-muted-foreground"}`}>
-													{option.icon}
-												</div>
-												<div className="text-left">
-													<p className="font-bold text-foreground">{option.label}</p>
-													<p className="text-xs text-muted-foreground">{option.subtitle}</p>
-												</div>
-											</div>
-											<div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isActive ? "border-schedule-accent" : "border-muted-foreground/30"
-												}`}>
-												{isActive && <div className="w-2.5 h-2.5 rounded-full bg-schedule-accent" />}
-											</div>
-										</motion.button>
-									);
-								})}
-							</div>
-						</section>
+						<p className="text-sm text-muted-foreground mb-4">
+							Select priorities in order of importance. First selected = highest priority.
+						</p>
 
-						{/* Minimum Break Duration */}
-						<section className="mb-8">
-							<div className="flex items-center gap-2 mb-6">
-								<Coffee className="w-5 h-5 text-schedule-accent" />
-								<h3 className="text-lg font-semibold text-foreground">Minimum Break Duration</h3>
-							</div>
-							<div className="bg-card p-6 rounded-xl border border-border">
-								<div className="flex justify-between items-center mb-8">
-									<span className="px-3 py-1 bg-muted rounded-full text-xs font-bold text-muted-foreground">SHORT</span>
-									<span className="text-3xl font-bold text-schedule-accent">
-										{breakDuration} <span className="text-sm font-medium text-muted-foreground">mins</span>
-									</span>
-									<span className="px-3 py-1 bg-muted rounded-full text-xs font-bold text-muted-foreground">LONG</span>
-								</div>
-								<input
-									type="range"
-									min="30"
-									max="120"
-									step="30"
-									value={breakDuration}
-									onChange={(e) => setBreakDuration(parseInt(e.target.value))}
-									className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-schedule-accent"
-									style={{ accentColor: 'hsl(var(--schedule-accent))' }}
-								/>
-								<div className="flex justify-between mt-4 px-1">
-									{["30m", "60m", "90m", "120m"].map((label) => (
-										<span key={label} className="text-xs font-medium text-muted-foreground">{label}</span>
-									))}
-								</div>
-							</div>
-						</section>
-
-						{/* Avoid back-to-back toggle */}
-						<div className="flex items-center justify-between p-4 bg-schedule-accent/5 rounded-xl border border-schedule-accent/20 mb-8">
-							<div className="flex items-center gap-3">
-								<SlidersHorizontal className="w-5 h-5 text-schedule-accent" />
-								<span className="text-sm font-medium text-foreground">Avoid back-to-back classes</span>
-							</div>
-							<button
-								onClick={() => setAvoidBackToBack(!avoidBackToBack)}
-								className={`relative w-11 h-6 rounded-full transition-colors ${avoidBackToBack ? "bg-schedule-accent" : "bg-muted"}`}
-							>
-								<div className={`absolute top-[2px] w-5 h-5 bg-card rounded-full shadow transition-transform ${avoidBackToBack ? "translate-x-[22px]" : "translate-x-[2px]"}`} />
-							</button>
+						<div className="space-y-3">
+							{modeOptions.map((mode) => {
+								const isActive = selectedModes.includes(mode.key);
+								const priority = isActive ? selectedModes.indexOf(mode.key) + 1 : 0;
+								return (
+									<motion.button
+										key={mode.key}
+										onClick={() => toggleMode(mode.key)}
+										whileTap={{ scale: 0.98 }}
+										className={`w-full text-left p-4 rounded-xl border-2 transition-all ${isActive
+											? "border-schedule-accent bg-schedule-accent/5"
+											: "border-border bg-card"
+											}`}
+									>
+										<div className="flex items-start gap-3">
+											<div className={`p-2 rounded-lg shrink-0 mt-0.5 ${isActive ? "bg-schedule-accent/10 text-schedule-accent" : "bg-muted text-muted-foreground"}`}>
+												{mode.icon}
+											</div>
+											<div className="flex-1 min-w-0">
+												<p className="font-bold text-foreground text-sm">{mode.label}</p>
+												<p className="text-xs text-muted-foreground mt-1">{mode.desc}</p>
+												<p className="text-xs text-schedule-accent/80 mt-0.5">{mode.hint}</p>
+											</div>
+											<div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-1 transition-colors text-xs font-bold ${isActive ? "bg-schedule-accent text-primary-foreground" : "border-2 border-muted-foreground/30 text-muted-foreground/30"}`}>
+												{isActive ? priority : ""}
+											</div>
+										</div>
+									</motion.button>
+								);
+							})}
 						</div>
+
+						{selectedModes.length > 1 && (
+							<div className="mt-4 p-3 bg-schedule-accent/5 border border-schedule-accent/20 rounded-xl">
+								<p className="text-xs text-schedule-accent font-medium">
+									<Scale className="w-3.5 h-3.5 inline mr-1" />
+									Priority order: {selectedModes.map((m, i) => `${i + 1}. ${m === "teacher" ? "Teachers" : m === "gap" ? "Less Gaps" : "Fewer Days"}`).join(", ")}
+								</p>
+							</div>
+						)}
 					</div>
 
 					{/* Bottom CTA */}
 					<div className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border px-4 py-4 pb-6">
 						<motion.div whileTap={{ scale: 0.97 }}>
 							<Button
-								onClick={() => { setGeneratedSchedules(true); setStep(4); }}
-								className="w-full gap-2 rounded-xl py-5 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold text-base shadow-[0_6px_24px_-4px_hsl(var(--schedule-accent)/0.4)]"
+								onClick={handleGenerate}
+								disabled={isGenerating || selectedModes.length === 0}
+								className="w-full gap-2 rounded-xl py-5 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold text-base shadow-[0_6px_24px_-4px_hsl(var(--schedule-accent)/0.4)] disabled:opacity-50"
 							>
-								<Sparkles className="w-5 h-5" />
-								Generate Optimized Schedules
+								{isGenerating ? <><Clock className="w-5 h-5 animate-spin" /> Generating...</> : <><Sparkles className="w-5 h-5" /> Generate 3 Optimized Schedules</>}
 							</Button>
 						</motion.div>
 					</div>
@@ -886,83 +1136,65 @@ const ScheduleBuilder = () => {
 							<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
 							<button onClick={() => setStep(2)} className="text-muted-foreground hover:text-foreground transition-colors">Section Selection</button>
 							<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-							<span className="text-schedule-accent font-semibold">Preferences & Generation</span>
+							<span className="text-schedule-accent font-semibold">Optimization</span>
 						</div>
 					</div>
-					<div className="px-8 pb-6">
-						<h1 className="text-2xl font-bold text-foreground">Step 3: Preferences & Generation</h1>
-						<p className="text-muted-foreground text-sm mt-1">Customise your learning experience. Tell us when you prefer to study and when you need a break.</p>
+					<div className="px-8 pb-4">
+						<h1 className="text-2xl font-bold text-foreground">Step 3: Choose Your Priorities</h1>
+						<p className="text-muted-foreground text-sm mt-1">Select one or more optimization priorities. We will generate 3 schedule variations based on your choices.</p>
 					</div>
 					<div className="flex-1 overflow-y-auto px-8 pb-28">
-						<div className="grid grid-cols-2 gap-4 mb-6">
-							<div className="bg-card rounded-xl border border-border p-5">
-								<div className="flex items-center gap-2 mb-4"><Clock className="w-4 h-4 text-schedule-accent" /><h3 className="font-semibold text-schedule-accent text-sm">Shift Preference</h3></div>
-								<div className="space-y-3">
-									{shiftOptions.map((option) => (
-										<button key={option.value} onClick={() => setShiftPref(option.value)} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors">
-											<div className="flex items-center gap-3">{option.icon}<span className="text-sm text-foreground">{option.label}</span></div>
-											<div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${shiftPref === option.value ? "border-schedule-accent" : "border-muted-foreground/30"}`}>
-												{shiftPref === option.value && <div className="w-2.5 h-2.5 rounded-full bg-schedule-accent" />}
+						<div className="grid grid-cols-3 gap-4 mb-6">
+							{modeOptions.map((mode) => {
+								const isActive = selectedModes.includes(mode.key);
+								const priority = isActive ? selectedModes.indexOf(mode.key) + 1 : 0;
+								return (
+									<motion.button
+										key={mode.key}
+										onClick={() => toggleMode(mode.key)}
+										whileHover={{ scale: 1.01 }}
+										whileTap={{ scale: 0.98 }}
+										className={`text-left p-5 rounded-xl border-2 transition-all ${isActive
+											? "border-schedule-accent bg-schedule-accent/5 shadow-md"
+											: "border-border bg-card hover:border-muted-foreground/30"
+											}`}
+									>
+										<div className="flex items-center justify-between mb-3">
+											<div className={`p-2.5 rounded-lg ${isActive ? "bg-schedule-accent/10 text-schedule-accent" : "bg-muted text-muted-foreground"}`}>
+												{mode.icon}
 											</div>
-										</button>
-									))}
-								</div>
-							</div>
-							<div className="bg-card rounded-xl border border-border p-5">
-								<div className="flex items-center gap-2 mb-2"><Calendar className="w-4 h-4 text-schedule-accent" /><h3 className="font-semibold text-schedule-accent text-sm">Specific Break Times</h3></div>
-								<p className="text-xs text-muted-foreground mb-4">Select time slots where you do NOT want any classes scheduled.</p>
-								<div className="flex flex-wrap gap-2">
-									{defaultBreaks.map((b) => {
-										const isActive = breakTimes.includes(b.time); return (
-											<button key={b.time} onClick={() => setBreakTimes((prev) => isActive ? prev.filter((t) => t !== b.time) : [...prev, b.time])}
-												className={`rounded-lg border px-3 py-2 text-center transition-all ${isActive ? "border-schedule-accent bg-schedule-accent/10 text-schedule-accent" : "border-border text-muted-foreground hover:border-muted-foreground/50"}`}>
-												<p className="text-xs font-semibold">{b.time}</p><p className="text-[10px]">{b.label}</p>
-											</button>
-										);
-									})}
-									<button className="rounded-lg border border-dashed border-border px-3 py-2 text-center text-muted-foreground hover:border-schedule-accent hover:text-schedule-accent transition-colors"><Plus className="w-4 h-4 mx-auto" /><p className="text-[10px]">Custom</p></button>
-								</div>
-							</div>
+											<div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors text-xs font-bold ${isActive ? "bg-schedule-accent text-primary-foreground" : "border-2 border-muted-foreground/30 text-muted-foreground/30"}`}>
+												{isActive ? priority : ""}
+											</div>
+										</div>
+										<p className={`font-bold text-sm mb-1 ${isActive ? "text-schedule-accent" : "text-foreground"}`}>{mode.label}</p>
+										<p className="text-xs text-muted-foreground">{mode.desc}</p>
+										<p className="text-[11px] text-schedule-accent/70 mt-1">{mode.hint}</p>
+									</motion.button>
+								);
+							})}
 						</div>
+
+						{selectedModes.length > 1 && (
+							<div className="mb-6 p-3 bg-schedule-accent/5 border border-schedule-accent/20 rounded-xl text-center">
+								<p className="text-sm text-schedule-accent font-medium">
+									<Scale className="w-4 h-4 inline mr-1" />
+									Priority order: {selectedModes.map((m, i) => `${i + 1}. ${m === "teacher" ? "Teachers" : m === "gap" ? "Less Gaps" : "Fewer Days"}`).join(" > ")}
+								</p>
+							</div>
+						)}
+
 						<div className="flex justify-center mb-8">
 							<motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-								<Button onClick={() => setGeneratedSchedules(true)} className="gap-2 rounded-xl px-8 py-5 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold shadow-[0_6px_24px_-4px_hsl(var(--schedule-accent)/0.55)] hover:shadow-[0_8px_32px_-4px_hsl(var(--schedule-accent)/0.7)] transition-all duration-200">
-									<Sparkles className="w-4 h-4" />Generate Optimized Schedules
+								<Button
+									onClick={handleGenerate}
+									disabled={isGenerating || selectedModes.length === 0}
+									className="gap-2 rounded-xl px-8 py-5 bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold shadow-[0_6px_24px_-4px_hsl(var(--schedule-accent)/0.55)] hover:shadow-[0_8px_32px_-4px_hsl(var(--schedule-accent)/0.7)] transition-all duration-200 disabled:opacity-50"
+								>
+									{isGenerating ? <><Clock className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> Generate 3 Optimized Schedules</>}
 								</Button>
 							</motion.div>
 						</div>
-						<AnimatePresence>
-							{generatedSchedules && (
-								<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-									<div className="flex items-center justify-between mb-4"><h2 className="font-bold text-foreground text-lg">Suggested Schedules</h2><span className="text-xs text-muted-foreground">{suggestedSchedules.length} variations found based on your preferences</span></div>
-									<div className="space-y-4">
-										{suggestedSchedules.map((schedule, idx) => (
-											<motion.div key={idx} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}
-												className={`bg-card rounded-xl border overflow-hidden ${schedule.isBest ? "border-primary shadow-md" : "border-border"}`}>
-												<div className={`px-5 py-3 flex items-center justify-between ${schedule.isBest ? "bg-primary text-primary-foreground" : "bg-muted/50"}`}>
-													<div className="flex items-center gap-2">{schedule.icon}<span className="text-sm font-bold">{schedule.label}</span></div>
-													<div className={`flex items-center gap-4 text-xs font-medium ${schedule.isBest ? "" : "text-muted-foreground"}`}><span>{schedule.days}</span><span className={schedule.isBest ? "" : "text-stat-blue"}>{schedule.credits} Credits</span><span>Avg Gap: {schedule.avgGap}</span></div>
-												</div>
-												<div className="divide-y divide-border">
-													{schedule.courses.map((course, ci) => (
-														<div key={ci} className="grid grid-cols-4 items-center px-5 py-3">
-															<span className="text-sm font-bold text-schedule-accent">{course.code}</span><span className="text-sm text-foreground">{course.title}</span><span className="text-xs text-muted-foreground">{course.room}</span><span className="text-sm text-foreground text-right">{course.time}</span>
-														</div>
-													))}
-												</div>
-												<div className="px-5 py-3 flex justify-end">
-													<Button onClick={() => { setSelectedSchedule(idx); setStep(4); }} variant={selectedSchedule === idx ? "default" : "outline"}
-														className={`rounded-lg text-sm ${selectedSchedule === idx ? "bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground" : "border-schedule-accent text-schedule-accent hover:bg-schedule-accent/5"}`}>
-														{selectedSchedule === idx ? "✓ Selected" : "Select This Schedule"}
-													</Button>
-												</div>
-											</motion.div>
-										))}
-									</div>
-									<p className="text-center text-xs text-muted-foreground mt-6">Need help? <span className="text-schedule-accent cursor-pointer hover:underline">View Tutorial</span> or contact the Registrar's Office.</p>
-								</motion.div>
-							)}
-						</AnimatePresence>
 					</div>
 				</>
 			)}
@@ -970,7 +1202,7 @@ const ScheduleBuilder = () => {
 	);
 
 	// ===================== STEP 4 =====================
-	const days = ["SUN", "MON", "TUE", "WED", "THU"];
+	const days = ["SAT", "SUN", "MON", "TUE", "WED", "THU"];
 	const timeSlots = ["08:00 AM", "09:30 AM", "11:00 AM", "12:30 PM", "02:00 PM", "03:30 PM", "05:00 PM"];
 	const timetableColors = [
 		{ bg: "bg-stat-blue/15", border: "border-stat-blue/30", text: "text-stat-blue" },
@@ -978,27 +1210,38 @@ const ScheduleBuilder = () => {
 		{ bg: "bg-stat-emerald/15", border: "border-stat-emerald/30", text: "text-stat-emerald" },
 		{ bg: "bg-stat-purple/15", border: "border-stat-purple/30", text: "text-stat-purple" },
 	];
-	const selectedScheduleData = selectedSchedule !== null ? suggestedSchedules[selectedSchedule] : null;
-	const timetableEntries: Array<{ code: string; title: string; room: string; day: number; startRow: number; span: number; colorIdx: number }> = [];
-	if (selectedScheduleData) {
-		selectedScheduleData.courses.forEach((course, ci) => {
-			const timeMatch = course.time.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\s*\(([^)]+)\)/);
-			if (timeMatch) {
-				const daysList = timeMatch[3].split(",").map((d) => d.trim());
-				const startHour = parseInt(timeMatch[1].split(":")[0]);
-				const startRow = Math.max(0, Math.floor((startHour - 8) / 1.5));
-				daysList.forEach((dayStr) => {
-					const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4 };
-					const dayIdx = dayMap[dayStr];
-					if (dayIdx !== undefined) {
-						timetableEntries.push({ code: course.code, title: course.title, room: course.room.replace("Room: ", "Rm: "), day: dayIdx, startRow, span: 1, colorIdx: ci % timetableColors.length });
-					}
-				});
-			}
+
+	const activeVariation = selectedSchedule !== null ? scheduleVariations[selectedSchedule] : null;
+
+	/** Parse "09:25 am" to minutes for timetable placement */
+	const parseTimeMin = (raw: string): number => {
+		const m = raw.trim().toLowerCase().match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/);
+		if (!m) return 0;
+		let h = parseInt(m[1], 10);
+		const min = parseInt(m[2], 10);
+		if (m[3] === "am" && h === 12) h = 0;
+		if (m[3] === "pm" && h !== 12) h += 12;
+		return h * 60 + min;
+	};
+
+	const timetableEntries: Array<{ code: string; title: string; room: string; teacher: string; day: number; startRow: number; span: number; colorIdx: number }> = [];
+	if (activeVariation) {
+		const dayMap: Record<string, number> = { Saturday: 0, Sunday: 1, Monday: 2, Tuesday: 3, Wednesday: 4, Thursday: 5 };
+		activeVariation.sections.forEach((sec, ci) => {
+			const startMin = parseTimeMin(sec.startTime);
+			const endMin = parseTimeMin(sec.endTime);
+			const startRow = Math.max(0, Math.floor((startMin - 480) / 90)); // 480 = 8:00 AM
+			const span = Math.max(1, Math.round((endMin - startMin) / 90));
+			sec.days.forEach((dayStr) => {
+				const dayIdx = dayMap[dayStr];
+				if (dayIdx !== undefined) {
+					timetableEntries.push({ code: sec.courseCode, title: sec.title, room: sec.room, teacher: sec.teacher, day: dayIdx, startRow, span, colorIdx: ci % timetableColors.length });
+				}
+			});
 		});
 	}
 
-	const [step4Filter, setStep4Filter] = useState<"all" | "morning" | "afternoon">("all");
+
 
 	const step4Content = (
 		<div className="flex-1 flex flex-col min-h-0">
@@ -1013,114 +1256,123 @@ const ScheduleBuilder = () => {
 							<h1 className="text-lg font-bold leading-tight text-foreground flex-1 text-center">Schedule Variations</h1>
 							<MobileMenuDrawer activePage="Schedule Builder" />
 						</div>
-						{/* Filter Tabs */}
-						<div className="flex px-4 gap-6 border-b border-border">
-							{([{ value: "all" as const, label: "All Options" }, { value: "morning" as const, label: "Morning" }, { value: "afternoon" as const, label: "Afternoon" }]).map((tab) => (
-								<button
-									key={tab.value}
-									onClick={() => setStep4Filter(tab.value)}
-									className={`pb-3 pt-4 text-sm font-medium border-b-[3px] transition-colors ${step4Filter === tab.value
-											? "border-schedule-accent text-schedule-accent font-bold"
-											: "border-transparent text-muted-foreground"
-										}`}
-								>
-									{tab.label}
-								</button>
-							))}
-						</div>
 					</div>
 
 					{/* Variation Cards */}
 					<div className="flex-1 overflow-y-auto px-4 pt-4 pb-24" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-						<div className="flex items-center justify-between px-1 mb-4">
-							<h3 className="text-xl font-bold text-foreground">Recommended for You</h3>
-							<Badge className="bg-schedule-accent/10 text-schedule-accent border-schedule-accent/20 text-[10px] font-semibold uppercase tracking-wider">
-								{suggestedSchedules.length} Variations
-							</Badge>
-						</div>
+						{generationConflicts.length > 0 && (
+							<div className="mb-4 p-3 bg-stat-amber/5 border border-stat-amber/30 rounded-xl">
+								{generationConflicts.map((msg, i) => (
+									<p key={i} className="text-xs text-stat-amber font-medium">{msg}</p>
+								))}
+							</div>
+						)}
 
-						<div className="space-y-5">
-							{suggestedSchedules.map((schedule, idx) => {
-								const variationIcons = [
-									<Sun key="sun" className="w-12 h-12 text-schedule-accent" />,
-									<Scale key="scale" className="w-12 h-12 text-schedule-accent" />,
-									<Moon key="moon" className="w-12 h-12 text-schedule-accent" />,
-								];
-								const variationNames = ["Morning Optimized", "Balanced Flow", "Afternoon Peak"];
-								const variationSubtitles = [
-									"Classes end by 1:30 PM",
-									"1-hour breaks between classes",
-									"Later starts for late sleepers",
-								];
-								const variationSubIcons = [
-									<Clock key="clock" className="w-3.5 h-3.5" />,
-									<Coffee key="coffee" className="w-3.5 h-3.5" />,
-									<Calendar key="cal" className="w-3.5 h-3.5" />,
-								];
+						{scheduleVariations.length === 0 ? (
+							<div className="flex flex-col items-center justify-center py-16">
+								<Info className="w-10 h-10 text-muted-foreground mb-3" />
+								<p className="font-semibold text-foreground">No Schedules Generated</p>
+								<p className="text-sm text-muted-foreground mt-1 text-center">Go back and click Generate to create schedule options.</p>
+							</div>
+						) : (
+							<>
+								<div className="flex items-center justify-between px-1 mb-4">
+									<h3 className="text-xl font-bold text-foreground">Recommended for You</h3>
+									<Badge className="bg-schedule-accent/10 text-schedule-accent border-schedule-accent/20 text-[10px] font-semibold uppercase tracking-wider">
+										{scheduleVariations.length} Variations
+									</Badge>
+								</div>
 
-								return (
-									<motion.div
-										key={idx}
-										initial={{ opacity: 0, y: 15 }}
-										animate={{ opacity: 1, y: 0 }}
-										transition={{ delay: idx * 0.1 }}
-										className="bg-card rounded-xl border border-border overflow-hidden shadow-sm"
-									>
-										{/* Gradient hero banner */}
-										<div className={`w-full h-32 flex items-center justify-center relative ${idx === 0
-												? "bg-gradient-to-br from-schedule-accent/20 to-schedule-accent/5"
-												: "bg-gradient-to-br from-schedule-accent/10 to-schedule-accent/5"
-											}`}>
-											<div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, hsl(var(--schedule-accent)) 1px, transparent 0)', backgroundSize: '20px 20px' }} />
-											{variationIcons[idx % 3]}
-											{idx === 0 && (
-												<div className="absolute top-4 right-4 bg-card/90 backdrop-blur px-3 py-1 rounded-full border border-border shadow-sm">
-													<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Best Efficiency</p>
-												</div>
-											)}
-										</div>
+								<div className="space-y-5">
+									{scheduleVariations.map((variation, idx) => {
+										const variationIcons = [
+											<Sun key="sun" className="w-12 h-12 text-schedule-accent" />,
+											<Scale key="scale" className="w-12 h-12 text-schedule-accent" />,
+											<Moon key="moon" className="w-12 h-12 text-schedule-accent" />,
+										];
 
-										{/* Content */}
-										<div className="p-5 space-y-4">
-											<div className="space-y-1">
-												<p className="text-schedule-accent text-sm font-semibold uppercase tracking-wider">Variation {idx + 1}</p>
-												<p className="text-xl font-bold text-foreground leading-tight">{variationNames[idx % 3]}</p>
-												<p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-													{variationSubIcons[idx % 3]} {variationSubtitles[idx % 3]}
-												</p>
-											</div>
-
-											{/* Course list */}
-											<div className="space-y-0 bg-muted/50 p-4 rounded-lg">
-												{schedule.courses.map((course, ci) => (
-													<div key={ci} className={`flex justify-between items-start ${ci > 0 ? "border-t border-border pt-3 mt-3" : ""}`}>
-														<div>
-															<p className="text-sm font-bold text-foreground">{course.code} {course.title}</p>
-															<p className="text-xs text-muted-foreground">{course.room}</p>
-														</div>
-														<p className="text-xs font-bold text-foreground whitespace-nowrap ml-3">
-															{course.time.split("(")[0].trim()}
-														</p>
-													</div>
-												))}
-											</div>
-
-											{/* Select button */}
-											<motion.button
-												whileTap={{ scale: 0.98 }}
-												onClick={() => { setSelectedSchedule(idx); setStep(5); }}
-												className={`w-full flex items-center justify-center rounded-xl h-12 text-base font-bold transition-all ${idx === 0
-														? "bg-schedule-accent text-primary-foreground"
-														: "bg-muted text-foreground border border-border"
-													}`}
+										return (
+											<motion.div
+												key={idx}
+												initial={{ opacity: 0, y: 15 }}
+												animate={{ opacity: 1, y: 0 }}
+												transition={{ delay: idx * 0.1 }}
+												className="bg-card rounded-xl border border-border overflow-hidden shadow-sm"
 											>
-												Select This Schedule
-											</motion.button>
-										</div>
-									</motion.div>
-								);
-							})}
-						</div>
+												{/* Gradient hero banner */}
+												<div className={`w-full h-28 flex items-center justify-center relative ${idx === 0
+													? "bg-gradient-to-br from-schedule-accent/20 to-schedule-accent/5"
+													: "bg-gradient-to-br from-schedule-accent/10 to-schedule-accent/5"
+													}`}>
+													<div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, hsl(var(--schedule-accent)) 1px, transparent 0)', backgroundSize: '20px 20px' }} />
+													{variationIcons[idx % 3]}
+													{idx === 0 && (
+														<div className="absolute top-3 right-3 bg-card/90 backdrop-blur px-3 py-1 rounded-full border border-border shadow-sm">
+															<p className="text-[10px] font-bold text-schedule-accent uppercase tracking-widest leading-none">Best Match</p>
+														</div>
+													)}
+												</div>
+
+												{/* Content */}
+												<div className="p-5 space-y-4">
+													<div className="space-y-1">
+														<p className="text-schedule-accent text-sm font-semibold uppercase tracking-wider">{variation.label}</p>
+														<div className="flex items-center gap-2 text-xs text-muted-foreground">
+															<span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {variation.daysUsed.map(d => d.slice(0, 3)).join(", ")}</span>
+															<span>|</span>
+															<span className="flex items-center gap-1"><Clock className="w-3 h-3" /> ~{variation.avgGapMinutes}min gap</span>
+															<span>|</span>
+															<span className="flex items-center gap-1"><Star className="w-3 h-3" /> {variation.teacherMatchCount}/{variation.totalCourses} teachers</span>
+														</div>
+														<p className="text-[11px] text-schedule-accent font-medium">Score: {variation.score}/100</p>
+													</div>
+
+													{variation.conflicts.length > 0 && (
+														<div className="p-2 bg-destructive/5 border border-destructive/20 rounded-lg">
+															<p className="text-[10px] font-bold text-destructive uppercase tracking-wider mb-1">Conflicts Found</p>
+															{variation.conflicts.map((c, ci) => (
+																<p key={ci} className="text-[11px] text-destructive/80">{c.course1} vs {c.course2} on {c.day}</p>
+															))}
+														</div>
+													)}
+
+													{/* Section list */}
+													<div className="space-y-0 bg-muted/50 p-3 rounded-lg">
+														{variation.sections.map((sec, si) => (
+															<div key={si} className={`flex justify-between items-start ${si > 0 ? "border-t border-border pt-2.5 mt-2.5" : ""}`}>
+																<div className="min-w-0 flex-1">
+																	<div className="flex items-center gap-1.5">
+																		<p className="text-sm font-bold text-foreground truncate">{sec.title || sec.courseCode}</p>
+																		{sec.isPreferredTeacher && <Star className="w-3 h-3 text-schedule-accent shrink-0" />}
+																	</div>
+																	<p className="text-[11px] text-muted-foreground">S{sec.section} | {sec.teacher} | {sec.room}</p>
+																</div>
+																<div className="text-right ml-2 shrink-0">
+																	<p className="text-xs font-bold text-foreground">{sec.startTime} - {sec.endTime}</p>
+																	<p className="text-[10px] text-muted-foreground">{sec.days.map(d => d.slice(0, 3)).join(", ")}</p>
+																</div>
+															</div>
+														))}
+													</div>
+
+													{/* Select button */}
+													<motion.button
+														whileTap={{ scale: 0.98 }}
+														onClick={() => { setSelectedSchedule(idx); setStep(5); }}
+														className={`w-full flex items-center justify-center rounded-xl h-12 text-base font-bold transition-all ${idx === 0
+															? "bg-schedule-accent text-primary-foreground"
+															: "bg-muted text-foreground border border-border"
+															}`}
+													>
+														Select This Schedule
+													</motion.button>
+												</div>
+											</motion.div>
+										);
+									})}
+								</div>
+							</>
+						)}
 					</div>
 				</>
 			) : (
@@ -1130,7 +1382,7 @@ const ScheduleBuilder = () => {
 						<div className="flex items-center gap-2 text-sm flex-wrap">
 							<button onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground transition-colors">Schedule Builder</button>
 							<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-							<button onClick={() => setStep(3)} className="text-muted-foreground hover:text-foreground transition-colors">Step 3: Review</button>
+							<button onClick={() => { setScheduleVariations([]); setSelectedSchedule(null); setStep(3); }} className="text-muted-foreground hover:text-foreground transition-colors">Step 3: Review</button>
 							<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
 							<span className="text-schedule-accent font-semibold">Step 4: Final Edit & Save</span>
 						</div>
@@ -1154,11 +1406,11 @@ const ScheduleBuilder = () => {
 							<div className="w-48 flex-shrink-0">
 								<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Selected Courses</p>
 								<div className="space-y-2">
-									{selectedScheduleData?.courses.map((course, ci) => (
+									{activeVariation?.sections.map((sec, ci) => (
 										<div key={ci} className="bg-card rounded-lg border border-border p-3">
-											<p className="text-xs font-bold text-schedule-accent">{course.code}</p>
-											<p className="text-sm font-medium text-foreground">{course.title}</p>
-											<p className="text-[10px] text-muted-foreground mt-0.5">Sec 0{ci + 1} · Instructor</p>
+											<p className="text-xs font-bold text-schedule-accent">{sec.courseCode}</p>
+											<p className="text-sm font-medium text-foreground">{sec.title}</p>
+											<p className="text-[10px] text-muted-foreground mt-0.5">S{sec.section} · {sec.teacher}</p>
 										</div>
 									))}
 								</div>
@@ -1174,10 +1426,10 @@ const ScheduleBuilder = () => {
 								</div>
 								{step4Tab === "weekly" && (
 									<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-										<div className="grid grid-cols-[70px_repeat(5,1fr)] border-b border-border"><div />{days.map((day) => (<div key={day} className="text-center py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{day}</div>))}</div>
+										<div className="grid grid-cols-[70px_repeat(6,1fr)] border-b border-border"><div />{days.map((day) => (<div key={day} className="text-center py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{day}</div>))}</div>
 										<div className="relative">
 											{timeSlots.map((time, rowIdx) => (
-												<div key={time} className="grid grid-cols-[70px_repeat(5,1fr)] border-b border-border/50">
+												<div key={time} className="grid grid-cols-[70px_repeat(6,1fr)] border-b border-border/50">
 													<div className="py-4 pr-2 text-right text-xs text-schedule-accent font-medium">{time}</div>
 													{days.map((_, dayIdx) => {
 														const entry = timetableEntries.find((e) => e.day === dayIdx && e.startRow === rowIdx); return (
@@ -1198,21 +1450,40 @@ const ScheduleBuilder = () => {
 								)}
 								{step4Tab === "list" && (
 									<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-										{selectedScheduleData?.courses.map((course, ci) => (
+										{activeVariation?.sections.map((sec, ci) => (
 											<div key={ci} className="bg-card rounded-lg border border-border p-4 flex items-center justify-between">
 												<div className="flex items-center gap-3">
-													<div className={`w-10 h-10 rounded-lg flex items-center justify-center ${timetableColors[ci % timetableColors.length].bg}`}><span className={`text-xs font-bold ${timetableColors[ci % timetableColors.length].text}`}>{course.code.slice(0, 3)}</span></div>
-													<div><p className="text-sm font-semibold text-foreground">{course.code} - {course.title}</p><p className="text-xs text-muted-foreground">{course.room} · {course.time}</p></div>
+													<div className={`w-10 h-10 rounded-lg flex items-center justify-center ${timetableColors[ci % timetableColors.length].bg}`}><span className={`text-xs font-bold ${timetableColors[ci % timetableColors.length].text}`}>{sec.courseCode.slice(0, 3)}</span></div>
+													<div><p className="text-sm font-semibold text-foreground">{sec.courseCode} - {sec.title}</p><p className="text-xs text-muted-foreground">{sec.room} · {sec.days.map(d => d.slice(0, 3)).join(", ")} · {sec.startTime}-{sec.endTime}</p></div>
 												</div>
 											</div>
 										))}
 									</motion.div>
 								)}
 								{step4Tab === "conflicts" && (
-									<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-12">
-										<div className="w-12 h-12 rounded-full bg-stat-emerald/10 flex items-center justify-center mb-3"><CheckCircle2 className="w-6 h-6 text-stat-emerald" /></div>
-										<p className="font-semibold text-foreground">No Conflicts Detected</p>
-										<p className="text-sm text-muted-foreground mt-1 text-center max-w-md">Your schedule has no time overlaps. You're ready to save.</p>
+									<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+										{activeVariation && activeVariation.conflicts.length > 0 ? (
+											<div className="space-y-3">
+												<div className="flex items-center gap-2 mb-2">
+													<AlertTriangle className="w-5 h-5 text-stat-amber" />
+													<p className="font-semibold text-foreground">{activeVariation.conflicts.length} Conflict{activeVariation.conflicts.length > 1 ? "s" : ""} Found</p>
+												</div>
+												{activeVariation.conflicts.map((c, ci) => (
+													<div key={ci} className="bg-destructive/5 border border-destructive/20 rounded-lg p-4">
+														<p className="text-sm font-semibold text-destructive">{c.course1}</p>
+														<p className="text-xs text-muted-foreground my-1">conflicts with</p>
+														<p className="text-sm font-semibold text-destructive">{c.course2}</p>
+														<p className="text-xs text-muted-foreground mt-2">{c.day} · {c.overlap}</p>
+													</div>
+												))}
+											</div>
+										) : (
+											<div className="flex flex-col items-center justify-center py-12">
+												<div className="w-12 h-12 rounded-full bg-stat-emerald/10 flex items-center justify-center mb-3"><CheckCircle2 className="w-6 h-6 text-stat-emerald" /></div>
+												<p className="font-semibold text-foreground">No Conflicts Detected</p>
+												<p className="text-sm text-muted-foreground mt-1 text-center max-w-md">Your schedule has no time overlaps. You're ready to save.</p>
+											</div>
+										)}
 									</motion.div>
 								)}
 							</div>
@@ -1272,8 +1543,8 @@ const ScheduleBuilder = () => {
 							key={tab}
 							onClick={() => setMobileStep5Tab(tab)}
 							className={`pb-3 pt-2 text-sm font-medium border-b-[3px] transition-colors ${mobileStep5Tab === tab
-									? "border-schedule-accent text-schedule-accent font-bold"
-									: "border-transparent text-muted-foreground"
+								? "border-schedule-accent text-schedule-accent font-bold"
+								: "border-transparent text-muted-foreground"
 								}`}
 						>
 							{tab === "weekly" ? "Weekly View" : tab === "list" ? "List View" : "Conflicts"}
@@ -1289,7 +1560,7 @@ const ScheduleBuilder = () => {
 						{/* Mobile timetable - horizontal scrollable */}
 						<div className="overflow-x-auto -mx-1" style={{ scrollbarWidth: 'none' }}>
 							<div className="min-w-[600px]">
-								<div className="grid grid-cols-[56px_repeat(5,1fr)] border-b border-border">
+								<div className="grid grid-cols-[56px_repeat(6,1fr)] border-b border-border">
 									<div />
 									{days.map((day) => (
 										<div key={day} className="text-center py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{day}</div>
@@ -1297,7 +1568,7 @@ const ScheduleBuilder = () => {
 								</div>
 								<div className="relative">
 									{timeSlots.map((time, rowIdx) => (
-										<div key={time} className="grid grid-cols-[56px_repeat(5,1fr)] border-b border-border/50">
+										<div key={time} className="grid grid-cols-[56px_repeat(6,1fr)] border-b border-border/50">
 											<div className="py-3 pr-1 text-right text-[10px] text-schedule-accent font-medium leading-tight">{time}</div>
 											{days.map((_, dayIdx) => {
 												const entry = timetableEntries.find((e) => e.day === dayIdx && e.startRow === rowIdx);
@@ -1336,8 +1607,8 @@ const ScheduleBuilder = () => {
 									<button
 										key={day}
 										className={`flex items-center justify-center min-w-[52px] py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${isActive
-												? "bg-schedule-accent text-primary-foreground shadow-md"
-												: "bg-card border border-border text-muted-foreground"
+											? "bg-schedule-accent text-primary-foreground shadow-md"
+											: "bg-card border border-border text-muted-foreground"
 											}`}
 									>
 										{day}
@@ -1348,18 +1619,15 @@ const ScheduleBuilder = () => {
 
 						{/* Classes count */}
 						<div className="flex items-center justify-between mb-3">
-							<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sunday</p>
+							<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Schedule</p>
 							<Badge className="bg-schedule-accent/10 text-schedule-accent border-schedule-accent/20 text-[10px] font-semibold">
-								{selectedScheduleData?.courses.length || 0} Classes
+								{activeVariation?.sections.length || 0} Classes
 							</Badge>
 						</div>
 
 						{/* Compact class cards */}
 						<div className="space-y-2.5">
-							{selectedScheduleData?.courses.map((course, ci) => {
-								const isFirst = ci === 0;
-								const timeStr = course.time.split("(")[0].trim();
-								const startTime = timeStr.split("-")[0].trim();
+							{activeVariation?.sections.map((sec, ci) => {
 								const color = timetableColors[ci % timetableColors.length];
 								return (
 									<motion.div
@@ -1367,31 +1635,29 @@ const ScheduleBuilder = () => {
 										initial={{ opacity: 0, y: 8 }}
 										animate={{ opacity: 1, y: 0 }}
 										transition={{ delay: ci * 0.06 }}
-										className={`bg-card rounded-xl border px-3.5 py-3 flex items-center gap-3 ${isFirst ? "border-schedule-accent/30" : "border-border"
-											}`}
+										className="bg-card rounded-xl border border-border px-3.5 py-3 flex items-center gap-3"
 									>
 										{/* Time badge */}
-										<div className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl flex-shrink-0 ${isFirst ? "bg-schedule-accent text-primary-foreground" : "bg-muted text-muted-foreground"
-											}`}>
+										<div className="flex flex-col items-center justify-center w-12 h-12 rounded-xl flex-shrink-0 bg-muted text-muted-foreground">
 											<Clock className="w-4 h-4" />
-											<span className="text-[9px] font-bold mt-0.5">{isFirst ? "NOW" : startTime}</span>
+											<span className="text-[9px] font-bold mt-0.5">{sec.startTime.replace(/\s*(am|pm)/i, "")}</span>
 										</div>
 
 										{/* Content */}
 										<div className="flex-1 min-w-0">
 											<div className="flex items-center justify-between">
-												<p className={`text-[10px] font-bold uppercase tracking-wider ${color.text}`}>{course.code}</p>
-												{isFirst && (
-													<span className="text-[9px] font-bold text-stat-emerald bg-stat-emerald/10 px-1.5 py-0.5 rounded-full uppercase">Ongoing</span>
+												<p className={`text-[10px] font-bold uppercase tracking-wider ${color.text}`}>{sec.courseCode}</p>
+												{sec.isPreferredTeacher && (
+													<span className="text-[9px] font-bold text-schedule-accent bg-schedule-accent/10 px-1.5 py-0.5 rounded-full uppercase">Preferred</span>
 												)}
 											</div>
-											<p className="text-sm font-bold text-foreground leading-tight">{course.title}</p>
+											<p className="text-sm font-bold text-foreground leading-tight">{sec.title}</p>
 											<div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-												<span className="flex items-center gap-0.5"><User className="w-3 h-3" /> Instructor</span>
+												<span className="flex items-center gap-0.5"><User className="w-3 h-3" /> {sec.teacher}</span>
 												<span>·</span>
-												<span className="flex items-center gap-0.5"><Building2 className="w-3 h-3" /> {course.room.replace("Room: ", "")}</span>
+												<span className="flex items-center gap-0.5"><Building2 className="w-3 h-3" /> {sec.room}</span>
 												<span>·</span>
-												<span>{timeStr}</span>
+												<span>{sec.days.map(d => d.slice(0, 3)).join(", ")}</span>
 											</div>
 										</div>
 									</motion.div>
@@ -1409,12 +1675,31 @@ const ScheduleBuilder = () => {
 				)}
 
 				{mobileStep5Tab === "conflicts" && (
-					<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-12">
-						<div className="w-12 h-12 rounded-full bg-stat-emerald/10 flex items-center justify-center mb-3">
-							<CheckCircle2 className="w-6 h-6 text-stat-emerald" />
-						</div>
-						<p className="font-semibold text-foreground">No Conflicts Detected</p>
-						<p className="text-sm text-muted-foreground mt-1 text-center">Your schedule has no time overlaps. You're ready to save.</p>
+					<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+						{activeVariation && activeVariation.conflicts.length > 0 ? (
+							<div className="space-y-3">
+								<div className="flex items-center gap-2 mb-2">
+									<AlertTriangle className="w-5 h-5 text-stat-amber" />
+									<p className="font-semibold text-foreground">{activeVariation.conflicts.length} Conflict{activeVariation.conflicts.length > 1 ? "s" : ""} Found</p>
+								</div>
+								{activeVariation.conflicts.map((c, ci) => (
+									<div key={ci} className="bg-destructive/5 border border-destructive/20 rounded-lg p-3">
+										<p className="text-sm font-semibold text-destructive">{c.course1}</p>
+										<p className="text-xs text-muted-foreground my-1">conflicts with</p>
+										<p className="text-sm font-semibold text-destructive">{c.course2}</p>
+										<p className="text-xs text-muted-foreground mt-2">{c.day} · {c.overlap}</p>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="flex flex-col items-center justify-center py-12">
+								<div className="w-12 h-12 rounded-full bg-stat-emerald/10 flex items-center justify-center mb-3">
+									<CheckCircle2 className="w-6 h-6 text-stat-emerald" />
+								</div>
+								<p className="font-semibold text-foreground">No Conflicts Detected</p>
+								<p className="text-sm text-muted-foreground mt-1 text-center">Your schedule has no time overlaps. You're ready to save.</p>
+							</div>
+						)}
 					</motion.div>
 				)}
 
@@ -1473,7 +1758,7 @@ const ScheduleBuilder = () => {
 
 	if (isMobile) {
 		return (
-			<div className="min-h-screen bg-background flex flex-col overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+			<div className="h-screen bg-background flex flex-col overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 				<style>{`
           .mobile-schedule-builder *::-webkit-scrollbar { display: none !important; }
           .mobile-schedule-builder * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
