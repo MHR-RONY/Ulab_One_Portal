@@ -292,6 +292,7 @@ export interface IOfferedCourse {
 	_id: string;
 	courseCode: string;
 	unicode: string;
+	title: string;
 	section: string;
 	room: string;
 	teacherInitials: string;
@@ -306,6 +307,8 @@ export interface IOfferedCourse {
 	semester: string;
 	hasConflict: boolean;
 	conflictReason: string;
+	seats: number;
+	totalSeats: number;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -334,6 +337,58 @@ export interface IApiResponse<T = unknown> {
 	success: boolean;
 	message: string;
 	data?: T;
+}
+
+// ---- Schedule Generation Types ----
+
+export type TScheduleMode = "teacher" | "gap" | "days";
+
+export interface IGenerateScheduleBody {
+	courseUnicodes: string[];
+	preferredSections: Record<string, string>;
+	modes: TScheduleMode[];
+	semester: string;
+}
+
+export interface IGeneratedSection {
+	sectionId: string;
+	courseCode: string;
+	unicode: string;
+	title: string;
+	section: string;
+	teacher: string;
+	days: string[];
+	startTime: string;
+	endTime: string;
+	room: string;
+	isLab: boolean;
+	isPreferredTeacher: boolean;
+}
+
+export interface IScheduleConflict {
+	course1: string;
+	course2: string;
+	day: string;
+	overlap: string;
+}
+
+export interface IScheduleVariation {
+	label: string;
+	isBest: boolean;
+	score: number;
+	totalDays: number;
+	daysUsed: string[];
+	avgGapMinutes: number;
+	teacherMatchCount: number;
+	totalCourses: number;
+	conflicts: IScheduleConflict[];
+	sections: IGeneratedSection[];
+}
+
+export interface IGenerateScheduleResponse {
+	variations: IScheduleVariation[];
+	hasConflicts: boolean;
+	conflictMessages: string[];
 }
 
 declare global {
