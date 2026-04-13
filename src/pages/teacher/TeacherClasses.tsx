@@ -257,8 +257,33 @@ const TeacherClasses = () => {
 
 			{/* Course Cards */}
 			{loading ? (
-				<div className="flex items-center justify-center py-20">
-					<Loader2 className="w-8 h-8 animate-spin text-primary" />
+				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 animate-pulse">
+					{Array.from({ length: 3 }).map((_, i) => (
+						<div key={i} className="bg-card rounded-2xl border border-border overflow-hidden">
+							<div className="p-6 space-y-4">
+								<div className="flex justify-between">
+									<div className="w-12 h-12 rounded-xl bg-muted" />
+									<div className="h-6 w-16 bg-muted rounded-lg" />
+								</div>
+								<div className="h-5 w-40 bg-muted rounded" />
+								<div className="h-3.5 w-32 bg-muted/60 rounded" />
+								<div className="grid grid-cols-2 gap-4">
+									<div className="space-y-1">
+										<div className="h-2.5 w-14 bg-muted/70 rounded" />
+										<div className="h-6 w-8 bg-muted rounded" />
+									</div>
+									<div className="space-y-1">
+										<div className="h-2.5 w-14 bg-muted/70 rounded" />
+										<div className="h-6 w-8 bg-muted rounded" />
+									</div>
+								</div>
+							</div>
+							<div className="bg-secondary/50 p-4 border-t border-border flex gap-2">
+								<div className="flex-1 h-9 bg-muted rounded-lg" />
+								<div className="h-9 w-9 bg-muted rounded-lg" />
+							</div>
+						</div>
+					))}
 				</div>
 			) : courses.length === 0 ? (
 				<motion.div

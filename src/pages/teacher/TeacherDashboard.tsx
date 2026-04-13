@@ -74,7 +74,7 @@ const TeacherDashboard = () => {
 	const isMobile = useIsMobile();
 	const navigate = useNavigate();
 	const [menuOpen, setMenuOpen] = useState(false);
-	const { profile } = useTeacherProfile();
+	const { profile, loading } = useTeacherProfile();
 
 	const mainContent = (
 		<div className="p-4 md:p-8 space-y-8">
@@ -311,6 +311,58 @@ const TeacherDashboard = () => {
 		</div>
 	);
 
+	const skeletonContent = (
+		<div className="p-4 md:p-8 space-y-8 animate-pulse">
+			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+				<div className="space-y-2">
+					<div className="h-8 w-60 bg-muted rounded-lg" />
+					<div className="h-4 w-44 bg-muted/60 rounded" />
+				</div>
+				<div className="flex gap-2">
+					<div className="h-10 w-32 bg-muted rounded-xl" />
+					<div className="h-10 w-36 bg-muted rounded-xl" />
+				</div>
+			</div>
+			{/* Stats skeleton */}
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+				{Array.from({ length: 4 }).map((_, i) => (
+					<div key={i} className="bg-card p-6 rounded-2xl border border-border space-y-4">
+						<div className="flex justify-between">
+							<div className="w-10 h-10 rounded-xl bg-muted" />
+							<div className="h-4 w-12 bg-muted rounded" />
+						</div>
+						<div className="h-3 w-24 bg-muted/70 rounded" />
+						<div className="h-7 w-20 bg-muted rounded-lg" />
+					</div>
+				))}
+			</div>
+			{/* Charts skeleton */}
+			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+				<div className="lg:col-span-2 bg-card rounded-2xl border border-border h-64" />
+				<div className="bg-card rounded-2xl border border-border h-64" />
+			</div>
+			{/* Performance skeleton */}
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+				<div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+					<div className="h-5 w-40 bg-muted rounded" />
+					{Array.from({ length: 4 }).map((_, i) => (
+						<div key={i} className="space-y-1.5">
+							<div className="flex justify-between">
+								<div className="h-3 w-40 bg-muted/70 rounded" />
+								<div className="h-3 w-12 bg-muted/70 rounded" />
+							</div>
+							<div className="h-2 bg-muted rounded-full" />
+						</div>
+					))}
+				</div>
+				<div className="grid grid-cols-2 gap-6">
+					<div className="bg-card rounded-2xl border border-border h-48" />
+					<div className="bg-card rounded-2xl border border-border h-48" />
+				</div>
+			</div>
+		</div>
+	);
+
 	if (isMobile) {
 		return <MobileTeacherDashboard teacherName={profile?.name ?? ""} />;
 	}
@@ -322,7 +374,7 @@ const TeacherDashboard = () => {
 			</div>
 			<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 				<TeacherHeader />
-				<main className="flex-1 overflow-y-auto">{mainContent}</main>
+				<main className="flex-1 overflow-y-auto">{loading ? skeletonContent : mainContent}</main>
 			</div>
 		</div>
 	);

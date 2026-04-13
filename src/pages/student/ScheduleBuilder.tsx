@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Search, Calendar, ArrowRight, ArrowLeft, Clock, Star, User, BookOpen, ChevronRight, CheckCircle2, Sun, Moon, Sparkles, Plus, Zap, Save, PlusCircle, Info, Check, Building2, HelpCircle, Scale, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loader";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -187,7 +188,7 @@ const ScheduleBuilder = () => {
 
 	const API_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:5003/api").replace(/\/api$/, "");
 
-	// Fetch saved schedule on mount — if exists, show it instead of builder
+	// Fetch saved schedule on mount â€” if exists, show it instead of builder
 	useEffect(() => {
 		const fetchSavedSchedule = async () => {
 			try {
@@ -215,7 +216,7 @@ const ScheduleBuilder = () => {
 					clearDraft();
 				}
 			} catch {
-				// No saved schedule or error — continue to builder
+				// No saved schedule or error â€” continue to builder
 			} finally {
 				setIsLoadingSaved(false);
 			}
@@ -223,7 +224,7 @@ const ScheduleBuilder = () => {
 		fetchSavedSchedule();
 	}, []);
 
-	// Fetch courses immediately on mount — do NOT wait for profile
+	// Fetch courses immediately on mount â€” do NOT wait for profile
 	useEffect(() => {
 		const fetchOfferedCourses = async () => {
 			try {
@@ -449,7 +450,7 @@ const ScheduleBuilder = () => {
 		const [candStart, candEnd] = candidate.time.split("-").map((t) => parseTimeToMin(t.trim()));
 
 		for (const [otherKey, otherId] of Object.entries(selectedSections)) {
-			if (otherKey === courseKey) continue; // same course — will be replaced, not a conflict
+			if (otherKey === courseKey) continue; // same course â€” will be replaced, not a conflict
 			const otherSection = (sectionsData[otherKey] || []).find((s) => s.id === otherId);
 			if (!otherSection) continue;
 
@@ -470,7 +471,7 @@ const ScheduleBuilder = () => {
 
 	/** Handle section selection with conflict check */
 	const handleSectionSelect = (sectionId: string, courseKey: string) => {
-		// Deselecting — always allowed
+		// Deselecting â€” always allowed
 		if (selectedSections[courseKey] === sectionId) {
 			setSelectedSections((prev) => { const next = { ...prev }; delete next[courseKey]; return next; });
 			setViewingInstructor(null);
@@ -617,12 +618,14 @@ const ScheduleBuilder = () => {
 						</div>
 						{/* Search */}
 						<div className="relative mb-3">
-							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
 							<Input
 								placeholder="Search course code or name..."
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
+								onTouchStart={(e) => e.currentTarget.focus()}
 								className="pl-10 bg-background border-border h-11 rounded-xl"
+								style={{ touchAction: 'manipulation' }}
 							/>
 						</div>
 						{/* Filter Chips */}
@@ -644,7 +647,31 @@ const ScheduleBuilder = () => {
 
 					{/* Course Cards */}
 					<div className="flex-1 overflow-y-auto px-4 pt-3 pb-48 space-y-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
-						{filtered.map((course, i) => {
+						{isLoading ? (
+							<>
+								{Array.from({ length: 8 }).map((_, i) => (
+									<div key={i} className="bg-card rounded-xl border-2 border-border px-3.5 py-4 animate-pulse">
+										<div className="flex items-center justify-between">
+											<div className="flex-1 min-w-0 space-y-2">
+												<div className="flex items-baseline gap-2">
+													<div className="h-3.5 w-24 bg-muted rounded-md" />
+													<div className="h-3 w-28 bg-muted/60 rounded-md" />
+												</div>
+												<div className="h-3 w-40 bg-muted/50 rounded-md" />
+											</div>
+											<div className="flex items-center gap-2 flex-shrink-0 ml-3">
+												<div className="h-4 w-7 bg-muted rounded-md" />
+												<div className="w-6 h-6 rounded-full bg-muted" />
+											</div>
+										</div>
+									</div>
+								))}
+								<div className="flex flex-col items-center justify-center pt-4 gap-2 text-muted-foreground">
+									<Loader size={20} className="text-schedule-accent" />
+									<p className="text-xs">Loading courses...</p>
+								</div>
+							</>
+						) : filtered.map((course, i) => {
 							const isSelected = selected.includes(course.id);
 							const badgeLabel = course.type === "Required" ? "REQUIRED" : course.type === "Elective" && course.category === "Engineering" ? "CORE" : "ELECTIVE";
 							const badgeColor = badgeLabel === "REQUIRED" ? "bg-schedule-accent/15 text-schedule-accent" : badgeLabel === "CORE" ? "bg-stat-emerald/15 text-stat-emerald" : "bg-muted text-muted-foreground";
@@ -735,16 +762,16 @@ const ScheduleBuilder = () => {
 							<span className="text-primary cursor-pointer hover:underline">Portal</span><span>/</span><span>Schedule Builder</span>
 						</div>
 					</div>
-					<div className="px-8 pb-6">
+					<div className="px-4 sm:px-8 pb-6">
 						<div className="relative">
 							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 							<Input placeholder="Search subjects (e.g. Computer Science, Calculus, Marketing)" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 bg-card border-border h-12 rounded-xl" />
 						</div>
 					</div>
-					<div className="flex-1 overflow-y-auto px-8 pb-32">
+					<div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-32">
 						<h2 className="font-semibold text-foreground text-lg mb-3">Available Courses</h2>
 						<div className="bg-card rounded-xl border border-border overflow-hidden">
-							<div className="grid grid-cols-[48px_240px_1fr_80px] items-center px-4 py-3 border-b border-border bg-muted/50">
+							<div className="grid grid-cols-[36px_minmax(120px,200px)_1fr_60px] items-center px-3 sm:px-4 py-3 border-b border-border bg-muted/50">
 								<div /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Class Code</span>
 								<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Course Title</span>
 								<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Credits</span>
@@ -754,7 +781,7 @@ const ScheduleBuilder = () => {
 								return (
 									<motion.div key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
 										onClick={() => toggle(course.id)}
-										className={`cursor-pointer transition-colors border-b border-border last:border-b-0 grid grid-cols-[48px_240px_1fr_80px] items-center px-4 py-6 ${isSelected ? "bg-schedule-accent/5" : "hover:bg-muted/50"}`}>
+										className={`cursor-pointer transition-colors border-b border-border last:border-b-0 grid grid-cols-[36px_minmax(120px,200px)_1fr_60px] items-center px-3 sm:px-4 py-5 ${isSelected ? "bg-schedule-accent/5" : "hover:bg-muted/50"}`}>
 										<Checkbox checked={isSelected} onCheckedChange={() => toggle(course.id)} />
 										<span className="text-sm font-semibold text-schedule-accent">{course.unicode ? `${course.code}/${course.unicode}` : course.code}</span>
 										<div><p className="text-sm font-medium text-foreground">{course.title}</p></div>
@@ -768,7 +795,7 @@ const ScheduleBuilder = () => {
 					</div>
 					<AnimatePresence>
 						{selected.length > 0 && (
-							<motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} className="fixed bottom-0 left-72 right-0 px-8 pb-4 z-30">
+							<motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} className="fixed bottom-0 left-[288px] right-0 px-4 sm:px-8 pb-4 z-30">
 								<div className="bg-card border border-border rounded-2xl shadow-lg px-6 py-4 flex items-center justify-between">
 									<span className="text-sm font-medium text-schedule-accent">{selected.length} Course{selected.length > 1 ? "s" : ""} Selected</span>
 									<div className="flex items-center gap-3">
@@ -1280,7 +1307,7 @@ const ScheduleBuilder = () => {
 			) : (
 				<>
 					{/* Desktop Step 3 */}
-					<div className="px-8 pt-6 pb-2">
+					<div className="px-4 sm:px-8 pt-6 pb-2">
 						<div className="flex items-center gap-2 text-sm flex-wrap">
 							<button onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground transition-colors">Course Selection</button>
 							<ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1289,12 +1316,12 @@ const ScheduleBuilder = () => {
 							<span className="text-schedule-accent font-semibold">Optimization</span>
 						</div>
 					</div>
-					<div className="px-8 pb-4">
+					<div className="px-4 sm:px-8 pb-4">
 						<h1 className="text-2xl font-bold text-foreground">Step 3: Choose Your Priorities</h1>
 						<p className="text-muted-foreground text-sm mt-1">Select one or more optimization priorities. We will generate 3 schedule variations based on your choices.</p>
 					</div>
-					<div className="flex-1 overflow-y-auto px-8 pb-28">
-						<div className="grid grid-cols-3 gap-4 mb-6">
+					<div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-28">
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
 							{modeOptions.map((mode) => {
 								const isActive = selectedModes.includes(mode.key);
 								const priority = isActive ? selectedModes.indexOf(mode.key) + 1 : 0;
@@ -1353,7 +1380,10 @@ const ScheduleBuilder = () => {
 
 	// ===================== STEP 4 =====================
 	const days = ["SAT", "SUN", "MON", "TUE", "WED", "THU"];
-	const timeSlots = ["08:00 AM", "09:30 AM", "11:00 AM", "12:30 PM", "02:00 PM", "03:30 PM", "05:00 PM"];
+	// Actual ULAB class start times (matches DB values)
+	const timeSlots = ["08:00 AM", "09:25 AM", "10:50 AM", "12:15 PM", "01:40 PM", "03:05 PM", "04:30 PM"];
+	// Slot start times in minutes since midnight (must match timeSlots order)
+	const slotMins = [480, 565, 650, 735, 820, 905, 990];
 	const timetableColors = [
 		{ bg: "bg-stat-blue/15", border: "border-stat-blue/30", text: "text-stat-blue" },
 		{ bg: "bg-stat-amber/15", border: "border-stat-amber/30", text: "text-stat-amber" },
@@ -1363,7 +1393,7 @@ const ScheduleBuilder = () => {
 
 	const activeVariation = selectedSchedule !== null ? scheduleVariations[selectedSchedule] : null;
 
-	/** Parse "09:25 am" to minutes for timetable placement */
+	/** Parse "09:25 am" / "01:40 pm" to minutes since midnight */
 	const parseTimeMin = (raw: string): number => {
 		const m = raw.trim().toLowerCase().match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/);
 		if (!m) return 0;
@@ -1374,18 +1404,24 @@ const ScheduleBuilder = () => {
 		return h * 60 + min;
 	};
 
-	const timetableEntries: Array<{ code: string; title: string; room: string; teacher: string; day: number; startRow: number; span: number; colorIdx: number }> = [];
+	/** Find the nearest slot row index for a given time in minutes */
+	const toSlotRow = (timeMin: number): number =>
+		slotMins.reduce((best, sm, idx) =>
+			Math.abs(timeMin - sm) < Math.abs(timeMin - slotMins[best]) ? idx : best, 0);
+
+	const timetableEntries: Array<{ code: string; title: string; room: string; teacher: string; section: number; startTime: string; endTime: string; day: number; startRow: number; span: number; colorIdx: number }> = [];
 	if (activeVariation) {
 		const dayMap: Record<string, number> = { Saturday: 0, Sunday: 1, Monday: 2, Tuesday: 3, Wednesday: 4, Thursday: 5 };
 		activeVariation.sections.forEach((sec, ci) => {
 			const startMin = parseTimeMin(sec.startTime);
 			const endMin = parseTimeMin(sec.endTime);
-			const startRow = Math.max(0, Math.floor((startMin - 480) / 90)); // 480 = 8:00 AM
-			const span = Math.max(1, Math.round((endMin - startMin) / 90));
+			const startRow = toSlotRow(startMin);
+			const endRow = toSlotRow(endMin);
+			const span = Math.max(1, endRow - startRow);
 			sec.days.forEach((dayStr) => {
 				const dayIdx = dayMap[dayStr];
 				if (dayIdx !== undefined) {
-					timetableEntries.push({ code: sec.courseCode, title: sec.title, room: sec.room, teacher: sec.teacher, day: dayIdx, startRow, span, colorIdx: ci % timetableColors.length });
+					timetableEntries.push({ code: sec.courseCode, title: sec.title, room: sec.room, teacher: sec.teacher, section: sec.section, startTime: sec.startTime, endTime: sec.endTime, day: dayIdx, startRow, span, colorIdx: ci % timetableColors.length });
 				}
 			});
 		});
@@ -1394,7 +1430,7 @@ const ScheduleBuilder = () => {
 
 
 	const step4Content = (
-		<div className="flex-1 flex flex-col min-h-0">
+		<div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 			{isMobile ? (
 				<>
 					{/* Mobile Step 4: Schedule Variations */}
@@ -1528,7 +1564,7 @@ const ScheduleBuilder = () => {
 			) : (
 				<>
 					{/* Desktop Step 4 */}
-					<div className="px-8 pt-6 pb-2">
+					<div className="px-4 sm:px-8 pt-6 pb-2">
 						{savedMode ? (
 							<div className="flex items-center gap-2 text-sm">
 								<span className="text-schedule-accent font-semibold">Your Saved Schedule</span>
@@ -1543,16 +1579,16 @@ const ScheduleBuilder = () => {
 							</div>
 						)}
 					</div>
-					<div className="px-8 pb-4">
-						<div className="flex items-start justify-between">
+					<div className="px-4 sm:px-8 pb-4">
+						<div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
 							<div>
-								<h1 className="text-2xl font-bold text-foreground">{savedMode ? "Your Schedule" : "Finalize Your Schedule"}</h1>
+								<h1 className="text-xl sm:text-2xl font-bold text-foreground">{savedMode ? "Your Schedule" : "Finalize Your Schedule"}</h1>
 								<p className="text-muted-foreground text-sm mt-1">{savedMode ? "This is your saved schedule for Summer 2026." : "Drag sections to swap timings or manually add missing requirements."}</p>
 							</div>
 							{savedMode ? (
-								<Button onClick={resetAll} variant="outline" className="gap-2"><Plus className="w-4 h-4" />Rebuild Schedule</Button>
+								<Button onClick={resetAll} variant="outline" className="gap-2 shrink-0"><Plus className="w-4 h-4" />Rebuild Schedule</Button>
 							) : (
-								<div className="flex items-center gap-3">
+								<div className="flex items-center gap-2 sm:gap-3 flex-wrap shrink-0">
 									<Button variant="outline" className="gap-2" onClick={() => { setManualCourseId(""); setManualSectionId(""); setManualConflictMsg(""); setShowManualAdd(true); }}><PlusCircle className="w-4 h-4" />Manual Add</Button>
 									<motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
 										<Button onClick={handleSave} className="gap-2 rounded-xl bg-schedule-accent hover:bg-schedule-accent/90 text-primary-foreground font-bold shadow-[0_6px_24px_-4px_hsl(var(--schedule-accent)/0.55)]"><Save className="w-4 h-4" />Save Schedule</Button>
@@ -1561,21 +1597,21 @@ const ScheduleBuilder = () => {
 							)}
 						</div>
 					</div>
-					<div className="flex-1 overflow-y-auto px-8 pb-28">
-						<div className="flex gap-6">
-							<div className="w-48 flex-shrink-0">
+					<div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-28">
+						<div className="flex gap-4 xl:gap-6">
+							<div className="hidden md:block w-44 lg:w-48 xl:w-56 flex-shrink-0">
 								<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Selected Courses</p>
 								<div className="space-y-2">
 									{activeVariation?.sections.map((sec, ci) => (
 										<div key={ci} className="bg-card rounded-lg border border-border p-3">
 											<p className="text-xs font-bold text-schedule-accent">{sec.courseCode}</p>
 											<p className="text-sm font-medium text-foreground">{sec.title}</p>
-											<p className="text-[10px] text-muted-foreground mt-0.5">S{sec.section} · {sec.teacher}</p>
+											<p className="text-[10px] text-muted-foreground mt-0.5">S{sec.section} Â· {sec.teacher}</p>
 										</div>
 									))}
 								</div>
 							</div>
-							<div className="flex-1 min-w-0">
+							<div className="flex-1 min-w-0 overflow-hidden">
 								<div className="flex border-b border-border mb-4">
 									{(["weekly", "list", "conflicts"] as const).map((tab) => (
 										<button key={tab} onClick={() => setStep4Tab(tab)}
@@ -1586,25 +1622,34 @@ const ScheduleBuilder = () => {
 								</div>
 								{step4Tab === "weekly" && (
 									<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-										<div className="grid grid-cols-[70px_repeat(6,1fr)] border-b border-border"><div />{days.map((day) => (<div key={day} className="text-center py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{day}</div>))}</div>
-										<div className="relative">
-											{timeSlots.map((time, rowIdx) => (
-												<div key={time} className="grid grid-cols-[70px_repeat(6,1fr)] border-b border-border/50">
-													<div className="py-4 pr-2 text-right text-xs text-schedule-accent font-medium">{time}</div>
-													{days.map((_, dayIdx) => {
-														const entry = timetableEntries.find((e) => e.day === dayIdx && e.startRow === rowIdx); return (
-															<div key={dayIdx} className="relative p-1 min-h-[60px]">
-																{entry && (<motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-																	className={`absolute inset-1 rounded-lg border-l-4 ${timetableColors[entry.colorIdx].bg} ${timetableColors[entry.colorIdx].border} p-2 cursor-pointer hover:shadow-md transition-shadow`}>
-																	<p className={`text-[10px] font-bold ${timetableColors[entry.colorIdx].text}`}>{entry.code}</p>
-																	<p className="text-xs font-semibold text-foreground leading-tight">{entry.title.length > 18 ? entry.title.substring(0, 18) + "…" : entry.title}</p>
-																	<p className="text-[10px] text-muted-foreground">{entry.room}</p>
-																</motion.div>)}
-															</div>
-														);
-													})}
+										<div className="overflow-x-auto rounded-lg" style={{ scrollbarWidth: 'thin' }}>
+											<div className="min-w-[560px]">
+												<div className="grid grid-cols-[64px_repeat(6,1fr)] border-b border-border"><div />{days.map((day) => (<div key={day} className="text-center py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{day}</div>))}</div>
+												<div className="relative">
+													{timeSlots.map((time, rowIdx) => (
+														<div key={time} className="grid grid-cols-[64px_repeat(6,1fr)] border-b border-border/50">
+															<div className="py-5 pr-1 text-right text-[10px] text-schedule-accent font-medium leading-tight whitespace-nowrap">{time}</div>
+															{days.map((_, dayIdx) => {
+																const entry = timetableEntries.find((e) => e.day === dayIdx && e.startRow === rowIdx); return (
+																	<div key={dayIdx} className="relative p-0.5 min-h-[84px]">
+																		{entry && (<motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
+																			className={`absolute inset-0.5 rounded-lg border-l-4 ${timetableColors[entry.colorIdx].bg} ${timetableColors[entry.colorIdx].border} p-1.5 cursor-pointer hover:shadow-md transition-shadow overflow-hidden`}>
+
+																			<p className={`text-[9px] font-bold ${timetableColors[entry.colorIdx].text}`}>{entry.code}</p>
+																			<p className="text-[10px] font-semibold text-foreground leading-tight">{entry.title.length > 16 ? entry.title.substring(0, 16) + "…" : entry.title}</p>
+																			<p className="text-[9px] text-muted-foreground">{entry.room} &middot; S{entry.section}</p>
+
+
+																			<p className="text-[9px] text-muted-foreground/80 mt-0.5">{entry.startTime} - {entry.endTime}</p>
+
+																		</motion.div>)}
+																	</div>
+																);
+															})}
+														</div>
+													))}
 												</div>
-											))}
+											</div>
 										</div>
 									</motion.div>
 								)}
@@ -1614,7 +1659,7 @@ const ScheduleBuilder = () => {
 											<div key={ci} className="bg-card rounded-lg border border-border p-4 flex items-center justify-between">
 												<div className="flex items-center gap-3">
 													<div className={`w-10 h-10 rounded-lg flex items-center justify-center ${timetableColors[ci % timetableColors.length].bg}`}><span className={`text-xs font-bold ${timetableColors[ci % timetableColors.length].text}`}>{sec.courseCode.slice(0, 3)}</span></div>
-													<div><p className="text-sm font-semibold text-foreground">{sec.courseCode} - {sec.title}</p><p className="text-xs text-muted-foreground">{sec.room} · {sec.days.map(d => d.slice(0, 3)).join(", ")} · {sec.startTime}-{sec.endTime}</p></div>
+													<div><p className="text-sm font-semibold text-foreground">{sec.courseCode} - {sec.title}</p><p className="text-xs text-muted-foreground">{sec.room} Â· {sec.days.map(d => d.slice(0, 3)).join(", ")} Â· {sec.startTime}-{sec.endTime}</p></div>
 												</div>
 											</div>
 										))}
@@ -1633,7 +1678,7 @@ const ScheduleBuilder = () => {
 														<p className="text-sm font-semibold text-destructive">{c.course1}</p>
 														<p className="text-xs text-muted-foreground my-1">conflicts with</p>
 														<p className="text-sm font-semibold text-destructive">{c.course2}</p>
-														<p className="text-xs text-muted-foreground mt-2">{c.day} · {c.overlap}</p>
+														<p className="text-xs text-muted-foreground mt-2">{c.day} Â· {c.overlap}</p>
 													</div>
 												))}
 											</div>
@@ -1684,9 +1729,9 @@ const ScheduleBuilder = () => {
 					</div>
 				</>
 			)}
-			<div className={`border-t border-border ${isMobile ? "px-4" : "px-8"} py-3 flex items-center justify-between text-xs text-muted-foreground`}>
-				<div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-stat-emerald" /><span className="font-medium text-stat-emerald">System Ready</span><span className="mx-2">|</span><span>Summer 2026 Enrollment Phase 1</span></div>
-				<span>Last Auto-saved: 2 mins ago</span>
+			<div className={`border-t border-border ${isMobile ? "px-4" : "px-4 sm:px-8"} py-3 flex items-center justify-between text-xs text-muted-foreground gap-2 flex-wrap`}>
+				<div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-stat-emerald" /><span className="font-medium text-stat-emerald">System Ready</span><span className="mx-2">|</span><span className="hidden sm:inline">Summer 2026 Enrollment Phase 1</span></div>
+				<span className="hidden sm:inline">Last Auto-saved: 2 mins ago</span>
 			</div>
 		</div>
 	);
@@ -1746,11 +1791,11 @@ const ScheduleBuilder = () => {
 								<div className="relative">
 									{timeSlots.map((time, rowIdx) => (
 										<div key={time} className="grid grid-cols-[56px_repeat(6,1fr)] border-b border-border/50">
-											<div className="py-3 pr-1 text-right text-[10px] text-schedule-accent font-medium leading-tight">{time}</div>
+											<div className="py-3 pr-1 text-right text-[10px] text-schedule-accent font-medium leading-tight whitespace-nowrap">{time}</div>
 											{days.map((_, dayIdx) => {
 												const entry = timetableEntries.find((e) => e.day === dayIdx && e.startRow === rowIdx);
 												return (
-													<div key={dayIdx} className="relative p-0.5 min-h-[56px]">
+													<div key={dayIdx} className="relative p-0.5 min-h-[84px]">
 														{entry && (
 															<motion.div
 																initial={{ opacity: 0, scale: 0.9 }}
@@ -1758,9 +1803,14 @@ const ScheduleBuilder = () => {
 																transition={{ delay: 0.1 }}
 																className={`absolute inset-0.5 rounded-lg border-l-[3px] ${timetableColors[entry.colorIdx].bg} ${timetableColors[entry.colorIdx].border} p-1.5 overflow-hidden`}
 															>
+
 																<p className={`text-[9px] font-bold ${timetableColors[entry.colorIdx].text}`}>{entry.code}</p>
 																<p className="text-[10px] font-semibold text-foreground leading-tight truncate">{entry.title}</p>
-																<p className="text-[9px] text-muted-foreground truncate">{entry.room}</p>
+																<p className="text-[9px] text-muted-foreground truncate">{entry.room} &middot; S{entry.section}</p>
+
+
+																<p className="text-[9px] text-muted-foreground/80 mt-0.5 truncate">{entry.startTime} - {entry.endTime}</p>
+
 															</motion.div>
 														)}
 													</div>
@@ -1850,9 +1900,9 @@ const ScheduleBuilder = () => {
 											<p className="text-sm font-bold text-foreground leading-tight">{sec.title}</p>
 											<div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
 												<span className="flex items-center gap-0.5"><User className="w-3 h-3" /> {sec.teacher}</span>
-												<span>·</span>
+												<span>Â·</span>
 												<span className="flex items-center gap-0.5"><Building2 className="w-3 h-3" /> {sec.room}</span>
-												<span>·</span>
+												<span>Â·</span>
 												<span>{sec.days.map(d => d.slice(0, 3)).join(", ")}</span>
 											</div>
 										</div>
@@ -1883,7 +1933,7 @@ const ScheduleBuilder = () => {
 										<p className="text-sm font-semibold text-destructive">{c.course1}</p>
 										<p className="text-xs text-muted-foreground my-1">conflicts with</p>
 										<p className="text-sm font-semibold text-destructive">{c.course2}</p>
-										<p className="text-xs text-muted-foreground mt-2">{c.day} · {c.overlap}</p>
+										<p className="text-xs text-muted-foreground mt-2">{c.day} Â· {c.overlap}</p>
 									</div>
 								))}
 							</div>

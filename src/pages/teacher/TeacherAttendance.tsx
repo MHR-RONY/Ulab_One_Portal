@@ -580,8 +580,8 @@ const TeacherAttendance = () => {
 								onClick={() => toggleHoliday(selectedDate)}
 								disabled={togglingHoliday === selectedDate}
 								className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${isDateHoliday
-										? "border-amber-400/50 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-										: "border-border text-muted-foreground hover:text-foreground"
+									? "border-amber-400/50 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+									: "border-border text-muted-foreground hover:text-foreground"
 									}`}
 							>
 								{isDateHoliday ? "Holiday ✓" : "Mark Holiday"}
@@ -784,8 +784,8 @@ const TeacherAttendance = () => {
 												onClick={() => toggleHoliday(viewDate)}
 												disabled={togglingHoliday === viewDate}
 												className={`gap-2 ${holidayDates.has(viewDate)
-														? "border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
-														: ""
+													? "border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+													: ""
 													}`}
 											>
 												<Ban className="w-4 h-4" />
@@ -865,8 +865,44 @@ const TeacherAttendance = () => {
 					>
 						<Card>
 							{loadingDays ? (
-								<div className="py-16 text-center text-muted-foreground text-sm">
-									Loading attendance...
+								<div className="overflow-x-auto animate-pulse">
+									<table className="w-full text-sm">
+										<thead>
+											<tr className="border-b border-border">
+												<th className="text-left px-6 py-4"><div className="h-3 w-20 bg-muted rounded-full" /></th>
+												{[1, 2, 3, 4, 5].map((i) => (
+													<th key={i} className="text-center px-3 py-4">
+														<div className="h-3 w-10 bg-muted rounded-full mx-auto mb-1" />
+														<div className="h-2 w-8 bg-muted rounded-full mx-auto" />
+													</th>
+												))}
+												<th className="px-4 py-4"><div className="h-3 w-12 bg-muted rounded-full mx-auto" /></th>
+											</tr>
+										</thead>
+										<tbody className="divide-y divide-border">
+											{Array.from({ length: 8 }).map((_, i) => (
+												<tr key={i}>
+													<td className="px-6 py-4">
+														<div className="flex items-center gap-3">
+															<div className="w-9 h-9 rounded-full bg-muted flex-shrink-0" />
+															<div className="space-y-1">
+																<div className="h-3 w-32 bg-muted rounded-full" />
+																<div className="h-2 w-20 bg-muted rounded-full" />
+															</div>
+														</div>
+													</td>
+													{[1, 2, 3, 4, 5].map((j) => (
+														<td key={j} className="text-center px-3 py-4">
+															<div className="w-7 h-7 rounded-full bg-muted mx-auto" />
+														</td>
+													))}
+													<td className="px-4 py-4">
+														<div className="h-5 w-12 bg-muted rounded-full mx-auto" />
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
 								</div>
 							) : filteredStudents.length === 0 ? (
 								<div className="py-16 text-center text-muted-foreground text-sm">
@@ -888,8 +924,8 @@ const TeacherAttendance = () => {
 														<th
 															key={date}
 															className={`text-center px-3 py-4 text-xs font-semibold uppercase tracking-wider ${isToday
-																	? "text-primary bg-primary/5 border-l border-r border-primary/20"
-																	: "text-muted-foreground"
+																? "text-primary bg-primary/5 border-l border-r border-primary/20"
+																: "text-muted-foreground"
 																}`}
 														>
 															<span className="block">{month} {day}</span>
@@ -947,8 +983,8 @@ const TeacherAttendance = () => {
 															const isTodayCol = date === viewDate;
 															return (
 																<td key={date} className={`text-center px-3 py-4 ${isHolidayCol ? "bg-amber-500/5"
-																		: isTodayCol ? "bg-primary/5 border-l border-r border-primary/20"
-																			: ""
+																	: isTodayCol ? "bg-primary/5 border-l border-r border-primary/20"
+																		: ""
 																	}`}>
 																	{isHolidayCol ? (
 																		<div className="w-7 h-7 rounded-full border-2 border-amber-300/30 bg-amber-100/20 flex items-center justify-center mx-auto">
@@ -960,12 +996,12 @@ const TeacherAttendance = () => {
 																			disabled={isReadOnly}
 																			title={`${date}: Mark ${isPresent ? "absent" : "present"}`}
 																			className={`w-7 h-7 rounded-full border-2 flex items-center justify-center mx-auto transition-all duration-200 ${isReadOnly
-																					? "border-muted-foreground/20 bg-transparent cursor-default opacity-40"
-																					: isPresent
-																						? "bg-primary border-primary text-primary-foreground"
-																						: isAbsent
-																							? "bg-destructive/10 border-destructive/50 text-destructive"
-																							: "border-muted-foreground/30 bg-transparent hover:border-muted-foreground/60"
+																				? "border-muted-foreground/20 bg-transparent cursor-default opacity-40"
+																				: isPresent
+																					? "bg-primary border-primary text-primary-foreground"
+																					: isAbsent
+																						? "bg-destructive/10 border-destructive/50 text-destructive"
+																						: "border-muted-foreground/30 bg-transparent hover:border-muted-foreground/60"
 																				}`}
 																		>
 																			{!isReadOnly && isPresent ? (

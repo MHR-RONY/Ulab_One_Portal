@@ -75,6 +75,7 @@ const PersonalChatList = ({
 	onlineUsers,
 	contactResults,
 	contactSearching,
+	loading,
 }: {
 	conversations: ChatConversation[];
 	activeId: string;
@@ -85,6 +86,7 @@ const PersonalChatList = ({
 	onlineUsers: Record<string, boolean>;
 	contactResults: ChatContact[];
 	contactSearching: boolean;
+	loading: boolean;
 }) => {
 	const filtered = conversations.filter(
 		(c) =>
@@ -121,24 +123,30 @@ const PersonalChatList = ({
 					<div className="text-center py-8 text-muted-foreground text-sm">No results found</div>
 				)}
 				{!isSearching && filtered.length === 0 && (
-					<div className="text-center py-8 text-muted-foreground text-sm">
-						No conversations yet
-					</div>
+					loading ? (
+						<div className="flex justify-center py-8">
+							<Loader2 className="w-5 h-5 animate-spin text-primary" />
+						</div>
+					) : (
+						<div className="text-center py-8 text-muted-foreground text-sm">
+							No conversations yet
+						</div>
+					)
 				)}
 				{filtered.map((c) => (
 					<div
 						key={c.contactId}
 						onClick={() => onSelect(c.contactId)}
 						className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${activeId === c.contactId
-								? "bg-primary/8 border-l-3 border-primary"
-								: "hover:bg-primary/5 border-l-3 border-transparent"
+							? "bg-primary/8 border-l-3 border-primary"
+							: "hover:bg-primary/5 border-l-3 border-transparent"
 							}`}
 					>
 						<div className="relative">
 							<div
 								className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs shrink-0 ${c.role === "teacher"
-										? "bg-stat-blue/20 text-stat-blue"
-										: "bg-primary/15 text-primary"
+									? "bg-stat-blue/20 text-stat-blue"
+									: "bg-primary/15 text-primary"
 									}`}
 							>
 								{getInitials(c.name)}
@@ -159,8 +167,8 @@ const PersonalChatList = ({
 							<div className="flex items-center gap-1">
 								<span
 									className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium ${c.role === "teacher"
-											? "bg-stat-blue/10 text-stat-blue"
-											: "bg-primary/10 text-primary"
+										? "bg-stat-blue/10 text-stat-blue"
+										: "bg-primary/10 text-primary"
 										}`}
 								>
 									{c.role === "teacher" ? "Faculty" : "Student"}
@@ -188,8 +196,8 @@ const PersonalChatList = ({
 							>
 								<div
 									className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs shrink-0 ${r.role === "teacher"
-											? "bg-stat-blue/20 text-stat-blue"
-											: "bg-primary/15 text-primary"
+										? "bg-stat-blue/20 text-stat-blue"
+										: "bg-primary/15 text-primary"
 										}`}
 								>
 									{getInitials(r.name)}
@@ -199,8 +207,8 @@ const PersonalChatList = ({
 										<h3 className="text-sm font-semibold truncate">{r.name}</h3>
 										<span
 											className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium shrink-0 ${r.role === "teacher"
-													? "bg-stat-blue/10 text-stat-blue"
-													: "bg-primary/10 text-primary"
+												? "bg-stat-blue/10 text-stat-blue"
+												: "bg-primary/10 text-primary"
 												}`}
 										>
 											{r.role === "teacher" ? "Faculty" : "Student"}
@@ -242,8 +250,8 @@ const GroupChatList = ({
 				key={g._id}
 				onClick={() => onSelect(g._id)}
 				className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${activeId === g._id
-						? "bg-primary/8 border-l-3 border-primary"
-						: "hover:bg-primary/5 border-l-3 border-transparent"
+					? "bg-primary/8 border-l-3 border-primary"
+					: "hover:bg-primary/5 border-l-3 border-transparent"
 					}`}
 			>
 				<div className="w-10 h-10 rounded-full bg-stat-purple/20 text-stat-purple flex items-center justify-center shrink-0">
@@ -359,8 +367,8 @@ const ChatThreadView = ({
 					</button>
 					<div
 						className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-xs shrink-0 ${isGroup
-								? "bg-stat-purple/20 text-stat-purple"
-								: "bg-primary/15 text-primary"
+							? "bg-stat-purple/20 text-stat-purple"
+							: "bg-primary/15 text-primary"
 							}`}
 					>
 						{isGroup ? <GraduationCap className="w-5 h-5" /> : getInitials(name)}
@@ -392,8 +400,8 @@ const ChatThreadView = ({
 						<button
 							onClick={() => setShowInfo((v) => !v)}
 							className={`transition-colors ${showInfo
-									? "text-primary"
-									: "text-muted-foreground hover:text-primary"
+								? "text-primary"
+								: "text-muted-foreground hover:text-primary"
 								}`}
 							title="Contact info"
 						>
@@ -576,8 +584,8 @@ const ChatThreadView = ({
 										<span className="text-sm text-muted-foreground">Role</span>
 										<span
 											className={`text-xs px-2 py-1 rounded-md font-semibold ${contactRole === "teacher"
-													? "bg-stat-blue/10 text-stat-blue"
-													: "bg-primary/10 text-primary"
+												? "bg-stat-blue/10 text-stat-blue"
+												: "bg-primary/10 text-primary"
 												}`}
 										>
 											{contactRole === "teacher" ? "Faculty" : "Student"}
@@ -607,8 +615,8 @@ const ChatThreadView = ({
 									<button
 										onClick={onToggleBlock}
 										className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${isBlocked
-												? "text-destructive hover:bg-destructive/5"
-												: "text-destructive/70 hover:bg-destructive/5 hover:text-destructive"
+											? "text-destructive hover:bg-destructive/5"
+											: "text-destructive/70 hover:bg-destructive/5 hover:text-destructive"
 											}`}
 									>
 										<Ban className="w-4 h-4 shrink-0" />
@@ -693,8 +701,8 @@ const ViewMembersPanel = ({
 								<h4 className="text-sm font-semibold truncate">{m.name}</h4>
 								<span
 									className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium ${m.role === "teacher"
-											? "bg-stat-blue/10 text-stat-blue"
-											: "bg-stat-emerald/10 text-stat-emerald"
+										? "bg-stat-blue/10 text-stat-blue"
+										: "bg-stat-emerald/10 text-stat-emerald"
 										}`}
 								>
 									{m.role === "teacher" ? "Teacher" : "Student"}
@@ -801,8 +809,8 @@ const NewMessageModal = ({
 						>
 							<div
 								className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${r.role === "teacher"
-										? "bg-stat-blue/20 text-stat-blue"
-										: "bg-primary/15 text-primary"
+									? "bg-stat-blue/20 text-stat-blue"
+									: "bg-primary/15 text-primary"
 									}`}
 							>
 								{getInitials(r.name)}
@@ -812,8 +820,8 @@ const NewMessageModal = ({
 									<h4 className="text-sm font-semibold truncate">{r.name}</h4>
 									<span
 										className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium ${r.role === "teacher"
-												? "bg-stat-blue/10 text-stat-blue"
-												: "bg-primary/10 text-primary"
+											? "bg-stat-blue/10 text-stat-blue"
+											: "bg-primary/10 text-primary"
 											}`}
 									>
 										{r.role === "teacher" ? "Faculty" : "Student"}
@@ -856,6 +864,7 @@ const StudentChat = () => {
 		onlineUsers,
 		typingUsers,
 		loading,
+		conversationsLoading,
 		blockStatus,
 		fetchConversations,
 		fetchGroups,
@@ -978,8 +987,8 @@ const StudentChat = () => {
 										setShowThread(false);
 									}}
 									className={`flex h-full flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-semibold transition-all ${activeTab === tab
-											? "bg-card text-primary shadow-sm"
-											: "text-muted-foreground"
+										? "bg-card text-primary shadow-sm"
+										: "text-muted-foreground"
 										}`}
 								>
 									{tab === "personal" ? (
@@ -990,8 +999,8 @@ const StudentChat = () => {
 									<span className="capitalize">{tab}</span>
 									<span
 										className={`min-w-4 h-4 rounded-full text-[9px] font-bold px-1 flex items-center justify-center ${activeTab === tab
-												? "bg-primary text-primary-foreground"
-												: "bg-muted text-muted-foreground"
+											? "bg-primary text-primary-foreground"
+											: "bg-muted text-muted-foreground"
 											}`}
 									>
 										{tab === "personal" ? totalPersonalUnread : totalGroupUnread}
@@ -1025,6 +1034,7 @@ const StudentChat = () => {
 										onlineUsers={onlineUsers}
 										contactResults={contactResults}
 										contactSearching={contactSearching}
+										loading={conversationsLoading}
 									/>
 								) : (
 									<GroupChatList

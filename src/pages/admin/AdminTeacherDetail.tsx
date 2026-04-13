@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
 	ArrowLeft, MessageSquare, Briefcase,
 	Clock, User, TrendingUp, Settings, Mail,
-	AlertTriangle, Users, Loader2
+	AlertTriangle, Users
 } from "lucide-react";
 import api from "@/lib/api";
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -102,8 +102,53 @@ const AdminTeacherDetail = () => {
 				<div className="hidden md:block"><AdminSidebar activePage="Teachers" /></div>
 				<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 					<AdminHeader />
-					<main className="flex-1 flex items-center justify-center">
-						<Loader2 className="w-8 h-8 animate-spin text-primary" />
+					<main className="flex-1 overflow-y-auto">
+						<div className="max-w-[1200px] mx-auto w-full px-4 md:px-10 py-8 animate-pulse">
+							{/* Back button */}
+							<div className="h-4 w-36 bg-muted rounded-full mb-6" />
+							{/* Profile header card */}
+							<div className="bg-card rounded-xl border border-border p-6 mb-6">
+								<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+									<div className="flex items-center gap-6">
+										<div className="w-24 h-24 rounded-2xl bg-muted flex-shrink-0" />
+										<div className="space-y-2">
+											<div className="h-6 w-48 bg-muted rounded-full" />
+											<div className="h-4 w-64 bg-muted rounded-full" />
+											<div className="flex items-center gap-4 mt-2">
+												<div className="h-3 w-24 bg-muted rounded-full" />
+												<div className="h-3 w-36 bg-muted rounded-full" />
+												<div className="h-3 w-28 bg-muted rounded-full" />
+											</div>
+										</div>
+									</div>
+									<div className="flex gap-3">
+										<div className="h-10 w-28 bg-muted rounded-xl" />
+										<div className="h-10 w-28 bg-muted rounded-xl" />
+									</div>
+								</div>
+							</div>
+							{/* Tabs */}
+							<div className="flex border-b border-border mb-8 gap-2">
+								{[80, 120, 80, 80].map((w, i) => (
+									<div key={i} className={`h-10 bg-muted rounded-t-lg`} style={{ width: w }} />
+								))}
+							</div>
+							{/* Tab content skeleton */}
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+								{[1, 2, 3].map((i) => (
+									<div key={i} className="bg-card rounded-xl border border-border p-5 space-y-3">
+										<div className="h-4 w-24 bg-muted rounded-full" />
+										<div className="h-8 w-16 bg-muted rounded-full" />
+										<div className="h-3 w-32 bg-muted rounded-full" />
+									</div>
+								))}
+							</div>
+							<div className="mt-6 bg-card rounded-xl border border-border p-5 space-y-4">
+								{[1, 2, 3, 4].map((i) => (
+									<div key={i} className="h-4 bg-muted rounded-full" style={{ width: `${60 + i * 8}%` }} />
+								))}
+							</div>
+						</div>
 					</main>
 				</div>
 			</div>

@@ -290,9 +290,42 @@ const AdminTeachers = () => {
 						className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm"
 					>
 						{loadingTeachers ? (
-							<div className="flex items-center justify-center py-20 gap-3 text-muted-foreground">
-								<Loader2 className="w-5 h-5 animate-spin" />
-								<span className="text-sm font-medium">Loading teachers...</span>
+							<div className="overflow-x-auto animate-pulse">
+								<table className="w-full text-left border-collapse">
+									<thead>
+										<tr className="border-b border-border bg-secondary/50">
+											<th className="px-6 py-4"><div className="h-3 w-28 bg-muted rounded-full" /></th>
+											<th className="px-6 py-4"><div className="h-3 w-20 bg-muted rounded-full" /></th>
+											<th className="px-6 py-4"><div className="h-3 w-24 bg-muted rounded-full" /></th>
+											<th className="px-6 py-4"><div className="h-3 w-16 bg-muted rounded-full" /></th>
+											<th className="px-6 py-4"><div className="h-3 w-16 bg-muted rounded-full ml-auto" /></th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-border">
+										{Array.from({ length: 8 }).map((_, i) => (
+											<tr key={i}>
+												<td className="px-6 py-4">
+													<div className="flex items-center gap-3">
+														<div className="w-10 h-10 rounded-full bg-muted flex-shrink-0" />
+														<div className="space-y-1.5">
+															<div className="h-3 w-36 bg-muted rounded-full" />
+															<div className="h-2 w-44 bg-muted rounded-full" />
+														</div>
+													</div>
+												</td>
+												<td className="px-6 py-4"><div className="h-3 w-20 bg-muted rounded-full" /></td>
+												<td className="px-6 py-4"><div className="h-5 w-16 bg-muted rounded-full" /></td>
+												<td className="px-6 py-4"><div className="h-5 w-14 bg-muted rounded-full" /></td>
+												<td className="px-6 py-4">
+													<div className="flex items-center justify-end gap-2">
+														<div className="h-8 w-8 bg-muted rounded-lg" />
+														<div className="h-8 w-8 bg-muted rounded-lg" />
+													</div>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
 							</div>
 						) : fetchError ? (
 							<div className="flex items-center justify-center py-20 gap-3 text-destructive">
@@ -416,11 +449,10 @@ const AdminTeachers = () => {
 											<button
 												key={page}
 												onClick={() => setCurrentPage(page)}
-												className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${
-													currentPage === page
+												className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${currentPage === page
 														? "bg-primary text-primary-foreground"
 														: "border border-border hover:bg-secondary text-foreground"
-												}`}
+													}`}
 											>
 												{page}
 											</button>

@@ -112,7 +112,7 @@ const Attendance = () => {
 						{/* Header */}
 						<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
 							<div>
-<h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">Attendance Tracker</h1>
+								<h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">Attendance Tracker</h1>
 								<p className="text-muted-foreground mt-1 text-sm md:text-base">Real-time monitoring of your academic presence and participation.</p>
 							</div>
 							<div className="flex gap-2">
@@ -130,7 +130,46 @@ const Attendance = () => {
 						)}
 
 						{loading ? (
-							<div className="flex items-center justify-center py-24 text-muted-foreground text-sm">Loading attendance data...</div>
+							<div className="animate-pulse space-y-6">
+								{/* Stats skeleton */}
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+									{Array.from({ length: 3 }).map((_, i) => (
+										<div key={i} className="bg-card p-6 rounded-xl border border-border shadow-sm space-y-4">
+											<div className="flex justify-between">
+												<div className="h-3 w-32 bg-muted rounded" />
+												<div className="w-9 h-9 rounded-lg bg-muted" />
+											</div>
+											<div className="h-8 w-20 bg-muted rounded-lg" />
+											<div className="h-2 bg-muted rounded-full" />
+										</div>
+									))}
+								</div>
+								{/* Calendar skeleton */}
+								<div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-4">
+									<div className="flex justify-between items-center mb-2">
+										<div className="h-5 w-8 bg-muted rounded" />
+										<div className="h-5 w-28 bg-muted rounded" />
+										<div className="h-5 w-8 bg-muted rounded" />
+									</div>
+									<div className="grid grid-cols-7 gap-2">
+										{Array.from({ length: 35 }).map((_, i) => (
+											<div key={i} className="h-8 rounded-lg bg-muted/60" />
+										))}
+									</div>
+								</div>
+								{/* Course rows skeleton */}
+								<div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-3">
+									{Array.from({ length: 4 }).map((_, i) => (
+										<div key={i} className="flex items-center justify-between py-3 border-b border-border/50">
+											<div className="space-y-1.5">
+												<div className="h-3.5 w-40 bg-muted rounded" />
+												<div className="h-3 w-24 bg-muted/60 rounded" />
+											</div>
+											<div className="h-3 w-16 bg-muted rounded" />
+										</div>
+									))}
+								</div>
+							</div>
 						) : (
 							<>
 								{/* Stats Grid */}
@@ -248,8 +287,8 @@ const Attendance = () => {
 																	<td className="px-6 py-4 text-foreground">Sec {row.section}</td>
 																	<td className="px-6 py-4">
 																		<span className={`px-2 py-1 rounded-full text-[10px] font-medium ${row.status === "present"
-																				? "bg-stat-emerald/10 text-stat-emerald"
-																				: "bg-destructive/10 text-destructive"
+																			? "bg-stat-emerald/10 text-stat-emerald"
+																			: "bg-destructive/10 text-destructive"
 																			}`}>
 																			{row.status.toUpperCase()}
 																		</span>
@@ -286,7 +325,7 @@ const Attendance = () => {
 														{MONTHS[calMonth - 1]} {calYear}
 													</p>
 												</div>
-														<div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-muted-foreground mb-2">
+												<div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-muted-foreground mb-2">
 													{["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((d) => (
 														<span key={d}>{d}</span>
 													))}
@@ -308,7 +347,7 @@ const Attendance = () => {
 															<div
 																key={i}
 																onClick={() => handleDayClick(dateStr, cell.type)}
-																	className={`h-8 flex items-center justify-center rounded-lg text-xs font-normal md:font-bold transition-all
+																className={`h-8 flex items-center justify-center rounded-lg text-xs font-normal md:font-bold transition-all
                                   ${classMap[cell.type]}
                                   ${isClickable ? "cursor-pointer hover:opacity-80" : ""}
                                   ${isSelected ? "ring-2 ring-offset-1 ring-foreground" : ""}
@@ -369,10 +408,10 @@ const Attendance = () => {
 																		<div
 																			key={r.courseCode}
 																			className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-xs border ${r.status === "present"
-																					? "bg-stat-emerald/10 border-stat-emerald/20"
-																					: r.status === "absent"
-																						? "bg-destructive/10 border-destructive/20"
-																						: "bg-secondary/50 border-border"
+																				? "bg-stat-emerald/10 border-stat-emerald/20"
+																				: r.status === "absent"
+																					? "bg-destructive/10 border-destructive/20"
+																					: "bg-secondary/50 border-border"
 																				}`}
 																		>
 																			<div className="min-w-0">
@@ -383,10 +422,10 @@ const Attendance = () => {
 																				)}
 																			</div>
 																			<span className={`font-bold uppercase shrink-0 ml-2 ${r.status === "present"
-																					? "text-stat-emerald"
-																					: r.status === "absent"
-																						? "text-destructive"
-																						: "text-muted-foreground"
+																				? "text-stat-emerald"
+																				: r.status === "absent"
+																					? "text-destructive"
+																					: "text-muted-foreground"
 																				}`}>
 																				{r.status === "not-marked" ? "—" : r.status}
 																			</span>

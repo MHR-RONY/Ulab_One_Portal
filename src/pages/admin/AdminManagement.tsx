@@ -197,9 +197,23 @@ const AdminManagement = () => {
 						</div>
 
 						{isLoading && (
-							<div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
-								<Loader2 className="w-5 h-5 animate-spin" />
-								<span>Loading admins...</span>
+							<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-pulse">
+								{Array.from({ length: 6 }).map((_, i) => (
+									<div key={i} className="bg-card rounded-xl border border-border p-5 space-y-4">
+										<div className="flex items-center gap-3">
+											<div className="w-10 h-10 rounded-full bg-muted flex-shrink-0" />
+											<div className="flex-1 space-y-1.5">
+												<div className="h-3.5 w-32 bg-muted rounded" />
+												<div className="h-3 w-44 bg-muted/60 rounded" />
+											</div>
+											<div className="h-6 w-16 bg-muted rounded-full" />
+										</div>
+										<div className="flex justify-between pt-1">
+											<div className="h-3 w-20 bg-muted/70 rounded" />
+											<div className="h-3 w-24 bg-muted/70 rounded" />
+										</div>
+									</div>
+								))}
 							</div>
 						)}
 

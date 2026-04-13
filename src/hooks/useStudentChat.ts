@@ -28,6 +28,7 @@ export const useStudentChat = () => {
 	const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
 	const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
 	const [loading, setLoading] = useState(false);
+	const [conversationsLoading, setConversationsLoading] = useState(true);
 	const [blockStatus, setBlockStatus] = useState<{ iBlockedThem: boolean; theyBlockedMe: boolean }>({ iBlockedThem: false, theyBlockedMe: false });
 	const socketRef = useRef<Socket | null>(null);
 	const typingTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
@@ -81,6 +82,7 @@ export const useStudentChat = () => {
 	}, []);
 
 	const fetchConversations = useCallback(async () => {
+		setConversationsLoading(true);
 		try {
 			const { data } = await api.get("/chat/conversations");
 			if (data.success) {
@@ -96,6 +98,8 @@ export const useStudentChat = () => {
 			}
 		} catch (error) {
 			console.log("Failed to fetch conversations:", error);
+		} finally {
+			setConversationsLoading(false);
 		}
 	}, []);
 
@@ -229,6 +233,7 @@ export const useStudentChat = () => {
 		onlineUsers,
 		typingUsers,
 		loading,
+		conversationsLoading,
 		blockStatus,
 		fetchConversations,
 		fetchGroups,
