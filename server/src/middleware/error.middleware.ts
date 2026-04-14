@@ -1,9 +1,26 @@
 import { ErrorRequestHandler } from "express";
+import multer from "multer";
 import { sendResponse } from "../utils/apiResponse";
 
 export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) => {
 	let statusCode = 500;
 	let message = "Internal server error";
+
+	// Multer errors (file upload)
+	if (err instanceof multer.MulterError) {
+		statusCode = 400;
+		if (err.code === "LIMIT_FILE_SIZE") {
+			message = "File size exceeds the maximum allowed limit";
+		} else {
+			message = err.message;
+		}
+	}
+
+	// Multer file filter rejection (thrown as plain Error)
+	if (err.message === "Only PDF files are allowed") {
+		statusCode = 400;
+		message = err.message;
+	}
 
 	// Mongoose CastError (invalid ObjectId)
 	if (err.name === "CastError") {

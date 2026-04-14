@@ -339,6 +339,39 @@ export interface IApiResponse<T = unknown> {
 	data?: T;
 }
 
+export interface INoteRepository {
+	_id: string;
+	courseName: string;
+	courseCode: string;
+	department: "CSE" | "BBA" | "EEE" | "MSJ";
+	description?: string;
+	noteCount: number;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export type TNoteStatus = "pending" | "approved" | "rejected";
+export type TNoteFileType = "pdf" | "docx" | "pptx" | "other";
+
+export interface INote {
+	_id: string;
+	title: string;
+	description?: string;
+	repository: string;
+	courseCode: string;
+	department: "CSE" | "BBA" | "EEE" | "MSJ";
+	fileType: TNoteFileType;
+	fileSize: string;
+	fileUrl?: string;
+	uploadedBy: string;
+	uploaderName: string;
+	status: TNoteStatus;
+	upvotes: number;
+	week?: string;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
 // ---- Schedule Generation Types ----
 
 export type TScheduleMode = "teacher" | "gap" | "days";

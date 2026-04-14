@@ -1,26 +1,32 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 
-const UPLOAD_DIR = path.resolve(__dirname, "../../uploads/teacher-photos");
+const TEACHER_PHOTO_DIR = path.resolve(__dirname, "../../uploads/teacher-photos");
+const NOTES_DIR = path.resolve(__dirname, "../../uploads/notes");
 
-// Ensure directory exists on startup
-if (!fs.existsSync(UPLOAD_DIR)) {
-	fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Ensure directories exist on startup
+if (!fs.existsSync(TEACHER_PHOTO_DIR)) {
+	fs.mkdirSync(TEACHER_PHOTO_DIR, { recursive: true });
+}
+if (!fs.existsSync(NOTES_DIR)) {
+	fs.mkdirSync(NOTES_DIR, { recursive: true });
 }
 
-const storage = multer.diskStorage({
+// ---------- Teacher Photo Upload ----------
+
+const teacherPhotoStorage = multer.diskStorage({
 	destination: (_req, _file, cb) => {
-		cb(null, UPLOAD_DIR);
+		cb(null, TEACHER_PHOTO_DIR);
 	},
 	filename: (req, _file, cb) => {
-		// Use teacher's MongoDB _id so the filename is always stable
 		const teacherId = req.user?.id ?? "unknown";
 		cb(null, `${teacherId}.jpg`);
 	},
 });
 
-const fileFilter = (
+const photoFilter = (
 	_req: Express.Request,
 	file: Express.Multer.File,
 	cb: multer.FileFilterCallback
@@ -34,7 +40,38 @@ const fileFilter = (
 };
 
 export const uploadTeacherPhoto = multer({
-	storage,
-	fileFilter,
+	storage: teacherPhotoStorage,
+	fileFilter: photoFilter,
 	limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
 }).single("avatar");
+
+// ---------- Notes PDF Upload ----------
+
+const notesPdfStorage = multer.diskStorage({
+	destination: (_req, _file, cb) => {
+		cb(null, NOTES_DIR);
+	},
+	filename: (_req, file, cb) => {
+		const uniqueId = crypto.randomBytes(12).toString("hex");
+		const ext = path.extname(file.originalname).toLowerCase() || ".pdf";
+		cb(null, `${uniqueId}${ext}`);
+	},
+});
+
+const pdfFilter = (
+	_req: Express.Request,
+	file: Express.Multer.File,
+	cb: multer.FileFilterCallback
+) => {
+	if (file.mimetype === "application/pdf") {
+		cb(null, true);
+	} else {
+		cb(new Error("Only PDF files are allowed"));
+	}
+};
+
+export const uploadNotePdf = multer({
+	storage: notesPdfStorage,
+	fileFilter: pdfFilter,
+	limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
+}).single("file");

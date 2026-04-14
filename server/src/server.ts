@@ -24,6 +24,8 @@ import adminRoutes from "./routes/admin.routes";
 import scheduleRoutes from "./routes/schedule.routes";
 import chatRoutes from "./routes/chat.routes";
 import scheduleUploadRoutes from "./routes/scheduleUpload.routes";
+import resourcesRoutes from "./routes/resources.routes";
+import studentNotesRoutes from "./routes/studentNotes.routes";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { initSocketServer } from "./socket/chat.socket";
 
@@ -75,6 +77,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin/schedule", scheduleUploadRoutes);
+app.use("/api/resources", resourcesRoutes);
+app.use("/api/student-notes", studentNotesRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {
