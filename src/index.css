@@ -19,7 +19,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 217 91% 60%;
+    --primary: 22 88% 51%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
@@ -36,36 +36,36 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 217 91% 60%;
+    --ring: 22 88% 51%;
 
     --radius: 0.875rem;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 9% 46%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 22 88% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 60%;
-    --sidebar-accent-foreground: 217 91% 60%;
+    --sidebar-accent: 22 88% 51%;
+    --sidebar-accent-foreground: 22 88% 51%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217 91% 65%;
+    --sidebar-ring: 22 88% 56%;
 
     /* Custom tokens */
-    --stat-blue: 217 91% 60%;
+    --stat-blue: 22 88% 51%;
     --stat-purple: 271 81% 56%;
     --stat-amber: 38 92% 50%;
     --stat-emerald: 160 84% 39%;
-    --badge-blue-bg: 217 95% 93%;
+    --badge-blue-bg: 22 95% 93%;
     --badge-purple-bg: 270 95% 93%;
     --badge-amber-bg: 38 100% 93%;
     --badge-emerald-bg: 152 81% 93%;
-    --accent-orange: 217 85% 55%;
-    --schedule-accent: 217 87% 55%;
+    --accent-orange: 22 85% 55%;
+    --schedule-accent: 22 87% 55%;
 
     /* Premium tokens */
     --glass-bg: 0 0% 100% / 0.7;
     --glass-border: 220 20% 90% / 0.6;
-    --shadow-premium: 0 4px 24px -4px hsl(217 91% 60% / 0.1);
-    --shadow-premium-hover: 0 8px 32px -4px hsl(217 91% 60% / 0.18);
+    --shadow-premium: 0 4px 24px -4px hsl(22 88% 51% / 0.1);
+    --shadow-premium-hover: 0 8px 32px -4px hsl(22 88% 51% / 0.18);
     --gradient-page: linear-gradient(
       135deg,
       hsl(220 30% 97%) 0%,
@@ -152,7 +152,7 @@
     --popover: 240 5% 10%;
     --popover-foreground: 210 20% 90%;
 
-    --primary: 217 91% 65%;
+    --primary: 22 88% 56%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 240 4% 16%;
@@ -169,28 +169,28 @@
 
     --border: 240 4% 18%;
     --input: 240 4% 18%;
-    --ring: 217 91% 65%;
+    --ring: 22 88% 56%;
 
     --sidebar-background: 240 5% 8%;
     --sidebar-foreground: 215 15% 55%;
-    --sidebar-primary: 217 91% 65%;
+    --sidebar-primary: 22 88% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 65%;
-    --sidebar-accent-foreground: 217 91% 65%;
+    --sidebar-accent: 22 88% 56%;
+    --sidebar-accent-foreground: 22 88% 56%;
     --sidebar-border: 240 4% 18%;
-    --sidebar-ring: 217 91% 65%;
+    --sidebar-ring: 22 88% 56%;
 
     /* Custom tokens */
-    --stat-blue: 217 91% 65%;
+    --stat-blue: 22 88% 56%;
     --stat-purple: 271 81% 56%;
     --stat-amber: 38 92% 50%;
     --stat-emerald: 160 84% 39%;
-    --badge-blue-bg: 217 50% 15%;
+    --badge-blue-bg: 22 50% 15%;
     --badge-purple-bg: 271 40% 15%;
     --badge-amber-bg: 38 40% 15%;
     --badge-emerald-bg: 160 40% 15%;
-    --accent-orange: 217 85% 55%;
-    --schedule-accent: 217 87% 55%;
+    --accent-orange: 22 85% 55%;
+    --schedule-accent: 22 87% 55%;
 
     /* Premium tokens (dark) */
     --glass-bg: 240 5% 10% / 0.8;
@@ -540,7 +540,9 @@
 
   /* Admin stat card hover glow */
   .admin-stat-card {
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease;
   }
   .admin-stat-card:hover {
     transform: translateY(-3px);
@@ -575,23 +577,43 @@
 
 @keyframes admin-shimmer-sweep {
   0%,
-  100% { left: -100%; }
-  50% { left: 150%; }
+  100% {
+    left: -100%;
+  }
+  50% {
+    left: 150%;
+  }
 }
 
 @keyframes admin-pulse-ring {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.8); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
 }
 
 @keyframes admin-float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-4px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 @keyframes admin-glow-pulse {
-  0%, 100% { box-shadow: 0 0 8px hsl(22 88% 51% / 0.2); }
-  50% { box-shadow: 0 0 20px hsl(22 88% 51% / 0.45); }
+  0%,
+  100% {
+    box-shadow: 0 0 8px hsl(22 88% 51% / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px hsl(22 88% 51% / 0.45);
+  }
 }
 
 @keyframes teacher-shimmer-sweep {

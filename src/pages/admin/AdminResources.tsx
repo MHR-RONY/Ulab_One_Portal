@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Computer, Briefcase, Zap, Landmark, Upload, Plus, FileText, CheckCircle, XCircle, Eye, PlusCircle } from "lucide-react";
+import { Computer, Briefcase, Zap, Landmark, Upload, Plus, FileText, CheckCircle, XCircle, Eye, PlusCircle, Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { Button } from "@/components/ui/button";
@@ -9,25 +9,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+	useAdminDepartmentStats,
+	usePendingNotes,
+	useCreateRepository,
+} from "@/hooks/useAdminResources";
 
-const departments = [
-	{ name: "CSE", icon: Computer, iconBg: "bg-blue-50 dark:bg-blue-900/20", iconColor: "text-blue-500", recent: 12, courses: 45, notes: "1,240" },
-	{ name: "BBS", icon: Briefcase, iconBg: "bg-orange-50 dark:bg-orange-900/20", iconColor: "text-orange-500", recent: 5, courses: 38, notes: "850" },
-	{ name: "EEE", icon: Zap, iconBg: "bg-amber-50 dark:bg-amber-900/20", iconColor: "text-amber-500", recent: 8, courses: 42, notes: "980" },
-	{ name: "Architecture", icon: Landmark, iconBg: "bg-purple-50 dark:bg-purple-900/20", iconColor: "text-purple-500", recent: 3, courses: 30, notes: "600" },
-];
-
-const pendingApprovals = [
-	{ title: "Data Structures Mid-Term Prep", meta: "CSE 201 • PDF • 4.2 MB", uploader: "Tanvir Ahmed", dept: "CSE", deptColor: "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" },
-	{ title: "Macroeconomics Case Study", meta: "BBS 102 • DOCX • 1.1 MB", uploader: "Sarah Kabir", dept: "BBS", deptColor: "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400" },
-	{ title: "Circuit Theory Lab Notes", meta: "EEE 305 • PDF • 8.7 MB", uploader: "Rafiqul Islam", dept: "EEE", deptColor: "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400" },
-];
+const deptMeta: Record<string, { icon: React.ElementType; iconBg: string; iconColor: string }> = {
+	CSE: { icon: Computer, iconBg: "bg-blue-50 dark:bg-blue-900/20", iconColor: "text-blue-500" },
+	BBA: { icon: Briefcase, iconBg: "bg-orange-50 dark:bg-orange-900/20", iconColor: "text-orange-500" },
+	EEE: { icon: Zap, iconBg: "bg-amber-50 dark:bg-amber-900/20", iconColor: "text-amber-500" },
+	MSJ: { icon: Landmark, iconBg: "bg-purple-50 dark:bg-purple-900/20", iconColor: "text-purple-500" },
+};
 
 const deptRouteMap: Record<string, string> = {
 	CSE: "cse",
-	BBS: "bbs",
+	BBA: "bba",
 	EEE: "eee",
-	Architecture: "architecture",
+	MSJ: "msj",
+};
+
+const deptBadgeColor: Record<string, string> = {
+	CSE: "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
+	BBA: "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400",
+	EEE: "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
+	MSJ: "bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
 };
 
 const AdminResources = () => {
@@ -36,6 +42,25 @@ const AdminResources = () => {
 	const [courseCode, setCourseCode] = useState("");
 	const [department, setDepartment] = useState("");
 	const [description, setDescription] = useState("");
+	const [formSuccess, setFormSuccess] = useState(false);
+
+	const { stats, loading: statsLoading, refetch: refetchStats } = useAdminDepartmentStats();
+	const { notes: pendingNotes, total: pendingTotal, loading: notesLoading, approveNote, rejectNote, setPage, page } = usePendingNotes();
+	const { createRepository, loading: createLoading, error: createError } = useCreateRepository();
+
+	const handleCreateRepo = async () => {
+		if (!courseName || !courseCode || !department) return;
+		const success = await createRepository({ courseName, courseCode, department, description });
+		if (success) {
+			setCourseName("");
+			setCourseCode("");
+			setDepartment("");
+			setDescription("");
+			setFormSuccess(true);
+			refetchStats();
+			setTimeout(() => setFormSuccess(false), 3000);
+		}
+	};
 
 	return (
 		<div className="flex min-h-screen bg-background admin-theme">
@@ -63,33 +88,41 @@ const AdminResources = () => {
 
 					{/* Department Cards */}
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-						{departments.map((dept) => (
-							<div
-								key={dept.name}
-								onClick={() => navigate(`/admin/resources/${deptRouteMap[dept.name]}`)}
-								className="bg-card p-5 rounded-xl border border-border/50 hover:border-primary/20 transition-all shadow-sm hover:shadow-md group cursor-pointer"
-							>
-								<div className="flex justify-between items-start mb-4">
-									<div className={`p-3 ${dept.iconBg} ${dept.iconColor} rounded-xl group-hover:scale-110 transition-transform`}>
-										<dept.icon className="w-5 h-5" />
+						{statsLoading
+							? Array.from({ length: 4 }).map((_, i) => (
+								<div key={i} className="bg-card p-5 rounded-xl border border-border/50 animate-pulse h-36" />
+							))
+							: stats.map((dept) => {
+								const meta = deptMeta[dept.name];
+								const Icon = meta?.icon ?? Computer;
+								return (
+									<div
+										key={dept.name}
+										onClick={() => navigate(`/admin/resources/${deptRouteMap[dept.name]}`)}
+										className="bg-card p-5 rounded-xl border border-border/50 hover:border-primary/20 transition-all shadow-sm hover:shadow-md group cursor-pointer"
+									>
+										<div className="flex justify-between items-start mb-4">
+											<div className={`p-3 ${meta?.iconBg} ${meta?.iconColor} rounded-xl group-hover:scale-110 transition-transform`}>
+												<Icon className="w-5 h-5" />
+											</div>
+											<span className="text-[10px] font-bold px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full uppercase tracking-tighter">
+												{dept.courses} Repos
+											</span>
+										</div>
+										<h3 className="font-bold text-lg mb-4 text-foreground">{dept.name}</h3>
+										<div className="space-y-2">
+											<div className="flex justify-between text-xs">
+												<span className="text-muted-foreground">Total Courses</span>
+												<span className="font-bold text-foreground">{dept.courses}</span>
+											</div>
+											<div className="flex justify-between text-xs">
+												<span className="text-muted-foreground">Total Notes</span>
+												<span className="font-bold text-foreground">{dept.notes}</span>
+											</div>
+										</div>
 									</div>
-									<span className="text-[10px] font-bold px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full uppercase tracking-tighter">
-										+{dept.recent} Recent
-									</span>
-								</div>
-								<h3 className="font-bold text-lg mb-4 text-foreground">{dept.name}</h3>
-								<div className="space-y-2">
-									<div className="flex justify-between text-xs">
-										<span className="text-muted-foreground">Total Courses</span>
-										<span className="font-bold text-foreground">{dept.courses}</span>
-									</div>
-									<div className="flex justify-between text-xs">
-										<span className="text-muted-foreground">Total Notes</span>
-										<span className="font-bold text-foreground">{dept.notes}</span>
-									</div>
-								</div>
-							</div>
-						))}
+								);
+							})}
 					</div>
 
 					{/* Create Repository Card */}
@@ -99,6 +132,16 @@ const AdminResources = () => {
 							<h3 className="font-bold text-lg text-foreground">Create Repository Card</h3>
 						</div>
 						<div className="p-6">
+							{formSuccess && (
+								<div className="mb-4 px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg text-sm font-semibold flex items-center gap-2">
+									<CheckCircle className="w-4 h-4" /> Repository created successfully.
+								</div>
+							)}
+							{createError && (
+								<div className="mb-4 px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm font-semibold">
+									{createError}
+								</div>
+							)}
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 								<div className="space-y-1.5">
 									<label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Course Name</label>
@@ -115,10 +158,10 @@ const AdminResources = () => {
 											<SelectValue placeholder="Select Department" />
 										</SelectTrigger>
 										<SelectContent>
-											<SelectItem value="cse">CSE</SelectItem>
-											<SelectItem value="bbs">BBS</SelectItem>
-											<SelectItem value="eee">EEE</SelectItem>
-											<SelectItem value="arc">Architecture</SelectItem>
+											<SelectItem value="CSE">CSE</SelectItem>
+											<SelectItem value="BBA">BBA</SelectItem>
+											<SelectItem value="EEE">EEE</SelectItem>
+											<SelectItem value="MSJ">MSJ</SelectItem>
 										</SelectContent>
 									</Select>
 								</div>
@@ -132,8 +175,12 @@ const AdminResources = () => {
 									/>
 								</div>
 								<div className="md:col-span-3 flex justify-end">
-									<Button className="gap-2 shadow-lg shadow-primary/20">
-										<PlusCircle className="w-4 h-4" />
+									<Button
+										className="gap-2 shadow-lg shadow-primary/20"
+										onClick={handleCreateRepo}
+										disabled={createLoading || !courseName || !courseCode || !department}
+									>
+										{createLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
 										Create Repository Card
 									</Button>
 								</div>
@@ -147,8 +194,12 @@ const AdminResources = () => {
 							<h3 className="font-bold text-lg flex items-center gap-2 text-foreground">
 								<FileText className="w-5 h-5 text-primary" />
 								Pending Approvals
+								{pendingTotal > 0 && (
+									<Badge className="ml-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] px-2 py-0.5">
+										{pendingTotal}
+									</Badge>
+								)}
 							</h3>
-							<button className="text-xs font-bold text-primary hover:underline">View All</button>
 						</div>
 						<Table>
 							<TableHeader>
@@ -161,56 +212,96 @@ const AdminResources = () => {
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{pendingApprovals.map((item, idx) => (
-									<TableRow key={idx} className="hover:bg-secondary/30">
-										<TableCell>
-											<div className="flex items-center gap-3">
-												<FileText className="w-5 h-5 text-orange-400" />
-												<div>
-													<p className="text-sm font-bold text-foreground">{item.title}</p>
-													<p className="text-[10px] text-muted-foreground">{item.meta}</p>
-												</div>
-											</div>
-										</TableCell>
-										<TableCell>
-											<div className="flex items-center gap-2">
-												<div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-													{item.uploader.charAt(0)}
-												</div>
-												<span className="text-xs font-medium text-foreground">{item.uploader}</span>
-											</div>
-										</TableCell>
-										<TableCell>
-											<span className={`text-xs px-2 py-1 rounded-lg font-bold ${item.deptColor}`}>
-												{item.dept}
-											</span>
-										</TableCell>
-										<TableCell>
-											<span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-semibold">
-												<span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-												Pending
-											</span>
-										</TableCell>
-										<TableCell className="text-right">
-											<div className="flex justify-end gap-1">
-												<button className="p-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 rounded-lg transition-colors">
-													<CheckCircle className="w-4 h-4" />
-												</button>
-												<button className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 rounded-lg transition-colors">
-													<XCircle className="w-4 h-4" />
-												</button>
-												<button className="p-1.5 hover:bg-secondary text-muted-foreground rounded-lg transition-colors">
-													<Eye className="w-4 h-4" />
-												</button>
-											</div>
+								{notesLoading ? (
+									<TableRow>
+										<TableCell colSpan={5} className="py-12 text-center text-muted-foreground text-sm">
+											<Loader2 className="w-5 h-5 animate-spin mx-auto" />
 										</TableCell>
 									</TableRow>
-								))}
+								) : pendingNotes.length === 0 ? (
+									<TableRow>
+										<TableCell colSpan={5} className="py-12 text-center text-muted-foreground text-sm">
+											No pending approvals
+										</TableCell>
+									</TableRow>
+								) : (
+									pendingNotes.map((item) => (
+										<TableRow key={item._id} className="hover:bg-secondary/30">
+											<TableCell>
+												<div className="flex items-center gap-3">
+													<FileText className="w-5 h-5 text-orange-400" />
+													<div>
+														<p className="text-sm font-bold text-foreground">{item.title}</p>
+														<p className="text-[10px] text-muted-foreground">
+															{item.courseCode} • {item.fileType.toUpperCase()} • {item.fileSize}
+														</p>
+													</div>
+												</div>
+											</TableCell>
+											<TableCell>
+												<div className="flex items-center gap-2">
+													<div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+														{item.uploaderName.charAt(0).toUpperCase()}
+													</div>
+													<span className="text-xs font-medium text-foreground">{item.uploaderName}</span>
+												</div>
+											</TableCell>
+											<TableCell>
+												<span className={`text-xs px-2 py-1 rounded-lg font-bold ${deptBadgeColor[item.department] ?? ""}`}>
+													{item.department}
+												</span>
+											</TableCell>
+											<TableCell>
+												<span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-semibold">
+													<span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+													Pending
+												</span>
+											</TableCell>
+											<TableCell className="text-right">
+												<div className="flex justify-end gap-1">
+													<button
+														onClick={() => approveNote(item._id)}
+														className="p-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 rounded-lg transition-colors"
+														title="Approve"
+													>
+														<CheckCircle className="w-4 h-4" />
+													</button>
+													<button
+														onClick={() => rejectNote(item._id)}
+														className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 rounded-lg transition-colors"
+														title="Reject"
+													>
+														<XCircle className="w-4 h-4" />
+													</button>
+													<button className="p-1.5 hover:bg-secondary text-muted-foreground rounded-lg transition-colors" title="View">
+														<Eye className="w-4 h-4" />
+													</button>
+												</div>
+											</TableCell>
+										</TableRow>
+									))
+								)}
 							</TableBody>
 						</Table>
-						<div className="p-4 bg-secondary/30 border-t border-border/50 flex justify-center">
-							<button className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors">Show More Results</button>
-						</div>
+						{pendingTotal > 10 && (
+							<div className="p-4 bg-secondary/30 border-t border-border/50 flex justify-center gap-4">
+								<button
+									disabled={page === 1}
+									onClick={() => setPage((p) => p - 1)}
+									className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+								>
+									Previous
+								</button>
+								<span className="text-xs text-muted-foreground">Page {page}</span>
+								<button
+									disabled={page * 10 >= pendingTotal}
+									onClick={() => setPage((p) => p + 1)}
+									className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+								>
+									Next
+								</button>
+							</div>
+						)}
 					</div>
 				</main>
 			</div>
@@ -219,3 +310,5 @@ const AdminResources = () => {
 };
 
 export default AdminResources;
+
+
