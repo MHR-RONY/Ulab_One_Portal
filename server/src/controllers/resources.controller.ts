@@ -1,4 +1,6 @@
 import { RequestHandler } from "express";
+import path from "path";
+import fs from "fs";
 import { NoteRepositoryModel } from "../models/NoteRepository.model";
 import { NoteModel } from "../models/Note.model";
 import { sendResponse } from "../utils/apiResponse";
@@ -138,9 +140,10 @@ export const getPendingNotes: RequestHandler = async (req, res, next) => {
 export const approveNote: RequestHandler = async (req, res, next) => {
 	try {
 		const { id } = req.params;
+		const { feedback } = req.body as { feedback?: string };
 		const note = await NoteModel.findByIdAndUpdate(
 			id,
-			{ status: "approved" },
+			{ status: "approved", adminFeedback: feedback?.trim() ?? "" },
 			{ new: true }
 		);
 		if (!note) {
@@ -158,16 +161,34 @@ export const approveNote: RequestHandler = async (req, res, next) => {
 export const rejectNote: RequestHandler = async (req, res, next) => {
 	try {
 		const { id } = req.params;
-		const note = await NoteModel.findByIdAndUpdate(
-			id,
-			{ status: "rejected" },
-			{ new: true }
-		);
+		const { feedback } = req.body as { feedback?: string };
+
+		// Find the note first so we can get the fileUrl before deleting
+		const note = await NoteModel.findById(id);
 		if (!note) {
 			sendResponse(res, 404, false, "Note not found");
 			return;
 		}
-		sendResponse(res, 200, true, "Note rejected", note);
+
+		// Delete the physical file from disk (non-fatal if missing)
+		if (note.fileUrl) {
+			// Strip the leading "/" so path.resolve doesn't treat it as an
+			// absolute path on Windows (which would skip the base directory entirely)
+			const relativeUrl = note.fileUrl.replace(/^\/+/, "");
+			const filePath = path.resolve(__dirname, "../..", relativeUrl);
+			console.log(`[rejectNote] Deleting file: ${filePath}`);
+			try {
+				fs.unlinkSync(filePath);
+				console.log(`[rejectNote] File deleted successfully`);
+			} catch (err) {
+				console.warn(`[rejectNote] Could not delete file: ${filePath}`, err);
+			}
+		}
+
+		// Delete the note document from the database
+		await NoteModel.findByIdAndDelete(id);
+
+		sendResponse(res, 200, true, "Note rejected and removed");
 	} catch (error) {
 		next(error);
 	}
@@ -227,9 +248,19 @@ export const getDepartmentDetail: RequestHandler = async (req, res, next) => {
 export const getNotesByRepository: RequestHandler = async (req, res, next) => {
 	try {
 		const { repoId } = req.params;
+		const userId = req.user?.id ?? null;
+
 		const notes = await NoteModel.find({ repository: repoId, status: "approved" })
 			.sort({ upvotes: -1, createdAt: -1 });
-		sendResponse(res, 200, true, "Notes fetched", notes);
+
+		// Attach the current user's vote to each note so the frontend can restore state
+		const notesWithVote = notes.map((note) => {
+			const plainNote = note.toObject();
+			const userVote = userId ? ((note.voters?.get(userId) ?? 0) as number) : 0;
+			return { ...plainNote, userVote, voters: undefined }; // strip voters map from response
+		});
+
+		sendResponse(res, 200, true, "Notes fetched", notesWithVote);
 	} catch (error) {
 		next(error);
 	}
@@ -317,22 +348,57 @@ export const upvoteNote: RequestHandler = async (req, res, next) => {
 	try {
 		const { id } = req.params;
 		const { delta } = req.body as { delta: number };
+		const userId = req.user?.id;
+
+		if (!userId) {
+			sendResponse(res, 401, false, "Authentication required");
+			return;
+		}
 
 		if (delta !== 1 && delta !== -1) {
 			sendResponse(res, 400, false, "delta must be 1 or -1");
 			return;
 		}
 
-		const note = await NoteModel.findByIdAndUpdate(
-			id,
-			{ $inc: { upvotes: delta } },
-			{ new: true }
-		);
+		const note = await NoteModel.findById(id);
 		if (!note) {
 			sendResponse(res, 404, false, "Note not found");
 			return;
 		}
-		sendResponse(res, 200, true, "Vote recorded", { upvotes: note.upvotes });
+
+		// Get the user's existing vote (0 if none)
+		const currentVote = (note.voters?.get(userId) ?? 0) as number;
+
+		let upvoteChange: number;
+		let newVote: number;
+
+		if (currentVote === delta) {
+			// Same direction → toggle OFF (undo vote)
+			upvoteChange = -delta;
+			newVote = 0;
+		} else if (currentVote === 0) {
+			// No previous vote → add vote
+			upvoteChange = delta;
+			newVote = delta;
+		} else {
+			// Opposite vote → switch direction (counts as 2-point swing)
+			upvoteChange = delta * 2;
+			newVote = delta;
+		}
+
+		// Update voters map
+		if (newVote === 0) {
+			note.voters?.delete(userId);
+		} else {
+			note.voters?.set(userId, newVote);
+		}
+		note.upvotes = Math.max(0, note.upvotes + upvoteChange); // prevent negative total
+		await note.save();
+
+		sendResponse(res, 200, true, "Vote recorded", {
+			upvotes: note.upvotes,
+			userVote: newVote,
+		});
 	} catch (error) {
 		next(error);
 	}

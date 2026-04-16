@@ -367,7 +367,9 @@ export interface INote {
 	uploaderName: string;
 	status: TNoteStatus;
 	upvotes: number;
+	voters?: Map<string, number>; // userId → 1 (upvote) or -1 (downvote)
 	week?: string;
+	adminFeedback?: string;
 	createdAt: Date;
 	updatedAt: Date;
 }

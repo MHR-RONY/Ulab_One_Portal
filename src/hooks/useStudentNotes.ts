@@ -36,6 +36,7 @@ export interface NoteItem {
 	uploaderName: string;
 	status: string;
 	upvotes: number;
+	userVote: 0 | 1 | -1; // current authenticated user's vote (from server)
 	week?: string;
 	createdAt: string;
 	updatedAt: string;
@@ -136,7 +137,8 @@ export function useUpvoteNote() {
 		setLoading(true);
 		try {
 			const { data } = await api.put(`/student-notes/notes/${noteId}/upvote`, { delta });
-			return data.data?.upvotes as number | undefined;
+			// Server returns { upvotes, userVote }
+			return data.data as { upvotes: number; userVote: number } | undefined;
 		} catch {
 			return undefined;
 		} finally {

@@ -62,6 +62,16 @@ const noteSchema = new Schema<INoteDocument>(
 		week: {
 			type: String,
 		},
+		adminFeedback: {
+			type: String,
+			default: "",
+		},
+		// Maps userId (string) → vote direction: 1 = upvote, -1 = downvote
+		voters: {
+			type: Map,
+			of: Number,
+			default: {},
+		},
 	},
 	{ timestamps: true }
 );

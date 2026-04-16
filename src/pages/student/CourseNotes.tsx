@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronUp, ChevronDown, Eye, Download, FileText, Upload, Trophy, X, AlertCircle } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown, Eye, Download, FileText, Upload, Trophy, X, AlertCircle, CheckCircle2, Clock, Loader2, ZoomIn } from "lucide-react";
 import Sidebar from "@/components/student/Sidebar";
 import Header from "@/components/student/Header";
 import BottomNav from "@/components/student/BottomNav";
@@ -8,6 +8,129 @@ import MobileHeader from "@/components/student/MobileHeader";
 import { useRepositoryDetail, useRepositoryNotes, useUpvoteNote, useSubmitNote, type NoteItem } from "@/hooks/useStudentNotes";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const SERVER_URL = import.meta.env.VITE_API_URL
+	? import.meta.env.VITE_API_URL.replace("/api", "")
+	: "http://localhost:5003";
+
+/* ─────────────────────────────────────────────────────────
+   PDF Preview Modal (blob-URL approach — no CSP issues)
+───────────────────────────────────────────────────────── */
+const PdfPreviewModal = ({ note, onClose }: { note: NoteItem; onClose: () => void }) => {
+	const [blobUrl, setBlobUrl] = useState<string | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(false);
+	const blobRef = useRef<string | null>(null);
+
+	// Build absolute download URL (also used as fallback link)
+	const fileUrl = note.fileUrl
+		? `${SERVER_URL}${note.fileUrl.startsWith("/") ? "" : "/"}${note.fileUrl}`
+		: null;
+
+	useEffect(() => {
+		if (!note.fileUrl) { setLoading(false); return; }
+		let cancelled = false;
+		setLoading(true);
+		setError(false);
+
+		fetch(`${SERVER_URL}${note.fileUrl.startsWith("/") ? "" : "/"}${note.fileUrl}`, {
+			credentials: "include",
+		})
+			.then((res) => { if (!res.ok) throw new Error(); return res.blob(); })
+			.then((blob) => {
+				if (cancelled) return;
+				const url = URL.createObjectURL(blob);
+				blobRef.current = url;
+				setBlobUrl(url);
+				setLoading(false);
+			})
+			.catch(() => { if (!cancelled) { setError(true); setLoading(false); } });
+
+		return () => {
+			cancelled = true;
+			if (blobRef.current) { URL.revokeObjectURL(blobRef.current); blobRef.current = null; }
+		};
+	}, [note.fileUrl]);
+
+	return (
+		<div
+			className="fixed inset-0 z-50 flex flex-col"
+			style={{ backgroundColor: "rgba(0,0,0,0.82)", backdropFilter: "blur(6px)" }}
+		>
+			{/* Header bar */}
+			<div className="flex items-center justify-between px-5 py-3 bg-card border-b border-border/60 shrink-0 shadow-md">
+				<div className="flex items-center gap-3 min-w-0">
+					<div className="p-1.5 bg-primary/10 rounded-lg shrink-0">
+						<ZoomIn className="w-4 h-4 text-primary" />
+					</div>
+					<div className="min-w-0">
+						<p className="text-sm font-bold text-foreground truncate">{note.title}</p>
+						<p className="text-[11px] text-muted-foreground">
+							{note.courseCode} &bull; {note.fileType.toUpperCase()} &bull; {note.fileSize} &bull; by {note.uploaderName}
+						</p>
+					</div>
+				</div>
+				<div className="flex items-center gap-2 shrink-0 ml-4">
+					{fileUrl && (
+						<a
+							href={fileUrl}
+							download
+							className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-semibold transition-colors"
+							title="Download PDF"
+						>
+							<Download className="w-3.5 h-3.5" /> Download
+						</a>
+					)}
+					<button
+						onClick={onClose}
+						className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+						title="Close preview"
+					>
+						<X className="w-4 h-4" />
+					</button>
+				</div>
+			</div>
+
+			{/* Body */}
+			<div className="flex-1 relative overflow-hidden">
+				{/* Loading spinner */}
+				{loading && (
+					<div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-card/10">
+						<div className="relative">
+							<div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+							<FileText className="w-6 h-6 text-primary absolute inset-0 m-auto" />
+						</div>
+						<p className="text-white/80 text-sm font-medium">Loading document...</p>
+						<p className="text-white/40 text-xs">Large files may take a moment</p>
+					</div>
+				)}
+
+				{/* Error state */}
+				{!loading && error && (
+					<div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white/70">
+						<AlertCircle className="w-12 h-12 text-amber-400" />
+						<p className="text-base font-semibold">Could not load preview</p>
+						{fileUrl && (
+							<a href={fileUrl} target="_blank" rel="noopener noreferrer"
+								className="text-sm text-primary font-bold hover:underline">
+								Open in new tab ↗
+							</a>
+						)}
+					</div>
+				)}
+
+				{/* PDF iframe */}
+				{!loading && !error && blobUrl && (
+					<iframe
+						src={`${blobUrl}#toolbar=1&navpanes=0`}
+						className="w-full h-full border-0"
+						title={`Preview: ${note.title}`}
+					/>
+				)}
+			</div>
+		</div>
+	);
+};
 
 const CourseNotes = () => {
 	const { courseId } = useParams();
@@ -17,8 +140,21 @@ const CourseNotes = () => {
 	const { data: dashboardData } = useStudentDashboard();
 	const { upvote } = useUpvoteNote();
 
-	// Track user's local votes per session (not persisted)
+	// Vote state — initialized from server (persists across refreshes)
 	const [userVotes, setUserVotes] = useState<Record<string, 0 | 1 | -1>>({});
+
+	// Sync userVotes when notes load from server
+	useEffect(() => {
+		if (notes.length === 0) return;
+		const initial: Record<string, 0 | 1 | -1> = {};
+		for (const n of notes) {
+			initial[n._id] = (n.userVote ?? 0) as 0 | 1 | -1;
+		}
+		setUserVotes(initial);
+	}, [notes.length]); // only on initial load, not on every update
+
+	// PDF preview state
+	const [previewNote, setPreviewNote] = useState<NoteItem | null>(null);
 
 	// Upload dialog state
 	const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -30,6 +166,15 @@ const CourseNotes = () => {
 	const [fileError, setFileError] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const { submit: submitNote, loading: submitting, error: submitError } = useSubmitNote();
+
+	// Success popup state
+	const [showSuccess, setShowSuccess] = useState(false);
+	const [submittedTitle, setSubmittedTitle] = useState("");
+	useEffect(() => {
+		if (!showSuccess) return;
+		const t = setTimeout(() => setShowSuccess(false), 5000);
+		return () => clearTimeout(t);
+	}, [showSuccess]);
 
 	const resetUploadForm = () => {
 		setUploadTitle("");
@@ -58,16 +203,19 @@ const CourseNotes = () => {
 
 	const handleUploadSubmit = async () => {
 		if (!courseId || !uploadTitle.trim() || !uploadFile) return;
+		const title = uploadTitle.trim();
 		const result = await submitNote(courseId, {
-			title: uploadTitle.trim(),
+			title,
 			description: uploadDesc.trim() || undefined,
 			week: uploadWeek.trim() || undefined,
 			file: uploadFile,
 		});
 		if (result) {
+			setSubmittedTitle(title);
 			setUploadOpen(false);
 			resetUploadForm();
 			refetchNotes();
+			setShowSuccess(true);
 		}
 	};
 
@@ -111,38 +259,38 @@ const CourseNotes = () => {
 	const handleVote = async (noteId: string, direction: 1 | -1) => {
 		const currentVote = userVotes[noteId] ?? 0;
 
-		let delta: number;
-		let newVote: 0 | 1 | -1;
-
+		// Compute optimistic values locally (mirrors server logic)
+		let optimisticDelta: number;
+		let optimisticVote: 0 | 1 | -1;
 		if (currentVote === direction) {
-			// Undo vote
-			delta = -direction;
-			newVote = 0;
+			optimisticDelta = -direction;
+			optimisticVote = 0;
 		} else if (currentVote === 0) {
-			delta = direction;
-			newVote = direction;
+			optimisticDelta = direction;
+			optimisticVote = direction;
 		} else {
-			// Switching from opposite vote
-			delta = direction * 2;
-			newVote = direction;
+			optimisticDelta = direction * 2;
+			optimisticVote = direction;
 		}
 
-		// Optimistic update
+		// Optimistic UI update
 		setNotes((prev) =>
 			prev.map((n) =>
-				n._id === noteId ? { ...n, upvotes: n.upvotes + delta } : n
+				n._id === noteId ? { ...n, upvotes: Math.max(0, n.upvotes + optimisticDelta) } : n
 			)
 		);
-		setUserVotes((prev) => ({ ...prev, [noteId]: newVote }));
+		setUserVotes((prev) => ({ ...prev, [noteId]: optimisticVote }));
 
-		const result = await upvote(noteId, delta);
-		if (result !== undefined) {
-			// Sync with server value
+		// Send direction to server (server resolves toggle/switch logic)
+		const result = await upvote(noteId, direction);
+		if (result) {
+			// Sync both upvotes AND userVote from server truth
 			setNotes((prev) =>
 				prev.map((n) =>
-					n._id === noteId ? { ...n, upvotes: result } : n
+					n._id === noteId ? { ...n, upvotes: result.upvotes } : n
 				)
 			);
+			setUserVotes((prev) => ({ ...prev, [noteId]: result.userVote as 0 | 1 | -1 }));
 		}
 	};
 
@@ -255,12 +403,21 @@ const CourseNotes = () => {
 
 										{/* Actions */}
 										<div className="flex flex-col gap-2 shrink-0">
-											<button className="w-9 h-9 flex items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" title="Preview">
+											<button
+												onClick={() => setPreviewNote(note)}
+												className="w-9 h-9 flex items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+												title="Preview PDF"
+											>
 												<Eye className="w-4 h-4" />
 											</button>
-											<button className="w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" title="Download">
+											<a
+												href={`${SERVER_URL}${note.fileUrl?.startsWith("/") ? "" : "/"}${note.fileUrl}`}
+												download
+												className="w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+												title="Download"
+											>
 												<Download className="w-4 h-4" />
-											</button>
+											</a>
 										</div>
 									</div>
 								);
@@ -372,6 +529,58 @@ const CourseNotes = () => {
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{/* PDF Preview Modal */}
+			{previewNote && (
+				<PdfPreviewModal
+					note={previewNote}
+					onClose={() => setPreviewNote(null)}
+				/>
+			)}
+
+			{/* ── Upload Success Popup ── */}
+			{showSuccess && (
+				<div
+					className="fixed inset-0 z-50 flex items-center justify-center p-4"
+					style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+					onClick={() => setShowSuccess(false)}
+				>
+					<div
+						className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center text-center gap-4"
+						onClick={(e) => e.stopPropagation()}
+						style={{ animation: "scaleIn 0.25s ease" }}
+					>
+						{/* Icon */}
+						<div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+							<CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+						</div>
+
+						{/* Title */}
+						<div>
+							<h2 className="text-xl font-extrabold text-foreground mb-1">Submitted Successfully!</h2>
+							<p className="text-sm text-muted-foreground">
+								<span className="font-semibold text-foreground">&ldquo;{submittedTitle}&rdquo;</span> has been submitted.
+							</p>
+						</div>
+
+						{/* Review notice */}
+						<div className="w-full flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-3 text-left">
+							<Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+							<p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+								Your document is currently <strong>under review</strong> by our admin team. Once approved, it will be published and visible to all students in this course.
+							</p>
+						</div>
+
+						{/* Close button */}
+						<button
+							onClick={() => setShowSuccess(false)}
+							className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-opacity"
+						>
+							Got it, thanks!
+						</button>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 };
