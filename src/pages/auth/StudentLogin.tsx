@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -62,7 +62,7 @@ const StudentLogin = () => {
 						className="w-full h-full object-cover opacity-40"
 						src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1200&q=80"
 					/>
-					<div className="absolute inset-0" style={{ background: "linear-gradient(to bottom right, hsl(220 85% 55% / 0.9), hsl(220 85% 55% / 0.6), transparent)" }} />
+					<div className="absolute inset-0" style={{ background: "linear-gradient(to bottom right, hsl(var(--primary) / 0.92), hsl(var(--primary) / 0.65), transparent)" }} />
 				</div>
 
 				<motion.div
@@ -168,7 +168,7 @@ const StudentLogin = () => {
 								<Switch />
 								<span className="text-sm text-foreground">Remember me</span>
 							</div>
-							<Link to="/forgot-password" className="text-xs font-bold hover:underline" style={{ color: "hsl(220 85% 55%)" }}>
+							<Link to="/forgot-password" className="text-xs font-bold hover:underline text-primary">
 								Forgot password?
 							</Link>
 						</div>
@@ -177,8 +177,7 @@ const StudentLogin = () => {
 						<button
 							type="submit"
 							disabled={loading}
-							className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-							style={{ backgroundColor: "hsl(220 85% 55%)" }}
+							className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-primary-foreground bg-primary shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
 						>
 							{loading ? (
 								<><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</>
@@ -192,7 +191,7 @@ const StudentLogin = () => {
 					<div className="mt-8 border-t border-border pt-6 text-center">
 						<p className="text-sm text-muted-foreground">
 							Don't have an account yet?{" "}
-							<Link to="/signup" className="font-bold hover:underline" style={{ color: "hsl(220 85% 55%)" }}>
+							<Link to="/signup" className="font-bold text-primary hover:underline">
 								Create an account
 							</Link>
 						</p>

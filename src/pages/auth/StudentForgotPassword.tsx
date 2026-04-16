@@ -152,7 +152,7 @@ const StudentForgotPassword = () => {
 						className="w-full h-full object-cover opacity-40"
 						src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1200&q=80"
 					/>
-					<div className="absolute inset-0" style={{ background: "linear-gradient(to bottom right, hsl(220 85% 55% / 0.9), hsl(220 85% 55% / 0.6), transparent)" }} />
+					<div className="absolute inset-0" style={{ background: "linear-gradient(to bottom right, hsl(var(--primary) / 0.92), hsl(var(--primary) / 0.65), transparent)" }} />
 				</div>
 
 				<motion.div
@@ -200,8 +200,8 @@ const StudentForgotPassword = () => {
 							className="max-w-md w-full bg-card rounded-2xl p-8 md:p-10 shadow-xl border border-border"
 						>
 							<div className="text-center mb-8">
-								<div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "hsl(220 85% 95%)" }}>
-									<KeyRound className="w-7 h-7" style={{ color: "hsl(220 85% 55%)" }} />
+								<div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+									<KeyRound className="w-7 h-7 text-primary" />
 								</div>
 								<h2 className="text-2xl font-black text-foreground tracking-tight">Forgot Password?</h2>
 								<p className="text-muted-foreground mt-2 text-sm">
@@ -243,7 +243,7 @@ const StudentForgotPassword = () => {
 									type="submit"
 									disabled={loading}
 									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-									style={{ backgroundColor: "hsl(220 85% 55%)" }}
+									className="bg-primary"
 								>
 									{loading ? (
 										<><Loader2 className="w-4 h-4 animate-spin" /> Sending OTP...</>
@@ -254,7 +254,7 @@ const StudentForgotPassword = () => {
 							</form>
 
 							<div className="mt-8 border-t border-border pt-6 text-center">
-								<Link to="/login" className="text-sm font-bold hover:underline flex items-center justify-center gap-1" style={{ color: "hsl(220 85% 55%)" }}>
+								<Link to="/login" className="text-sm font-bold hover:underline flex items-center justify-center gap-1 text-primary">
 									<ArrowLeft className="w-3.5 h-3.5" /> Back to Login
 								</Link>
 							</div>
@@ -272,8 +272,8 @@ const StudentForgotPassword = () => {
 							className="max-w-md w-full bg-card rounded-2xl p-8 md:p-10 shadow-xl border border-border"
 						>
 							<div className="text-center mb-8">
-								<div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "hsl(220 85% 95%)" }}>
-									<Mail className="w-7 h-7" style={{ color: "hsl(220 85% 55%)" }} />
+								<div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+									<Mail className="w-7 h-7 text-primary" />
 								</div>
 								<h2 className="text-2xl font-black text-foreground tracking-tight">Verify Your Email</h2>
 								<p className="text-muted-foreground mt-2 text-sm">
@@ -326,7 +326,7 @@ const StudentForgotPassword = () => {
 									onClick={() => handleVerifyOtp()}
 									disabled={loading || otpValue.length !== 6}
 									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-									style={{ backgroundColor: "hsl(220 85% 55%)" }}
+									className="bg-primary"
 								>
 									{loading ? (
 										<><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</>
@@ -348,7 +348,7 @@ const StudentForgotPassword = () => {
 										onClick={handleResendOtp}
 										disabled={loading}
 										className="font-semibold hover:underline disabled:opacity-50"
-										style={{ color: "hsl(220 85% 55%)" }}
+										className="text-primary"
 									>
 										Resend Code
 									</button>
@@ -372,8 +372,8 @@ const StudentForgotPassword = () => {
 							className="max-w-md w-full bg-card rounded-2xl p-8 md:p-10 shadow-xl border border-border"
 						>
 							<div className="text-center mb-8">
-								<div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "hsl(220 85% 95%)" }}>
-									<Lock className="w-7 h-7" style={{ color: "hsl(220 85% 55%)" }} />
+								<div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+									<Lock className="w-7 h-7 text-primary" />
 								</div>
 								<h2 className="text-2xl font-black text-foreground tracking-tight">Set New Password</h2>
 								<p className="text-muted-foreground mt-2 text-sm">
@@ -443,7 +443,7 @@ const StudentForgotPassword = () => {
 									type="submit"
 									disabled={loading}
 									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-									style={{ backgroundColor: "hsl(220 85% 55%)" }}
+									className="bg-primary"
 								>
 									{loading ? (
 										<><Loader2 className="w-4 h-4 animate-spin" /> Resetting...</>
@@ -478,7 +478,7 @@ const StudentForgotPassword = () => {
 									type="button"
 									onClick={() => navigate("/login")}
 									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90"
-									style={{ backgroundColor: "hsl(220 85% 55%)" }}
+									className="bg-primary"
 								>
 									Back to Login <ArrowRight className="w-4 h-4" />
 								</button>

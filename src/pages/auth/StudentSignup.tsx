@@ -283,9 +283,9 @@ const StudentSignup = () => {
 											/>
 											<span className="text-sm text-muted-foreground">
 												I agree to the{" "}
-												<a href="#" className="font-bold hover:underline" style={{ color: "hsl(220 85% 55%)" }}>Terms of Service</a>
+												<a href="#" className="font-bold hover:underline text-primary">Terms of Service</a>
 												{" "}and{" "}
-												<a href="#" className="font-bold hover:underline" style={{ color: "hsl(220 85% 55%)" }}>Privacy Policy</a>.
+												<a href="#" className="font-bold hover:underline text-primary">Privacy Policy</a>.
 											</span>
 										</div>
 										{errors.agreed && <p className="text-xs text-red-500 mt-1">{errors.agreed}</p>}
@@ -295,8 +295,7 @@ const StudentSignup = () => {
 									<button
 										type="submit"
 										disabled={loading}
-										className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-										style={{ backgroundColor: "hsl(220 85% 55%)" }}
+										className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-primary-foreground bg-primary shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
 									>
 										{loading ? (
 											<><Loader2 className="w-4 h-4 animate-spin" /> Sending OTP...</>
@@ -310,7 +309,7 @@ const StudentSignup = () => {
 								<div className="mt-6 border-t border-border pt-6 text-center">
 									<p className="text-sm text-muted-foreground">
 										Already have an account?{" "}
-										<Link to="/login" className="font-bold hover:underline" style={{ color: "hsl(220 85% 55%)" }}>
+										<Link to="/login" className="font-bold hover:underline text-primary">
 											Sign In
 										</Link>
 									</p>
@@ -345,8 +344,8 @@ const StudentSignup = () => {
 						>
 							<div className="bg-card rounded-2xl p-8 md:p-10 shadow-xl border border-border">
 								<div className="text-center mb-8">
-									<div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "hsl(220 85% 95%)" }}>
-										<Mail className="w-7 h-7" style={{ color: "hsl(220 85% 55%)" }} />
+									<div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+										<Mail className="w-7 h-7 text-primary" />
 									</div>
 									<h2 className="text-2xl font-black text-foreground tracking-tight">Verify Your Email</h2>
 									<p className="text-muted-foreground mt-2 text-sm">
@@ -386,8 +385,7 @@ const StudentSignup = () => {
 										type="button"
 										onClick={handleVerifyOtp}
 										disabled={loading || otpValue.length !== 6}
-										className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-										style={{ backgroundColor: "hsl(220 85% 55%)" }}
+										className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-primary-foreground bg-primary shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
 									>
 										{loading ? (
 											<><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</>
@@ -410,7 +408,7 @@ const StudentSignup = () => {
 											onClick={handleResendOtp}
 											disabled={loading}
 											className="font-semibold hover:underline disabled:opacity-50"
-											style={{ color: "hsl(220 85% 55%)" }}
+											className="text-primary"
 										>
 											Resend Code
 										</button>
