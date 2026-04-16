@@ -3,6 +3,8 @@ import { StudentModel } from "../models/Student.model";
 import { TeacherModel } from "../models/Teacher.model";
 import { AdminModel } from "../models/Admin.model";
 import { UserModel } from "../models/User.model";
+import { NoteModel } from "../models/Note.model";
+import { OfferedCourseModel } from "../models/OfferedCourse.model";
 import { sendResponse } from "../utils/apiResponse";
 
 export const getAdminProfile: RequestHandler = async (req, res, next) => {
@@ -243,6 +245,73 @@ export const deleteAdmin: RequestHandler = async (req, res, next) => {
 			return;
 		}
 		sendResponse(res, 200, true, "Admin deleted successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * GET /api/admin/dashboard-stats
+ * Aggregate real-time dashboard metrics from all collections
+ */
+export const getDashboardStats: RequestHandler = async (_req, res, next) => {
+	try {
+		const [
+			totalStudents,
+			totalTeachers,
+			totalAdmins,
+			pendingNotes,
+			approvedNotes,
+			totalSections,
+			recentPendingNotes,
+			studentsByDept,
+			notesByDept,
+			sectionsBySemester,
+		] = await Promise.all([
+			StudentModel.countDocuments(),
+			TeacherModel.countDocuments(),
+			AdminModel.countDocuments(),
+			NoteModel.countDocuments({ status: "pending" }),
+			NoteModel.countDocuments({ status: "approved" }),
+			OfferedCourseModel.countDocuments(),
+			// Last 5 pending notes for the quick-action list
+			NoteModel.find({ status: "pending" })
+				.sort({ createdAt: -1 })
+				.limit(5)
+				.select("title uploaderName courseCode department createdAt")
+				.lean(),
+			// Students grouped by department
+			StudentModel.aggregate([
+				{ $group: { _id: "$department", count: { $sum: 1 } } },
+				{ $sort: { count: -1 } },
+			]),
+			// Approved notes grouped by department
+			NoteModel.aggregate([
+				{ $match: { status: "approved" } },
+				{ $group: { _id: "$department", count: { $sum: 1 } } },
+				{ $sort: { count: -1 } },
+			]),
+			// Sections grouped by semester (last 6)
+			OfferedCourseModel.aggregate([
+				{ $group: { _id: "$semester", count: { $sum: 1 } } },
+				{ $sort: { _id: -1 } },
+				{ $limit: 6 },
+			]),
+		]);
+
+		sendResponse(res, 200, true, "Dashboard stats fetched", {
+			totalStudents,
+			totalTeachers,
+			totalAdmins,
+			pendingNotes,
+			approvedNotes,
+			totalSections,
+			recentPendingNotes,
+			studentsByDept,
+			notesByDept,
+			sectionsBySemester,
+			fetchedAt: new Date().toISOString(),
+		});
 	} catch (error) {
 		next(error);
 	}

@@ -11,6 +11,7 @@ import {
 	getAllAdmins,
 	createAdmin,
 	deleteAdmin,
+	getDashboardStats,
 } from "../controllers/admin.controller";
 import { protect, authorizeRole } from "../middleware/auth.middleware";
 
@@ -19,6 +20,7 @@ const router = Router();
 router.use(protect, authorizeRole("admin"));
 
 router.get("/me", getAdminProfile);
+router.get("/dashboard-stats", getDashboardStats);
 router.get("/admins", getAllAdmins);
 router.post("/admin", createAdmin);
 router.delete("/admin/:id", deleteAdmin);
