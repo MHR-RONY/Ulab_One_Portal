@@ -14,6 +14,7 @@ export interface PendingNote {
 	department: string;
 	fileType: string;
 	fileSize: string;
+	fileUrl: string;
 	uploaderName: string;
 	status: "pending" | "approved" | "rejected";
 	createdAt: string;
@@ -97,13 +98,13 @@ export function usePendingNotes() {
 		fetchNotes(page);
 	}, [fetchNotes, page]);
 
-	const approveNote = async (id: string) => {
-		await api.put(`/resources/notes/${id}/approve`);
+	const approveNote = async (id: string, feedback?: string) => {
+		await api.put(`/resources/notes/${id}/approve`, { feedback: feedback ?? "" });
 		await fetchNotes(page);
 	};
 
-	const rejectNote = async (id: string) => {
-		await api.put(`/resources/notes/${id}/reject`);
+	const rejectNote = async (id: string, feedback?: string) => {
+		await api.put(`/resources/notes/${id}/reject`, { feedback: feedback ?? "" });
 		await fetchNotes(page);
 	};
 

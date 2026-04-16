@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Search, Filter, PlusCircle, FileText, Plus, TrendingUp, Upload, X, AlertCircle } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, Filter, PlusCircle, FileText, Plus, TrendingUp, Upload, X, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "@/components/student/Sidebar";
@@ -55,6 +55,15 @@ const NotesLibrary = () => {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const { submit: submitNote, loading: submitting, error: submitError } = useSubmitNote();
 
+	// Success popup state
+	const [showSuccess, setShowSuccess] = useState(false);
+	const [submittedTitle, setSubmittedTitle] = useState("");
+	useEffect(() => {
+		if (!showSuccess) return;
+		const t = setTimeout(() => setShowSuccess(false), 5000);
+		return () => clearTimeout(t);
+	}, [showSuccess]);
+
 	const resetUploadForm = () => {
 		setUploadRepoId("");
 		setUploadTitle("");
@@ -84,16 +93,19 @@ const NotesLibrary = () => {
 
 	const handleUploadSubmit = async () => {
 		if (!uploadRepoId || !uploadTitle.trim() || !uploadFile) return;
+		const title = uploadTitle.trim();
 		const result = await submitNote(uploadRepoId, {
-			title: uploadTitle.trim(),
+			title,
 			description: uploadDesc.trim() || undefined,
 			week: uploadWeek.trim() || undefined,
 			file: uploadFile,
 		});
 		if (result) {
+			setSubmittedTitle(title);
 			setUploadOpen(false);
 			resetUploadForm();
 			refetch();
+			setShowSuccess(true);
 		}
 	};
 
@@ -432,6 +444,50 @@ const NotesLibrary = () => {
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{/* ── Upload Success Popup ── */}
+			{showSuccess && (
+				<div
+					className="fixed inset-0 z-50 flex items-center justify-center p-4"
+					style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+					onClick={() => setShowSuccess(false)}
+				>
+					<div
+						className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center text-center gap-4"
+						onClick={(e) => e.stopPropagation()}
+						style={{ animation: "scaleIn 0.25s ease" }}
+					>
+						{/* Icon */}
+						<div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+							<CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+						</div>
+
+						{/* Title */}
+						<div>
+							<h2 className="text-xl font-extrabold text-foreground mb-1">Submitted Successfully!</h2>
+							<p className="text-sm text-muted-foreground">
+								<span className="font-semibold text-foreground">&ldquo;{submittedTitle}&rdquo;</span> has been submitted.
+							</p>
+						</div>
+
+						{/* Review notice */}
+						<div className="w-full flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-3 text-left">
+							<Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+							<p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+								Your document is currently <strong>under review</strong> by our admin team. Once approved, it will be published and visible to all students in this course.
+							</p>
+						</div>
+
+						{/* Close button */}
+						<button
+							onClick={() => setShowSuccess(false)}
+							className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-opacity"
+						>
+							Got it, thanks!
+						</button>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 };
