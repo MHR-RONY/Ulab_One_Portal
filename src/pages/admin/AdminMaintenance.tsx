@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import {
 	Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import ComingSoonOverlay from "@/components/ui/ComingSoonOverlay";
 
 const storageItems = [
 	{ label: "Course Materials", size: "12.4 GB", percent: 42, icon: FileText, color: "text-primary" },
@@ -64,6 +65,7 @@ const AdminMaintenance = () => {
 			<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 				<AdminHeader />
 				<main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8">
+					{/* page content unchanged */}
 					{/* Header */}
 					<motion.div
 						initial={{ opacity: 0, y: -10 }}
@@ -407,6 +409,12 @@ const AdminMaintenance = () => {
 					)}
 				</main>
 			</div>
+			<ComingSoonOverlay
+				icon={Settings}
+				moduleName="Maintenance"
+				progress={58}
+				features={["Storage management", "Connection monitor", "Backup & recovery", "Health monitor"]}
+			/>
 		</div>
 	);
 };

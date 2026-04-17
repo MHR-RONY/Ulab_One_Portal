@@ -20,7 +20,7 @@ const navItems = [
 	{ icon: LayoutDashboard, label: "Dashboard", href: "/teacher" },
 	{ icon: UserCheck, label: "Attendance", href: "/teacher/attendance" },
 	{ icon: BookOpen, label: "My Classes", href: "/teacher/classes" },
-	{ icon: Star, label: "Assignments", href: "/teacher" },
+	{ icon: Star, label: "Assignments", href: "/teacher/assignments" },
 	{ icon: BarChart3, label: "Analytics", href: "/teacher/analytics" },
 	{ icon: Settings, label: "Settings", href: "/teacher/settings" },
 ];

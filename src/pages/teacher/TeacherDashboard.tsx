@@ -1,26 +1,30 @@
 import { motion } from "framer-motion";
 import {
-	Users, CalendarDays, HelpCircle, Zap, TrendingUp, TrendingDown,
-	Download, Plus, Trophy, AlertTriangle, ArrowLeft, Menu, X, GraduationCap
+	Users, BookOpen, HelpCircle, Zap, TrendingUp,
+	Download, Plus, Trophy, AlertTriangle, GraduationCap, BarChart3
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useTeacherProfile } from "@/hooks/useTeacherProfile";
-import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
+import { useTeacherDashboard } from "@/hooks/useTeacherDashboard";
+import {
+	Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip,
+	Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
+} from "recharts";
 import TeacherSidebar from "@/components/teacher/TeacherSidebar";
 import TeacherHeader from "@/components/teacher/TeacherHeader";
 import MobileTeacherDashboard from "@/components/teacher/MobileTeacherDashboard";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// Stats data
-const stats = [
-	{ icon: Users, label: "Total Students", value: "1,284", change: "+4% vs LW", positive: true, colorClass: "text-primary bg-primary/10" },
-	{ icon: CalendarDays, label: "Avg. Attendance", value: "92.4%", change: "+2.1%", positive: true, colorClass: "text-stat-blue bg-stat-blue/10" },
-	{ icon: HelpCircle, label: "Quiz Pass Rate", value: "78.2%", change: "-0.5%", positive: false, colorClass: "text-stat-amber bg-stat-amber/10" },
-	{ icon: Zap, label: "Active Engagement", value: "85.0", change: "+12%", positive: true, colorClass: "text-stat-purple bg-stat-purple/10" },
+// Static engagement radar data (kept representative until a proper API exists)
+const engagementData = [
+	{ subject: "Quizzes", A: 85 },
+	{ subject: "Submission", A: 90 },
+	{ subject: "Participation", A: 65 },
+	{ subject: "Forum Activity", A: 70 },
 ];
 
-// Attendance trend data
+// Attendance trend placeholder (kept as illustrative until attendance API supports aggregation)
 const attendanceData = [
 	{ week: "WK 01", value: 75 },
 	{ week: "WK 04", value: 80 },
@@ -32,49 +36,56 @@ const attendanceData = [
 	{ week: "WK 16", value: 90 },
 ];
 
-// Radar data
-const engagementData = [
-	{ subject: "Quizzes", A: 85 },
-	{ subject: "Submission", A: 90 },
-	{ subject: "Participation", A: 65 },
-	{ subject: "Forum Activity", A: 70 },
-];
-
-// Section performance
-const sections = [
-	{ name: "Section A (CS-101)", gpa: "3.85", percent: 85, color: "bg-primary" },
-	{ name: "Section B (CS-102)", gpa: "3.40", percent: 72, color: "bg-primary/60" },
-	{ name: "Section C (MAT-203)", gpa: "3.92", percent: 94, color: "bg-primary" },
-	{ name: "Section D (CS-205)", gpa: "2.80", percent: 55, color: "bg-destructive" },
-];
-
-const topPerformers = [
-	{ name: "Sarah Jenkins", grade: "A+", initials: "SJ" },
-	{ name: "Marcus Chen", grade: "A", initials: "MC" },
-	{ name: "Elena Rossi", grade: "A", initials: "ER" },
-];
-
-const atRiskStudents = [
-	{ name: "David Miller", tag: "Attendance", tagColor: "text-destructive bg-destructive/10", initials: "DM" },
-	{ name: "Lisa Wang", tag: "Low Scores", tagColor: "text-stat-amber bg-stat-amber/10", initials: "LW" },
-	{ name: "James Doe", tag: "Late Sub", tagColor: "text-destructive bg-destructive/10", initials: "JD" },
-];
-
-const mobileMenuItems = [
-	{ label: "Dashboard", href: "/teacher" },
-	{ label: "Classes", href: "/teacher" },
-	{ label: "Attendance", href: "/teacher" },
-	{ label: "Grades", href: "/teacher" },
-	{ label: "Engagement", href: "/teacher" },
-	{ label: "Reports", href: "/teacher" },
-	{ label: "Switch to Student", href: "/" },
-];
-
 const TeacherDashboard = () => {
 	const isMobile = useIsMobile();
-	const navigate = useNavigate();
-	const [menuOpen, setMenuOpen] = useState(false);
-	const { profile, loading } = useTeacherProfile();
+	const { profile, loading: profileLoading } = useTeacherProfile();
+	const { stats, loading: statsLoading } = useTeacherDashboard();
+	const loading = profileLoading || statsLoading;
+
+	// Build stat cards from live data
+	const buildStats = () => {
+		if (!stats) return [];
+		return [
+			{
+				icon: Users,
+				label: "Total Students",
+				value: stats.totalStudents.toLocaleString(),
+				change: `${stats.totalCourses} course${stats.totalCourses !== 1 ? "s" : ""}`,
+				positive: true,
+				colorClass: "text-primary bg-primary/10",
+			},
+			{
+				icon: BookOpen,
+				label: "Active Courses",
+				value: String(stats.totalCourses),
+				change: "Active this semester",
+				positive: true,
+				colorClass: "text-stat-blue bg-stat-blue/10",
+			},
+			{
+				icon: HelpCircle,
+				label: "Avg. Students/Course",
+				value: String(stats.avgStudentsPerCourse),
+				change: "Per class section",
+				positive: true,
+				colorClass: "text-stat-amber bg-stat-amber/10",
+			},
+			{
+				icon: Zap,
+				label: "Largest Class",
+				value: stats.largestCourse
+					? `${stats.largestCourse.enrolledStudents.length}`
+					: "—",
+				change: stats.largestCourse
+					? `${stats.largestCourse.courseCode}`
+					: "No courses yet",
+				positive: stats.largestCourse !== null,
+				colorClass: "text-stat-purple bg-stat-purple/10",
+			},
+		];
+	};
+
+	const statCards = buildStats();
 
 	const mainContent = (
 		<div className="p-4 md:p-8 space-y-8">
@@ -87,7 +98,9 @@ const TeacherDashboard = () => {
 			>
 				<div>
 					<h2 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">Academic Overview</h2>
-					<p className="text-muted-foreground text-sm mt-0.5">Spring Semester 2024 • {profile?.department ?? "Department"}</p>
+					<p className="text-muted-foreground text-sm mt-0.5">
+						Spring Semester 2024 • {profile?.department ?? "Department"}
+					</p>
 				</div>
 				<div className="flex gap-2">
 					<button className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary transition-all">
@@ -101,7 +114,7 @@ const TeacherDashboard = () => {
 
 			{/* Stats Grid */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-				{stats.map((stat, i) => (
+				{statCards.length > 0 ? statCards.map((stat, i) => (
 					<motion.div
 						key={stat.label}
 						initial={{ opacity: 0, y: 20 }}
@@ -120,7 +133,18 @@ const TeacherDashboard = () => {
 						<p className="text-muted-foreground text-sm font-medium">{stat.label}</p>
 						<h3 className="text-2xl font-extrabold text-foreground mt-1">{stat.value}</h3>
 					</motion.div>
-				))}
+				)) : (
+					// Empty state when no courses
+					<motion.div
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						className="col-span-4 text-center py-12 text-muted-foreground"
+					>
+						<GraduationCap className="w-12 h-12 mx-auto mb-3 text-primary/30" />
+						<p className="font-semibold text-foreground">No courses yet</p>
+						<p className="text-sm mt-1">Create your first course in <Link to="/teacher/classes" className="text-primary font-medium hover:underline">My Classes</Link>.</p>
+					</motion.div>
+				)}
 			</div>
 
 			{/* Charts Row */}
@@ -224,38 +248,52 @@ const TeacherDashboard = () => {
 
 			{/* Performance Row */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				{/* Section Performance */}
+				{/* Section Performance - Live */}
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ delay: 0.5, duration: 0.4 }}
 					className="glass-card bg-card p-6 rounded-2xl border border-border"
 				>
-					<h4 className="font-bold text-lg text-foreground mb-1">Section Performance</h4>
-					<p className="text-muted-foreground text-sm mb-6">Comparing average grade by section</p>
-					<div className="space-y-5">
-						{sections.map((section, i) => (
-							<div key={section.name} className="space-y-2">
-								<div className="flex justify-between text-xs font-bold">
-									<span className="text-foreground">{section.name}</span>
-									<span className="text-foreground">{section.gpa} GPA</span>
-								</div>
-								<div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-									<motion.div
-										initial={{ width: 0 }}
-										animate={{ width: `${section.percent}%` }}
-										transition={{ delay: 0.6 + i * 0.1, duration: 0.8, ease: "easeOut" }}
-										className={`h-full rounded-full ${section.color}`}
-									/>
-								</div>
-							</div>
-						))}
+					<div className="flex items-center gap-2 mb-1">
+						<BarChart3 className="w-5 h-5 text-primary" />
+						<h4 className="font-bold text-lg text-foreground">Section Performance</h4>
 					</div>
+					<p className="text-muted-foreground text-sm mb-6">Student enrollment by course section</p>
+
+					{stats && stats.sections.length > 0 ? (
+						<div className="space-y-5">
+							{stats.sections.map((section, i) => (
+								<div key={section.name} className="space-y-2">
+									<div className="flex justify-between text-xs font-bold">
+										<span className="text-foreground truncate max-w-[65%]">{section.name}</span>
+										<span className="text-foreground">{section.studentCount} students</span>
+									</div>
+									<div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+										<motion.div
+											initial={{ width: 0 }}
+											animate={{ width: `${section.percent}%` }}
+											transition={{ delay: 0.6 + i * 0.1, duration: 0.8, ease: "easeOut" }}
+											className={`h-full rounded-full ${section.color}`}
+										/>
+									</div>
+								</div>
+							))}
+						</div>
+					) : (
+						<div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+							<GraduationCap className="w-10 h-10 text-primary/25 mb-2" />
+							<p className="text-sm">No course sections yet.</p>
+							<Link to="/teacher/classes" className="text-xs text-primary font-semibold mt-1 hover:underline">
+								Go to My Classes →
+							</Link>
+						</div>
+					)}
 				</motion.div>
 
 				{/* Top Performers & At Risk */}
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					{/* Top Performers */}
+					{/* Enrolled Students */}
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
@@ -264,24 +302,30 @@ const TeacherDashboard = () => {
 					>
 						<div className="flex items-center gap-2 mb-5">
 							<Trophy className="w-5 h-5 text-stat-amber" />
-							<h4 className="font-bold text-foreground">Top Performers</h4>
+							<h4 className="font-bold text-foreground">Recent Students</h4>
 						</div>
 						<div className="space-y-4">
-							{topPerformers.map((s) => (
-								<div key={s.name} className="flex items-center justify-between">
-									<div className="flex items-center gap-2.5">
-										<div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-[10px] font-bold ring-2 ring-primary/10">
-											{s.initials}
+							{stats && stats.recentStudents.length > 0 ? (
+								stats.recentStudents.map((s) => (
+									<div key={s.name + s.course} className="flex items-center justify-between gap-2">
+										<div className="flex items-center gap-2.5 min-w-0">
+											<div className="w-8 h-8 rounded-full bg-primary/15 flex-shrink-0 flex items-center justify-center text-primary text-[10px] font-bold ring-2 ring-primary/10">
+												{s.initials}
+											</div>
+											<div className="min-w-0">
+												<p className="text-sm font-medium text-foreground truncate">{s.name}</p>
+												<p className="text-[10px] text-muted-foreground truncate">{s.course}</p>
+											</div>
 										</div>
-										<span className="text-sm font-medium text-foreground">{s.name}</span>
 									</div>
-									<span className="text-xs font-bold text-primary">{s.grade}</span>
-								</div>
-							))}
+								))
+							) : (
+								<p className="text-sm text-muted-foreground text-center py-4">No students enrolled yet.</p>
+							)}
 						</div>
 					</motion.div>
 
-					{/* At Risk */}
+					{/* Quick Actions */}
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
@@ -289,20 +333,23 @@ const TeacherDashboard = () => {
 						className="glass-card bg-card p-6 rounded-2xl border border-border"
 					>
 						<div className="flex items-center gap-2 mb-5">
-							<AlertTriangle className="w-5 h-5 text-destructive" />
-							<h4 className="font-bold text-foreground">At Risk</h4>
+							<AlertTriangle className="w-5 h-5 text-stat-amber" />
+							<h4 className="font-bold text-foreground">Quick Actions</h4>
 						</div>
-						<div className="space-y-4">
-							{atRiskStudents.map((s) => (
-								<div key={s.name} className="flex items-center justify-between">
-									<div className="flex items-center gap-2.5">
-										<div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center text-destructive text-[10px] font-bold ring-2 ring-destructive/10">
-											{s.initials}
-										</div>
-										<span className="text-sm font-medium text-foreground">{s.name}</span>
-									</div>
-									<span className={`px-2 py-0.5 text-[10px] rounded-md font-bold uppercase ${s.tagColor}`}>{s.tag}</span>
-								</div>
+						<div className="space-y-3">
+							{[
+								{ label: "Take Attendance", href: "/teacher/attendance", color: "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground" },
+								{ label: "View Classes", href: "/teacher/classes", color: "bg-stat-blue/10 text-stat-blue hover:bg-stat-blue hover:text-white" },
+								{ label: "Analytics", href: "/teacher/analytics", color: "bg-stat-purple/10 text-stat-purple hover:bg-stat-purple hover:text-white" },
+								{ label: "Messages", href: "/teacher/chat", color: "bg-stat-emerald/10 text-stat-emerald hover:bg-stat-emerald hover:text-white" },
+							].map((action) => (
+								<Link
+									key={action.label}
+									to={action.href}
+									className={`flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${action.color}`}
+								>
+									{action.label}
+								</Link>
 							))}
 						</div>
 					</motion.div>
@@ -323,25 +370,22 @@ const TeacherDashboard = () => {
 					<div className="h-10 w-36 bg-muted rounded-xl" />
 				</div>
 			</div>
-			{/* Stats skeleton */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
 				{Array.from({ length: 4 }).map((_, i) => (
 					<div key={i} className="bg-card p-6 rounded-2xl border border-border space-y-4">
 						<div className="flex justify-between">
 							<div className="w-10 h-10 rounded-xl bg-muted" />
-							<div className="h-4 w-12 bg-muted rounded" />
+							<div className="h-4 w-16 bg-muted rounded" />
 						</div>
 						<div className="h-3 w-24 bg-muted/70 rounded" />
 						<div className="h-7 w-20 bg-muted rounded-lg" />
 					</div>
 				))}
 			</div>
-			{/* Charts skeleton */}
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 				<div className="lg:col-span-2 bg-card rounded-2xl border border-border h-64" />
 				<div className="bg-card rounded-2xl border border-border h-64" />
 			</div>
-			{/* Performance skeleton */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				<div className="bg-card rounded-2xl border border-border p-6 space-y-4">
 					<div className="h-5 w-40 bg-muted rounded" />
@@ -349,7 +393,7 @@ const TeacherDashboard = () => {
 						<div key={i} className="space-y-1.5">
 							<div className="flex justify-between">
 								<div className="h-3 w-40 bg-muted/70 rounded" />
-								<div className="h-3 w-12 bg-muted/70 rounded" />
+								<div className="h-3 w-16 bg-muted/70 rounded" />
 							</div>
 							<div className="h-2 bg-muted rounded-full" />
 						</div>

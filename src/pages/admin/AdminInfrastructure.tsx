@@ -9,6 +9,7 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import ComingSoonOverlay from "@/components/ui/ComingSoonOverlay";
 
 const storageBreakdown = [
 	{ label: "MEDIA", height: "30%" },
@@ -304,6 +305,12 @@ const AdminInfrastructure = () => {
 					</div>
 				</main>
 			</div>
+			<ComingSoonOverlay
+				icon={Server}
+				moduleName="Infrastructure"
+				progress={63}
+				features={["Server management", "Traffic monitor", "Integration hub", "Database cluster"]}
+			/>
 		</div>
 	);
 };

@@ -1,12 +1,14 @@
 import {
 	LayoutDashboard, Users, GraduationCap, BookOpen, Grid3X3,
 	CalendarDays, FileText, MessageSquare, BarChart3, Settings,
-	Wrench, LogOut, School, Shield, Server, HardDriveUpload, ChevronRight
+	Wrench, LogOut, School, Shield, Server, HardDriveUpload, ChevronRight, X
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import api, { setAccessToken } from "@/lib/api";
+import { useAdminMobileMenu } from "@/contexts/AdminMobileMenuContext";
 
 const navSections = [
 	{
@@ -68,18 +70,26 @@ const getInitials = (name: string) =>
 		.toUpperCase()
 		.slice(0, 2);
 
-const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
+/** The inner sidebar content — shared between desktop and mobile drawer */
+const SidebarContent = ({
+	activePage,
+	profile,
+	onNavigate,
+}: {
+	activePage: string;
+	profile: AdminProfile | null;
+	onNavigate?: () => void;
+}) => {
 	const navigate = useNavigate();
-	const [profile, setProfile] = useState<AdminProfile | null>(null);
 
-	useEffect(() => {
-		api.get<{ data: AdminProfile }>("/admin/me")
-			.then((res) => setProfile(res.data.data))
-			.catch(() => null);
-	}, []);
+	const handleLogout = async () => {
+		try { await api.post("/auth/logout"); } catch { /* ignore */ }
+		setAccessToken(null);
+		navigate("/admin/login");
+	};
 
 	return (
-		<aside className="admin-theme admin-sidebar-glossy w-72 h-screen flex-shrink-0 border-r border-white/10 flex flex-col sticky top-0 overflow-hidden">
+		<>
 			{/* Logo */}
 			<motion.div
 				initial={{ opacity: 0, y: -8 }}
@@ -98,6 +108,7 @@ const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
 				</div>
 			</motion.div>
 
+			{/* Nav */}
 			<nav className="flex-1 px-4 py-3 space-y-0.5 overflow-y-auto scrollbar-none">
 				{navSections.map((section, si) => (
 					<div key={section.label}>
@@ -116,9 +127,10 @@ const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
 								>
 									<Link
 										to={item.href}
+										onClick={onNavigate}
 										className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm group ${isActive
-												? "admin-nav-active text-primary font-semibold"
-												: "text-muted-foreground hover:bg-primary/5 hover:text-foreground"
+											? "admin-nav-active text-primary font-semibold"
+											: "text-muted-foreground hover:bg-primary/5 hover:text-foreground"
 											}`}
 									>
 										{isActive && (
@@ -135,6 +147,7 @@ const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
 				))}
 			</nav>
 
+			{/* Footer */}
 			<div className="p-4 border-t border-white/8 space-y-3">
 				<motion.div
 					initial={{ opacity: 0 }}
@@ -151,18 +164,83 @@ const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
 					</div>
 				</motion.div>
 				<button
-					onClick={async () => {
-						try { await api.post("/auth/logout"); } catch { /* ignore */ }
-						setAccessToken(null);
-						navigate("/admin/login");
-					}}
+					onClick={handleLogout}
 					className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-destructive/8 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200 text-sm font-semibold"
 				>
 					<LogOut className="w-4 h-4" />
 					<span>Logout</span>
 				</button>
 			</div>
-		</aside>
+		</>
+	);
+};
+
+const AdminSidebar = ({ activePage = "Dashboard" }: AdminSidebarProps) => {
+	const { isOpen, close } = useAdminMobileMenu();
+	const [profile, setProfile] = useState<AdminProfile | null>(null);
+
+	useEffect(() => {
+		api.get<{ data: AdminProfile }>("/admin/me")
+			.then((res) => setProfile(res.data.data))
+			.catch(() => null);
+	}, []);
+
+	// Mobile drawer — rendered via portal to escape any 'hidden md:block' wrapper
+	const mobileDrawer = createPortal(
+		<AnimatePresence>
+			{isOpen && (
+				<>
+					{/* Backdrop */}
+					<motion.div
+						key="admin-drawer-backdrop"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						transition={{ duration: 0.25 }}
+						className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+						onClick={close}
+					/>
+
+					{/* Drawer panel */}
+					<motion.div
+						key="admin-drawer-panel"
+						initial={{ x: "-100%" }}
+						animate={{ x: 0 }}
+						exit={{ x: "-100%" }}
+						transition={{ type: "spring", stiffness: 320, damping: 32 }}
+						className="fixed top-0 left-0 z-50 h-full w-72 admin-theme admin-sidebar-glossy border-r border-white/10 flex flex-col overflow-hidden"
+					>
+						{/* Close button */}
+						<button
+							onClick={close}
+							className="absolute top-4 right-4 z-10 p-2 rounded-xl text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all"
+							aria-label="Close menu"
+						>
+							<X className="w-5 h-5" />
+						</button>
+
+						<SidebarContent
+							activePage={activePage}
+							profile={profile}
+							onNavigate={close}
+						/>
+					</motion.div>
+				</>
+			)}
+		</AnimatePresence>,
+		document.body
+	);
+
+	return (
+		<>
+			{/* Desktop sidebar (only shown md+, handled by the page's hidden md:block wrapper) */}
+			<aside className="admin-theme admin-sidebar-glossy w-72 h-screen flex-shrink-0 border-r border-white/10 flex flex-col sticky top-0 overflow-hidden">
+				<SidebarContent activePage={activePage} profile={profile} />
+			</aside>
+
+			{/* Mobile drawer lives at document.body — always visible regardless of parent CSS */}
+			{mobileDrawer}
+		</>
 	);
 };
 
