@@ -170,9 +170,9 @@ export function useSubmitNote() {
 			if (payload.week) formData.append("week", payload.week);
 			formData.append("file", payload.file);
 
-			const { data } = await api.post(`/student-notes/repository/${repoId}/submit`, formData, {
-				headers: { "Content-Type": "multipart/form-data" },
-			});
+			// Do NOT manually set Content-Type — axios must set it automatically
+			// so the correct multipart boundary is included in the header.
+			const { data } = await api.post(`/student-notes/repository/${repoId}/submit`, formData);
 			return data.data as NoteItem;
 		} catch (err: unknown) {
 			const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Failed to submit note";
@@ -184,4 +184,39 @@ export function useSubmitNote() {
 	}, []);
 
 	return { submit, loading, error };
+}
+
+// ---------- Hook: recent approved notes for dashboard ----------
+
+export interface RecentNote {
+	_id: string;
+	title: string;
+	fileSize: string;
+	fileUrl: string;
+	fileType: string;
+	courseCode: string;
+	createdAt: string;
+}
+
+export function useRecentNotes() {
+	const [notes, setNotes] = useState<RecentNote[]>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		let cancelled = false;
+		(async () => {
+			setLoading(true);
+			try {
+				const { data } = await api.get("/student-notes/recent-notes");
+				if (!cancelled) setNotes(data.data ?? []);
+			} catch {
+				if (!cancelled) setNotes([]);
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+		})();
+		return () => { cancelled = true; };
+	}, []);
+
+	return { notes, loading };
 }
