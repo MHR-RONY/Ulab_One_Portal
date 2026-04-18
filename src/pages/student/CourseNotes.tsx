@@ -463,13 +463,13 @@ const CourseNotes = () => {
 			{/* Upload Note Dialog */}
 			<Dialog open={uploadOpen} onOpenChange={(open) => { setUploadOpen(open); if (!open) resetUploadForm(); }}>
 				<DialogContent className="
-					w-full max-w-md
-					fixed bottom-0 left-0 right-0 translate-x-0 translate-y-0 top-auto
-					sm:relative sm:top-[50%] sm:left-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:bottom-auto
-					rounded-t-2xl sm:rounded-2xl
-					max-h-[92dvh] overflow-y-auto
-					p-5 sm:p-6
-				">
+				w-full max-w-md
+				fixed bottom-0 left-0 right-0 top-auto translate-x-0 translate-y-0
+				sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:right-auto sm:-translate-x-1/2 sm:-translate-y-1/2
+				rounded-t-2xl sm:rounded-2xl
+				max-h-[92dvh] overflow-y-auto
+				p-5 sm:p-6
+			">
 					<DialogHeader className="text-left">
 						<DialogTitle className="text-base sm:text-lg font-bold leading-snug pr-6">
 							Upload Note — <span className="text-primary">{repo?.courseName}</span>

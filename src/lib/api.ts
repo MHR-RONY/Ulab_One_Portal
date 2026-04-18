@@ -24,6 +24,12 @@ api.interceptors.request.use((config) => {
 	if (accessToken) {
 		config.headers.Authorization = `Bearer ${accessToken}`;
 	}
+	// When sending FormData (file uploads), let the browser set Content-Type
+	// automatically so it includes the correct multipart boundary.
+	// If we leave the global "application/json" header, multer can't parse the file.
+	if (config.data instanceof FormData) {
+		delete config.headers["Content-Type"];
+	}
 	loadingStore.increment();
 	return config;
 });

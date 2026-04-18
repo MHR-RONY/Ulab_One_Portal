@@ -55,11 +55,19 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 
-// Serve uploaded teacher photos as static files
-// crossOriginResourcePolicy must be disabled so the browser can load images cross-origin
+// Serve uploaded files (teacher photos, notes PDFs) as static files.
+// We must set Cross-Origin-Resource-Policy AND full CORS headers so that:
+//  1. The browser allows loading across origins (CORP)
+//  2. fetch() with credentials: "include" succeeds for blob-URL PDF previews (CORS)
 app.use(
 	"/uploads",
 	(req, res, next) => {
+		const origin = req.headers.origin;
+		// Mirror the same origin-whitelist as the main CORS config
+		if (origin && allowedOrigins.includes(origin)) {
+			res.setHeader("Access-Control-Allow-Origin", origin);
+			res.setHeader("Access-Control-Allow-Credentials", "true");
+		}
 		res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 		next();
 	},
