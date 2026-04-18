@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -54,7 +54,28 @@ const StudentLogin = () => {
 
 	return (
 		<div className="student-theme flex min-h-screen w-full flex-col lg:flex-row bg-background">
-			{/* Left Side: Image & Branding */}
+
+			{/* ── Mobile Header (hidden on lg+ where the left panel shows branding) ── */}
+			<header className="lg:hidden sticky top-0 z-30 w-full bg-card border-b border-border shadow-sm">
+				<div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+					<div className="flex items-center gap-2.5">
+						<div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+							<GraduationCap className="w-4 h-4 text-white" />
+						</div>
+						<span className="text-base font-extrabold tracking-tight text-foreground">
+							ULAB One Portal
+						</span>
+					</div>
+					<Link
+						to="/signup"
+						className="text-xs font-bold text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/10 transition-colors"
+					>
+						Sign Up
+					</Link>
+				</div>
+			</header>
+
+			{/* Left Side: Image & Branding (desktop only) */}
 			<div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden bg-primary">
 				<div className="absolute inset-0 z-0">
 					<img
@@ -92,12 +113,12 @@ const StudentLogin = () => {
 				</motion.div>
 
 				<div className="relative z-10 border-t border-white/20 pt-6">
-					<p className="text-white/60 text-sm">© 2024 University of Liberal Arts Bangladesh</p>
+					<p className="text-white/60 text-sm">© 2026 University of Liberal Arts Bangladesh</p>
 				</div>
 			</div>
 
 			{/* Right Side: Login Form */}
-			<div className="flex-1 flex items-center justify-center px-6 md:px-16 py-12 bg-secondary/30">
+			<div className="flex-1 flex items-center justify-center px-6 md:px-16 py-10 bg-secondary/30">
 				<motion.div
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -123,6 +144,7 @@ const StudentLogin = () => {
 								</motion.div>
 							)}
 						</AnimatePresence>
+
 						{/* Email */}
 						<div className="space-y-2">
 							<label className="text-sm font-semibold text-foreground">University Email</label>
@@ -187,7 +209,7 @@ const StudentLogin = () => {
 						</button>
 					</form>
 
-					{/* Footer */}
+					{/* Card footer */}
 					<div className="mt-8 border-t border-border pt-6 text-center">
 						<p className="text-sm text-muted-foreground">
 							Don't have an account yet?{" "}
@@ -198,6 +220,19 @@ const StudentLogin = () => {
 					</div>
 				</motion.div>
 			</div>
+
+			{/* ── Mobile Footer (hidden on lg+ where the left panel has the copyright) ── */}
+			<footer className="lg:hidden w-full bg-card border-t border-border px-4 py-4">
+				<div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+					<p>© 2026 University of Liberal Arts Bangladesh</p>
+					<div className="flex items-center gap-4">
+						<a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
+						<a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
+						<a href="#" className="hover:text-foreground transition-colors">Help Center</a>
+					</div>
+				</div>
+			</footer>
+
 		</div>
 	);
 };
