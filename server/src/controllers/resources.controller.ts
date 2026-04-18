@@ -1,9 +1,8 @@
 import { RequestHandler } from "express";
-import path from "path";
-import fs from "fs";
 import { NoteRepositoryModel } from "../models/NoteRepository.model";
 import { NoteModel } from "../models/Note.model";
 import { sendResponse } from "../utils/apiResponse";
+import { uploadToR2, deleteFromR2 } from "../utils/r2";
 
 const DEPARTMENTS = ["CSE", "BBA", "EEE", "MSJ"] as const;
 
@@ -163,26 +162,15 @@ export const rejectNote: RequestHandler = async (req, res, next) => {
 		const { id } = req.params;
 		const { feedback } = req.body as { feedback?: string };
 
-		// Find the note first so we can get the fileUrl before deleting
 		const note = await NoteModel.findById(id);
 		if (!note) {
 			sendResponse(res, 404, false, "Note not found");
 			return;
 		}
 
-		// Delete the physical file from disk (non-fatal if missing)
+		// Delete the file from R2 (non-fatal if it fails)
 		if (note.fileUrl) {
-			// Strip the leading "/" so path.resolve doesn't treat it as an
-			// absolute path on Windows (which would skip the base directory entirely)
-			const relativeUrl = note.fileUrl.replace(/^\/+/, "");
-			const filePath = path.resolve(__dirname, "../..", relativeUrl);
-			console.log(`[rejectNote] Deleting file: ${filePath}`);
-			try {
-				fs.unlinkSync(filePath);
-				console.log(`[rejectNote] File deleted successfully`);
-			} catch (err) {
-				console.warn(`[rejectNote] Could not delete file: ${filePath}`, err);
-			}
+			await deleteFromR2(note.fileUrl);
 		}
 
 		// Delete the note document from the database
@@ -439,6 +427,12 @@ export const submitNote: RequestHandler = async (req, res, next) => {
 			return;
 		}
 
+		// Validate we have a buffer (memory storage)
+		if (!file.buffer || file.buffer.length === 0) {
+			sendResponse(res, 400, false, "Uploaded file is empty");
+			return;
+		}
+
 		const repo = await NoteRepositoryModel.findById(repoId);
 		if (!repo) {
 			sendResponse(res, 404, false, "Repository not found");
@@ -458,9 +452,10 @@ export const submitNote: RequestHandler = async (req, res, next) => {
 			}
 		}
 
-		// Build file URL (relative to server uploads)
-		const fileUrl = `/uploads/notes/${file.filename}`;
-		const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2) + " MB";
+		// Upload PDF to Cloudflare R2
+		const r2Result = await uploadToR2(file.buffer, file.originalname);
+		const fileUrl = r2Result.url; // Full public URL (e.g. https://pub-xxx.r2.dev/notes/abc.pdf)
+		const fileSizeMB = (r2Result.size / (1024 * 1024)).toFixed(2) + " MB";
 
 		const note = await NoteModel.create({
 			title: title.trim(),

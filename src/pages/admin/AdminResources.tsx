@@ -24,6 +24,14 @@ const SERVER_URL = import.meta.env.VITE_API_URL
 	? import.meta.env.VITE_API_URL.replace("/api", "")
 	: "http://localhost:5003";
 
+/** Resolve a note's fileUrl to an absolute URL.
+ *  - R2 URLs (https://...) are used directly
+ *  - Legacy local paths (/uploads/...) get SERVER_URL prepended */
+function resolveFileUrl(fileUrl: string): string {
+	if (fileUrl.startsWith("http")) return fileUrl;
+	return `${SERVER_URL}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
+}
+
 const deptMeta: Record<string, { icon: React.ElementType; iconBg: string; iconColor: string }> = {
 	CSE: { icon: Computer, iconBg: "bg-blue-50 dark:bg-blue-900/20", iconColor: "text-blue-500" },
 	BBA: { icon: Briefcase, iconBg: "bg-orange-50 dark:bg-orange-900/20", iconColor: "text-orange-500" },
@@ -65,21 +73,31 @@ const PreviewModal = ({ note, onClose, onApprove, onReject }: PreviewModalProps)
 
 	// Absolute URL for the download link
 	const fileUrl = note.fileUrl
-		? `${SERVER_URL}${note.fileUrl.startsWith("/") ? "" : "/"}${note.fileUrl}`
+		? resolveFileUrl(note.fileUrl)
 		: null;
 
-	// Fetch the PDF as a Blob so the browser treats it as same-origin (no CSP/CORP block)
+	// R2 URLs (https://...) can be used directly — no fetch needed
+	const isPublicUrl = note.fileUrl?.startsWith("http") ?? false;
+
+	// Fetch the PDF as a Blob only for legacy local URLs
 	useEffect(() => {
 		if (!note.fileUrl) {
 			setPdfLoading(false);
 			return;
 		}
+
+		// For R2 public URLs, skip fetch entirely
+		if (isPublicUrl) {
+			setPdfLoading(false);
+			return;
+		}
+
+		// Legacy local URLs: fetch as blob with credentials
 		let cancelled = false;
 		setPdfLoading(true);
 		setPdfError(false);
 
-		// Use native fetch — static files don't require the /api prefix
-		fetch(`${SERVER_URL}${note.fileUrl.startsWith("/") ? "" : "/"}${note.fileUrl}`, {
+		fetch(resolveFileUrl(note.fileUrl), {
 			credentials: "include",
 		})
 			.then((res) => {
@@ -101,13 +119,15 @@ const PreviewModal = ({ note, onClose, onApprove, onReject }: PreviewModalProps)
 
 		return () => {
 			cancelled = true;
-			// Clean up blob URL to free memory
 			if (blobRef.current) {
 				URL.revokeObjectURL(blobRef.current);
 				blobRef.current = null;
 			}
 		};
 	}, [note.fileUrl]);
+
+	// The URL to render in the iframe
+	const iframeSrc = isPublicUrl ? fileUrl : blobUrl;
 
 	const handleApprove = async () => {
 		setActionLoading("approve");
@@ -222,9 +242,9 @@ const PreviewModal = ({ note, onClose, onApprove, onReject }: PreviewModalProps)
 								</div>
 							)}
 
-							{!pdfLoading && !pdfError && blobUrl && (
+							{!pdfLoading && !pdfError && iframeSrc && (
 								<iframe
-									src={`${blobUrl}#toolbar=1&navpanes=0`}
+									src={`${iframeSrc}#toolbar=1&navpanes=0`}
 									className="w-full h-full border-0"
 									title={`Preview: ${note.title}`}
 								/>

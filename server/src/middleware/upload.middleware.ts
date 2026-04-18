@@ -45,18 +45,7 @@ export const uploadTeacherPhoto = multer({
 	limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
 }).single("avatar");
 
-// ---------- Notes PDF Upload ----------
-
-const notesPdfStorage = multer.diskStorage({
-	destination: (_req, _file, cb) => {
-		cb(null, NOTES_DIR);
-	},
-	filename: (_req, file, cb) => {
-		const uniqueId = crypto.randomBytes(12).toString("hex");
-		const ext = path.extname(file.originalname).toLowerCase() || ".pdf";
-		cb(null, `${uniqueId}${ext}`);
-	},
-});
+// ---------- Notes PDF Upload (memory storage → uploaded to R2 by controller) ----------
 
 const pdfFilter = (
 	_req: Express.Request,
@@ -71,7 +60,7 @@ const pdfFilter = (
 };
 
 export const uploadNotePdf = multer({
-	storage: notesPdfStorage,
+	storage: multer.memoryStorage(),
 	fileFilter: pdfFilter,
 	limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
 }).single("file");

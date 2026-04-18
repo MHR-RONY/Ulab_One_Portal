@@ -13,15 +13,23 @@ const SERVER_URL = import.meta.env.VITE_API_URL
 	? import.meta.env.VITE_API_URL.replace("/api", "")
 	: "http://localhost:5003";
 
+/** Resolve a note's fileUrl to an absolute URL.
+ *  - R2 URLs (https://...) are used directly
+ *  - Legacy local paths (/uploads/...) get SERVER_URL prepended */
+function resolveFileUrl(fileUrl: string): string {
+	if (fileUrl.startsWith("http")) return fileUrl;
+	return `${SERVER_URL}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
+}
+
 /**
- * Fetches a file from the server (with auth cookies/headers) and
- * triggers a browser download via a temporary blob URL.
- * This is required because cross-origin <a download> is blocked by browsers.
+ * Fetches a file and triggers a browser download via a temporary blob URL.
+ * R2 public URLs don't need credentials; legacy local URLs do.
  */
 async function downloadNote(fileUrl: string, filename: string) {
 	try {
-		const absUrl = `${SERVER_URL}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
-		const response = await fetch(absUrl, { credentials: "include" });
+		const absUrl = resolveFileUrl(fileUrl);
+		const isPublic = fileUrl.startsWith("http");
+		const response = await fetch(absUrl, isPublic ? {} : { credentials: "include" });
 		if (!response.ok) throw new Error("Download failed");
 		const blob = await response.blob();
 		const url = URL.createObjectURL(blob);
@@ -34,12 +42,14 @@ async function downloadNote(fileUrl: string, filename: string) {
 		URL.revokeObjectURL(url);
 	} catch {
 		// Fallback: open in new tab
-		window.open(`${SERVER_URL}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`, "_blank");
+		window.open(resolveFileUrl(fileUrl), "_blank");
 	}
 }
 
 /* ─────────────────────────────────────────────────────────
-   PDF Preview Modal (blob-URL approach — no CSP issues)
+   PDF Preview Modal
+   - R2 public URLs → used directly in iframe (no CORS fetch needed)
+   - Legacy /uploads/ paths → blob-fetch with credentials
 ───────────────────────────────────────────────────────── */
 const PdfPreviewModal = ({ note, onClose }: { note: NoteItem; onClose: () => void }) => {
 	const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -47,18 +57,25 @@ const PdfPreviewModal = ({ note, onClose }: { note: NoteItem; onClose: () => voi
 	const [error, setError] = useState(false);
 	const blobRef = useRef<string | null>(null);
 
-	// Build absolute download URL (also used as fallback link)
-	const fileUrl = note.fileUrl
-		? `${SERVER_URL}${note.fileUrl.startsWith("/") ? "" : "/"}${note.fileUrl}`
-		: null;
+	const resolvedUrl = note.fileUrl ? resolveFileUrl(note.fileUrl) : null;
+	// R2 URLs (https://pub-xxx.r2.dev/...) can be used directly — no fetch needed
+	const isPublicUrl = note.fileUrl?.startsWith("http") ?? false;
 
 	useEffect(() => {
 		if (!note.fileUrl) { setLoading(false); return; }
+
+		// For R2 public URLs, skip fetch entirely — use directly
+		if (isPublicUrl) {
+			setLoading(false);
+			return;
+		}
+
+		// Legacy local URLs: fetch as blob with credentials
 		let cancelled = false;
 		setLoading(true);
 		setError(false);
 
-		fetch(`${SERVER_URL}${note.fileUrl.startsWith("/") ? "" : "/"}${note.fileUrl}`, {
+		fetch(resolveFileUrl(note.fileUrl), {
 			credentials: "include",
 		})
 			.then((res) => { if (!res.ok) throw new Error(); return res.blob(); })
@@ -76,6 +93,9 @@ const PdfPreviewModal = ({ note, onClose }: { note: NoteItem; onClose: () => voi
 			if (blobRef.current) { URL.revokeObjectURL(blobRef.current); blobRef.current = null; }
 		};
 	}, [note.fileUrl]);
+
+	// The URL to render in the iframe
+	const iframeSrc = isPublicUrl ? resolvedUrl : blobUrl;
 
 	return (
 		<div
@@ -96,7 +116,7 @@ const PdfPreviewModal = ({ note, onClose }: { note: NoteItem; onClose: () => voi
 					</div>
 				</div>
 				<div className="flex items-center gap-2 shrink-0 ml-4">
-					{fileUrl && (
+					{resolvedUrl && (
 						<button
 							onClick={() => downloadNote(note.fileUrl, note.title + ".pdf")}
 							className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-semibold transition-colors"
@@ -134,8 +154,8 @@ const PdfPreviewModal = ({ note, onClose }: { note: NoteItem; onClose: () => voi
 					<div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white/70">
 						<AlertCircle className="w-12 h-12 text-amber-400" />
 						<p className="text-base font-semibold">Could not load preview</p>
-						{fileUrl && (
-							<a href={fileUrl} target="_blank" rel="noopener noreferrer"
+						{resolvedUrl && (
+							<a href={resolvedUrl} target="_blank" rel="noopener noreferrer"
 								className="text-sm text-primary font-bold hover:underline">
 								Open in new tab ↗
 							</a>
@@ -144,9 +164,9 @@ const PdfPreviewModal = ({ note, onClose }: { note: NoteItem; onClose: () => voi
 				)}
 
 				{/* PDF iframe */}
-				{!loading && !error && blobUrl && (
+				{!loading && !error && iframeSrc && (
 					<iframe
-						src={`${blobUrl}#toolbar=1&navpanes=0`}
+						src={`${iframeSrc}#toolbar=1&navpanes=0`}
 						className="w-full h-full border-0"
 						title={`Preview: ${note.title}`}
 					/>
