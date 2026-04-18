@@ -242,8 +242,7 @@ const StudentForgotPassword = () => {
 								<button
 									type="submit"
 									disabled={loading}
-									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-									className="bg-primary"
+									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white bg-primary shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
 								>
 									{loading ? (
 										<><Loader2 className="w-4 h-4 animate-spin" /> Sending OTP...</>
@@ -325,8 +324,7 @@ const StudentForgotPassword = () => {
 									type="button"
 									onClick={() => handleVerifyOtp()}
 									disabled={loading || otpValue.length !== 6}
-									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-									className="bg-primary"
+									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white bg-primary shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
 								>
 									{loading ? (
 										<><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</>
@@ -347,8 +345,7 @@ const StudentForgotPassword = () => {
 										type="button"
 										onClick={handleResendOtp}
 										disabled={loading}
-										className="font-semibold hover:underline disabled:opacity-50"
-										className="text-primary"
+										className="font-semibold hover:underline disabled:opacity-50 text-primary"
 									>
 										Resend Code
 									</button>
@@ -442,8 +439,7 @@ const StudentForgotPassword = () => {
 								<button
 									type="submit"
 									disabled={loading}
-									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
-									className="bg-primary"
+									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white bg-primary shadow-lg transition-all hover:opacity-90 disabled:opacity-60"
 								>
 									{loading ? (
 										<><Loader2 className="w-4 h-4 animate-spin" /> Resetting...</>
@@ -477,8 +473,7 @@ const StudentForgotPassword = () => {
 								<button
 									type="button"
 									onClick={() => navigate("/login")}
-									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white shadow-lg transition-all hover:opacity-90"
-									className="bg-primary"
+									className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 text-white bg-primary shadow-lg transition-all hover:opacity-90"
 								>
 									Back to Login <ArrowRight className="w-4 h-4" />
 								</button>

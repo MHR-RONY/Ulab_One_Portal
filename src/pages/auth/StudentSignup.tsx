@@ -407,8 +407,7 @@ const StudentSignup = () => {
 											type="button"
 											onClick={handleResendOtp}
 											disabled={loading}
-											className="font-semibold hover:underline disabled:opacity-50"
-											className="text-primary"
+											className="font-semibold hover:underline disabled:opacity-50 text-primary"
 										>
 											Resend Code
 										</button>
