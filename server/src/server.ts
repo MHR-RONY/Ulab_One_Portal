@@ -37,6 +37,28 @@ const allowedOrigins = (process.env.CLIENT_URL as string)
 	.split(",")
 	.map((o) => o.trim());
 
+// ── Static file serving (BEFORE helmet so security headers don't block PDFs) ──
+// Uploads are simple static assets (images, PDFs). They must be served without
+// helmet's restrictive CSP, X-Frame-Options, and COEP headers, otherwise:
+//  - Admin iframe PDF preview is blocked by X-Frame-Options: SAMEORIGIN
+//  - Cross-origin blob fetch is blocked by COEP: require-corp
+//  - Downloads return empty due to CSP / CORS mismatches
+app.use(
+	"/uploads",
+	(req, res, next) => {
+		const origin = req.headers.origin;
+		if (origin && allowedOrigins.includes(origin)) {
+			res.setHeader("Access-Control-Allow-Origin", origin);
+			res.setHeader("Access-Control-Allow-Credentials", "true");
+		}
+		res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+		// Remove frame restrictions so PDFs can render in admin preview iframes
+		res.removeHeader("X-Frame-Options");
+		next();
+	},
+	express.static(path.join(__dirname, "../uploads"))
+);
+
 // Middleware
 app.use(helmet());
 app.use(
@@ -54,25 +76,6 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
-
-// Serve uploaded files (teacher photos, notes PDFs) as static files.
-// We must set Cross-Origin-Resource-Policy AND full CORS headers so that:
-//  1. The browser allows loading across origins (CORP)
-//  2. fetch() with credentials: "include" succeeds for blob-URL PDF previews (CORS)
-app.use(
-	"/uploads",
-	(req, res, next) => {
-		const origin = req.headers.origin;
-		// Mirror the same origin-whitelist as the main CORS config
-		if (origin && allowedOrigins.includes(origin)) {
-			res.setHeader("Access-Control-Allow-Origin", origin);
-			res.setHeader("Access-Control-Allow-Credentials", "true");
-		}
-		res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-		next();
-	},
-	express.static(path.join(__dirname, "../uploads"))
-);
 
 // Connect to database
 connectDB();
