@@ -37,27 +37,72 @@ const allowedOrigins = (process.env.CLIENT_URL as string)
 	.split(",")
 	.map((o) => o.trim());
 
-// ── Static file serving (BEFORE helmet so security headers don't block PDFs) ──
-// Uploads are simple static assets (images, PDFs). They must be served without
-// helmet's restrictive CSP, X-Frame-Options, and COEP headers, otherwise:
-//  - Admin iframe PDF preview is blocked by X-Frame-Options: SAMEORIGIN
-//  - Cross-origin blob fetch is blocked by COEP: require-corp
-//  - Downloads return empty due to CSP / CORS mismatches
-app.use(
-	"/uploads",
-	(req, res, next) => {
-		const origin = req.headers.origin;
-		if (origin && allowedOrigins.includes(origin)) {
-			res.setHeader("Access-Control-Allow-Origin", origin);
-			res.setHeader("Access-Control-Allow-Credentials", "true");
+// ── Uploaded file serving (BEFORE helmet — no security headers on static assets) ──
+// Using explicit res.sendFile() instead of express.static() so we have full
+// control over the resolved path and response headers in production.
+const UPLOADS_DIR = path.resolve(__dirname, "../uploads");
+console.log(`[uploads] Serving files from: ${UPLOADS_DIR}`);
+
+// Handle CORS preflight for /uploads
+app.options("/uploads/*", (req, res) => {
+	const origin = req.headers.origin;
+	if (origin && allowedOrigins.includes(origin)) {
+		res.setHeader("Access-Control-Allow-Origin", origin);
+		res.setHeader("Access-Control-Allow-Credentials", "true");
+		res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+		res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+	}
+	res.status(204).end();
+});
+
+// Serve any file under /uploads (notes, teacher-photos, etc.)
+app.get("/uploads/*", (req, res) => {
+	// Extract the relative path after /uploads/
+	const relativePath = req.params[0]; // e.g. "notes/abc123.pdf"
+	if (!relativePath) {
+		res.status(400).json({ success: false, message: "No file path specified" });
+		return;
+	}
+
+	// Prevent path traversal attacks
+	const safePath = path.normalize(relativePath).replace(/^(\.\.[/\\])+/, "");
+	const absolutePath = path.join(UPLOADS_DIR, safePath);
+
+	// Make sure resolved path is still inside UPLOADS_DIR
+	if (!absolutePath.startsWith(UPLOADS_DIR)) {
+		res.status(403).json({ success: false, message: "Access denied" });
+		return;
+	}
+
+	// Set CORS headers
+	const origin = req.headers.origin;
+	if (origin && allowedOrigins.includes(origin)) {
+		res.setHeader("Access-Control-Allow-Origin", origin);
+		res.setHeader("Access-Control-Allow-Credentials", "true");
+	}
+	res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
+	// Determine Content-Type
+	const ext = path.extname(safePath).toLowerCase();
+	const mimeTypes: Record<string, string> = {
+		".pdf": "application/pdf",
+		".jpg": "image/jpeg",
+		".jpeg": "image/jpeg",
+		".png": "image/png",
+		".webp": "image/webp",
+		".gif": "image/gif",
+	};
+	if (mimeTypes[ext]) {
+		res.setHeader("Content-Type", mimeTypes[ext]);
+	}
+
+	res.sendFile(absolutePath, (err) => {
+		if (err) {
+			console.error(`[uploads] File not found: ${absolutePath}`);
+			res.status(404).json({ success: false, message: "File not found" });
 		}
-		res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-		// Remove frame restrictions so PDFs can render in admin preview iframes
-		res.removeHeader("X-Frame-Options");
-		next();
-	},
-	express.static(path.join(__dirname, "../uploads"))
-);
+	});
+});
 
 // Middleware
 app.use(helmet());
