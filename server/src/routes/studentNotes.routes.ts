@@ -5,11 +5,15 @@ import {
 	getNotesByRepository,
 	upvoteNote,
 	submitNote,
+	getRecentNotes,
 } from "../controllers/resources.controller";
 import { protect, authorizeRole } from "../middleware/auth.middleware";
 import { uploadNotePdf } from "../middleware/upload.middleware";
 
 const router = Router();
+
+// Dashboard widget: 3 most recently approved notes
+router.get("/recent-notes", protect, getRecentNotes);
 
 // Public-ish: any logged-in user can browse repositories and notes
 router.get("/repositories", protect, getRepositories);

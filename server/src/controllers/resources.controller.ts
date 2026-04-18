@@ -404,6 +404,20 @@ export const upvoteNote: RequestHandler = async (req, res, next) => {
 	}
 };
 
+export const getRecentNotes: RequestHandler = async (_req, res, next) => {
+	try {
+		const notes = await NoteModel.find({ status: "approved" })
+			.sort({ createdAt: -1 })
+			.limit(3)
+			.select("title fileSize fileUrl fileType courseCode createdAt")
+			.lean();
+
+		sendResponse(res, 200, true, "Recent notes fetched", notes);
+	} catch (error) {
+		next(error);
+	}
+};
+
 export const submitNote: RequestHandler = async (req, res, next) => {
 	try {
 		const { repoId } = req.params;

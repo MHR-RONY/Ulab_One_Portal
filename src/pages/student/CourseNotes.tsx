@@ -13,6 +13,31 @@ const SERVER_URL = import.meta.env.VITE_API_URL
 	? import.meta.env.VITE_API_URL.replace("/api", "")
 	: "http://localhost:5003";
 
+/**
+ * Fetches a file from the server (with auth cookies/headers) and
+ * triggers a browser download via a temporary blob URL.
+ * This is required because cross-origin <a download> is blocked by browsers.
+ */
+async function downloadNote(fileUrl: string, filename: string) {
+	try {
+		const absUrl = `${SERVER_URL}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
+		const response = await fetch(absUrl, { credentials: "include" });
+		if (!response.ok) throw new Error("Download failed");
+		const blob = await response.blob();
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = filename || "note.pdf";
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	} catch {
+		// Fallback: open in new tab
+		window.open(`${SERVER_URL}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`, "_blank");
+	}
+}
+
 /* ─────────────────────────────────────────────────────────
    PDF Preview Modal (blob-URL approach — no CSP issues)
 ───────────────────────────────────────────────────────── */
@@ -72,14 +97,13 @@ const PdfPreviewModal = ({ note, onClose }: { note: NoteItem; onClose: () => voi
 				</div>
 				<div className="flex items-center gap-2 shrink-0 ml-4">
 					{fileUrl && (
-						<a
-							href={fileUrl}
-							download
+						<button
+							onClick={() => downloadNote(note.fileUrl, note.title + ".pdf")}
 							className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-semibold transition-colors"
 							title="Download PDF"
 						>
 							<Download className="w-3.5 h-3.5" /> Download
-						</a>
+						</button>
 					)}
 					<button
 						onClick={onClose}
@@ -410,14 +434,13 @@ const CourseNotes = () => {
 											>
 												<Eye className="w-4 h-4" />
 											</button>
-											<a
-												href={`${SERVER_URL}${note.fileUrl?.startsWith("/") ? "" : "/"}${note.fileUrl}`}
-												download
+											<button
+												onClick={() => downloadNote(note.fileUrl, note.title + ".pdf")}
 												className="w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
 												title="Download"
 											>
 												<Download className="w-4 h-4" />
-											</a>
+											</button>
 										</div>
 									</div>
 								);
@@ -439,52 +462,79 @@ const CourseNotes = () => {
 
 			{/* Upload Note Dialog */}
 			<Dialog open={uploadOpen} onOpenChange={(open) => { setUploadOpen(open); if (!open) resetUploadForm(); }}>
-				<DialogContent className="sm:max-w-md">
-					<DialogHeader>
-						<DialogTitle>Upload Note — {repo?.courseName}</DialogTitle>
+				<DialogContent className="
+					w-full max-w-md
+					fixed bottom-0 left-0 right-0 translate-x-0 translate-y-0 top-auto
+					sm:relative sm:top-[50%] sm:left-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:bottom-auto
+					rounded-t-2xl sm:rounded-2xl
+					max-h-[92dvh] overflow-y-auto
+					p-5 sm:p-6
+				">
+					<DialogHeader className="text-left">
+						<DialogTitle className="text-base sm:text-lg font-bold leading-snug pr-6">
+							Upload Note — <span className="text-primary">{repo?.courseName}</span>
+						</DialogTitle>
 					</DialogHeader>
-					<div className="flex flex-col gap-4 pt-2">
+
+					<div className="flex flex-col gap-3 sm:gap-4 pt-2">
+						{/* Title */}
 						<div>
-							<label className="text-sm font-medium text-foreground mb-1.5 block">Title</label>
+							<label className="text-sm font-semibold text-foreground mb-1.5 block">Title</label>
 							<input
 								type="text"
 								value={uploadTitle}
 								onChange={(e) => setUploadTitle(e.target.value)}
 								placeholder="e.g. Midterm Review Notes"
-								className="w-full h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+								className="w-full h-10 rounded-lg border border-border bg-secondary/40 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors"
 							/>
 						</div>
+
+						{/* Description */}
 						<div>
-							<label className="text-sm font-medium text-foreground mb-1.5 block">Description <span className="text-muted-foreground">(optional)</span></label>
+							<label className="text-sm font-semibold text-foreground mb-1.5 block">
+								Description <span className="text-muted-foreground font-normal">(optional)</span>
+							</label>
 							<textarea
 								value={uploadDesc}
 								onChange={(e) => setUploadDesc(e.target.value)}
 								placeholder="Brief description of the notes..."
 								rows={2}
-								className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+								className="w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors"
 							/>
 						</div>
+
+						{/* Week */}
 						<div>
-							<label className="text-sm font-medium text-foreground mb-1.5 block">Week <span className="text-muted-foreground">(optional)</span></label>
+							<label className="text-sm font-semibold text-foreground mb-1.5 block">
+								Week <span className="text-muted-foreground font-normal">(optional)</span>
+							</label>
 							<input
 								type="text"
 								value={uploadWeek}
 								onChange={(e) => setUploadWeek(e.target.value)}
 								placeholder="e.g. Week 5"
-								className="w-full h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+								className="w-full h-10 rounded-lg border border-border bg-secondary/40 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors"
 							/>
 						</div>
+
+						{/* PDF File Drop Zone */}
 						<div>
-							<label className="text-sm font-medium text-foreground mb-1.5 block">PDF File <span className="text-muted-foreground">(max 50 MB)</span></label>
+							<label className="text-sm font-semibold text-foreground mb-1.5 block">
+								PDF File <span className="text-muted-foreground font-normal">(max 50 MB)</span>
+							</label>
 							<input ref={fileInputRef} type="file" accept="application/pdf,.pdf" onChange={handleFileSelect} className="hidden" />
 							<div
 								onClick={() => fileInputRef.current?.click()}
-								className="flex items-center justify-center gap-3 w-full rounded-xl border-2 border-dashed border-border p-6 cursor-pointer hover:border-primary/40 hover:bg-primary/[0.02] transition-all"
+								className={`w-full rounded-xl border-2 border-dashed cursor-pointer transition-all
+									${uploadFile
+										? "border-primary/40 bg-primary/[0.03] p-3"
+										: "border-border hover:border-primary/40 hover:bg-primary/[0.02] p-5 sm:p-6"
+									}`}
 							>
 								{uploadFile ? (
-									<div className="flex items-center gap-3 w-full">
-										<div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
-											<FileText className="w-5 h-5 text-red-500" />
+									<div className="flex items-center gap-3 w-full min-w-0">
+										<div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+											<FileText className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
 										</div>
 										<div className="flex-1 min-w-0">
 											<p className="text-sm font-medium text-foreground truncate">{uploadFile.name}</p>
@@ -493,42 +543,55 @@ const CourseNotes = () => {
 										<button
 											type="button"
 											onClick={(e) => { e.stopPropagation(); setUploadFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-											className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"
+											className="w-8 h-8 shrink-0 rounded-full hover:bg-secondary flex items-center justify-center"
 										>
 											<X className="w-4 h-4 text-muted-foreground" />
 										</button>
 									</div>
 								) : (
 									<div className="flex flex-col items-center gap-2 text-center">
-										<Upload className="w-8 h-8 text-muted-foreground" />
-										<p className="text-sm font-medium text-foreground">Click to select a PDF file</p>
-										<p className="text-xs text-muted-foreground">Only .pdf files, max 50 MB</p>
+										<div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+											<Upload className="w-5 h-5 text-primary" />
+										</div>
+										<div>
+											<p className="text-sm font-semibold text-foreground">Tap to select a PDF</p>
+											<p className="text-xs text-muted-foreground mt-0.5">Only .pdf files, max 50 MB</p>
+										</div>
 									</div>
 								)}
 							</div>
 							{fileError && (
 								<div className="flex items-center gap-1.5 mt-2 text-xs text-red-500">
-									<AlertCircle className="w-3.5 h-3.5" />
+									<AlertCircle className="w-3.5 h-3.5 shrink-0" />
 									<span>{fileError}</span>
 								</div>
 							)}
 						</div>
+
+						{/* Submit error */}
 						{submitError && (
-							<div className="flex items-center gap-1.5 text-xs text-red-500">
-								<AlertCircle className="w-3.5 h-3.5" />
+							<div className="flex items-center gap-1.5 text-xs text-red-500 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-lg px-3 py-2">
+								<AlertCircle className="w-3.5 h-3.5 shrink-0" />
 								<span>{submitError}</span>
 							</div>
 						)}
+
+						{/* Submit button */}
 						<button
 							disabled={!uploadTitle.trim() || !uploadFile || submitting}
 							onClick={handleUploadSubmit}
-							className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+							className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
 						>
-							{submitting ? "Uploading..." : "Submit for Review"}
+							{submitting ? (
+								<><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
+							) : (
+								<><Upload className="w-4 h-4" /> Submit for Review</>
+							)}
 						</button>
 					</div>
 				</DialogContent>
 			</Dialog>
+
 
 			{/* PDF Preview Modal */}
 			{previewNote && (
