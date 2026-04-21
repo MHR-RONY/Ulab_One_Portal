@@ -4,6 +4,7 @@
 
 **A unified academic management platform for the University of Liberal Arts Bangladesh (ULAB)**
 
+[![Live Site](https://img.shields.io/badge/Live%20Site-ulaboneportal.dev-orange?logo=googlechrome&logoColor=white)](https://ulaboneportal.dev)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?logo=node.js&logoColor=white)](https://nodejs.org)
@@ -12,9 +13,10 @@
 [![Socket.io](https://img.shields.io/badge/Socket.io-4.x-010101?logo=socket.io&logoColor=white)](https://socket.io)
 [![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite&logoColor=white)](https://vitejs.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.x-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Cloudflare R2](https://img.shields.io/badge/Cloudflare_R2-Storage-F6821F?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/r2/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[Report Bug](https://github.com/MHR-RONY/Ulab_One_Portal/issues) · [Request Feature](https://github.com/MHR-RONY/Ulab_One_Portal/issues)
+🌐 **[ulaboneportal.dev](https://ulaboneportal.dev)** &nbsp;·&nbsp; [Report Bug](https://github.com/MHR-RONY/Ulab_One_Portal/issues) · [Request Feature](https://github.com/MHR-RONY/Ulab_One_Portal/issues)
 
 </div>
 
@@ -37,6 +39,7 @@
   - [Role System](#role-system)
   - [Real-Time Messaging](#real-time-messaging)
   - [Schedule Builder Algorithm](#schedule-builder-algorithm)
+  - [Notes Upload & R2 Storage](#notes-upload--r2-storage)
   - [Theme System](#theme-system)
   - [Route Guards](#route-guards)
 - [Project Structure](#project-structure)
@@ -47,6 +50,7 @@
 - [Available Scripts](#available-scripts)
 - [Deployment](#deployment)
 - [Security](#security)
+- [Recent Changelog](#recent-changelog)
 - [Author](#author)
 - [License](#license)
 
@@ -56,13 +60,15 @@
 
 **ULAB One Portal** is a production-grade, full-stack academic management system built for the University of Liberal Arts Bangladesh. It provides three separate role-specific portals — Student, Teacher, and Admin — each with its own layout, navigation, data layer, and feature set.
 
-The platform is deployed on a **self-managed VPS** with a Node.js/Express REST API backend, MongoDB database, and Socket.io real-time engine. The frontend is served via Vite and communicates with the backend through an Axios-based API client with automatic JWT refresh.
+🌐 **Live at [ulaboneportal.dev](https://ulaboneportal.dev)**
+
+The platform is deployed on a **self-managed VPS** with a Node.js/Express REST API backend, MongoDB database, and Socket.io real-time engine. The frontend is served via Vite and communicates with the backend through an Axios-based API client with automatic JWT refresh. PDF note files are stored on **Cloudflare R2** (S3-compatible object storage) for reliable, scalable, cross-origin file access.
 
 ### What each role gets
 
-- **Students** register via OTP email verification, build conflict-free semester schedules from admin-uploaded offered courses, track their real attendance per subject, access crowd-sourced course notes, and message teachers and peers via real-time chat.
-- **Teachers** manage their assigned courses end-to-end: enrol students, mark daily attendance, declare holidays, upload a profile photo, and monitor per-course statistics. A real-time Socket.io connection powers instant messaging.
-- **Admins** control the entire platform: create teacher/admin accounts, seed the schedule catalogue by uploading Excel files, manage the student and teacher directories, monitor upload logs, and configure granular per-admin permissions.
+- **Students** register via OTP email verification, build conflict-free semester schedules from admin-uploaded offered courses, track their real attendance per subject, access and upload crowd-sourced course notes (stored in Cloudflare R2), and message teachers and peers via real-time chat.
+- **Teachers** manage their assigned courses end-to-end: enrol students, mark daily attendance, declare holidays, upload a profile photo, manage assignments, and monitor per-course statistics. A real-time Socket.io connection powers instant messaging.
+- **Admins** control the entire platform: create teacher/admin accounts, seed the schedule catalogue by uploading Excel files, manage the student and teacher directories, review/approve/reject student note submissions, monitor upload logs, and configure granular per-admin permissions.
 
 **Created by:** [Mhr Rony](https://mhrrony.com)
 
@@ -74,34 +80,35 @@ The platform is deployed on a **self-managed VPS** with a Node.js/Express REST A
 
 | Feature                | Description                                                                                                                                                                                                                                                                                                                                                           |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **OTP Registration**   | Students sign up by entering their name, student ID, department, semester, and email. A 6-digit OTP is sent to their email (5-minute expiry) and verified before the account is created                                                                                                                                                                               |
-| **Dashboard**          | Personalized welcome screen with a stats grid (GPA, attendance, assignments), today's classes panel, an attendance summary card, recent academic resources, and a quick-task widget                                                                                                                                                                                   |
+| **OTP Registration**   | Students sign up by entering their name, student ID, department, semester, and email. A 6-digit OTP is sent to their email via Brevo (5-minute expiry) and verified before the account is created                                                                                                                                                                     |
+| **Dashboard**          | Personalized welcome screen with a stats grid (GPA, attendance, assignments), today's classes panel, an attendance summary card, a **Recent Resources** widget (live from approved notes in DB), and a Quick Tasks widget (persisted in localStorage)                                                                                                                 |
 | **Schedule Builder**   | 5-step wizard: browse offered courses → pick preferred sections/teachers per course (with real-time conflict prevention) → select priority-ordered optimization modes (Preferred Teachers, Minimize Gaps, Fewer Days) → review 3 algorithmically generated schedule variations on a 6-day timetable (SAT–THU) → save with atomic seat reservation and rollback safety |
 | **Attendance Tracker** | Subject-wise attendance progress bars, overall stats (classes attended / total, overall %), a month-view calendar with color-coded day cells (present, absent, holiday, no class), and a recent activity log table. Data is live from the backend                                                                                                                     |
-| **Notes Library**      | Searchable, department-filtered library of crowd-sourced course notes. Filter by subject department, search by course name or code                                                                                                                                                                                                                                    |
-| **Course Notes**       | Per-course note feed with a community upvote/downvote system. Notes re-rank live after each vote. Top 3 notes receive gold/silver/bronze trophy badges                                                                                                                                                                                                                |
+| **Notes Library**      | Searchable, department-filtered library of crowd-sourced course notes. Students can upload PDFs (max 50 MB) directly to Cloudflare R2 via the upload modal. Notes are reviewed by admins before appearing publicly                                                                                                                                                    |
+| **Course Notes**       | Per-course note feed with a community upvote/downvote system (one-user-one-vote, stored in a `voters` Map on the Note document). Notes re-rank live after each vote. Top 3 notes receive gold/silver/bronze trophy badges                                                                                                                                              |
 | **Real-Time Chat**     | Conversation list + message thread view powered by Socket.io. Direct messages to teachers and peers, course group chats (auto-synced from enrolled courses), block/unblock contacts, online presence indicators                                                                                                                                                       |
 | **Profile**            | Student ID, degree program, CGPA, credits completed, enrolled subjects with per-subject attendance bars                                                                                                                                                                                                                                                               |
 | **Settings**           | Edit name/email, toggle dark mode, change language (English/Bengali), configure email/push notifications, toggle two-factor authentication, change password                                                                                                                                                                                                           |
-| **Mobile Layout**      | Dedicated mobile UI: sticky MobileHeader, BottomNav, slide-out MobileMenuDrawer, MobileSchedule, MobileTasks, MobileAcademicOverview                                                                                                                                                                                                                                  |
+| **Mobile Layout**      | Dedicated mobile UI: sticky MobileHeader, BottomNav, slide-out MobileMenuDrawer, MobileSchedule, MobileTasks, MobileAcademicOverview, MobileNotesLibrary                                                                                                                                                                                                             |
 
 ---
 
 ### Teacher Portal
 
-| Feature                | Description                                                                                                                                                                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dashboard**          | KPI overview (total students, avg attendance, quiz pass rate, engagement score), Recharts attendance area chart (16-week trend), student engagement radar chart, section performance bars, top-performer list, and at-risk student panel |
-| **Profile & Avatar**   | Teachers can update their name, email, bio, and upload a profile photo. Photos are stored on the server and served as static files                                                                                                       |
-| **My Courses**         | Course card grid: per-course stats (student count, avg grade, attendance %), animated syllabus completion progress bar. Create new courses, link them to a section and time slot                                                         |
-| **Student Enrolment**  | Search students by name or student ID and add them to a course. Remove students from courses. View the full enrolled student list per course                                                                                             |
-| **Attendance Marking** | Desktop: paginated student table with multi-session history columns, mark-all-present button, save button, color-coded attendance % badges. Mobile: full-screen tap-to-toggle card list with fixed Save Attendance bar                   |
-| **Holiday Management** | Mark specific dates as holidays for a course so they are excluded from student attendance calculations                                                                                                                                   |
-| **Course Detail**      | Deep-dive per course: animated stats cards, 6-week attendance sparkline, grade distribution bar chart, full student list table with grade badges and attendance %                                                                        |
-| **Analytics**          | KPIs + Recharts attendance area chart with a 90% target reference line + animated grade distribution bars + engagement heatmap + at-risk student cards                                                                                   |
-| **Real-Time Chat**     | Same Socket.io-backed chat as students — direct messages and course group chats, with teacher-specific layout (TeacherSidebar, TeacherBottomNav)                                                                                         |
-| **Settings**           | Profile edit (name, email), dark mode toggle, notification preferences, and security options                                                                                                                                             |
-| **Mobile Layout**      | MobileTeacherDashboard provides full feature parity on small screens                                                                                                                                                                     |
+| Feature                | Description                                                                                                                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dashboard**          | KPI overview sourced from live course stats (total students, avg attendance, quiz pass rate, engagement score), Recharts attendance area chart (16-week trend), student engagement radar chart, at-risk student panel |
+| **Profile & Avatar**   | Teachers can update their name, email, bio, and upload a profile photo. Photos are stored on the VPS and served as static files via `/uploads/teacher-photos`                                           |
+| **My Courses**         | Course card grid: per-course stats (student count, avg grade, attendance %), animated syllabus completion progress bar. Create new courses, link them to a section and time slot                         |
+| **Student Enrolment**  | Search students by name or student ID and add them to a course. Remove students from courses. View the full enrolled student list per course                                                             |
+| **Attendance Marking** | Desktop: paginated student table with multi-session history columns, mark-all-present button, save button, color-coded attendance % badges. Mobile: full-screen tap-to-toggle card list with fixed Save Attendance bar |
+| **Holiday Management** | Mark specific dates as holidays for a course so they are excluded from student attendance calculations                                                                                                   |
+| **Assignments**        | Assignments page with full coming-soon overlay for upcoming release                                                                                                                                      |
+| **Course Detail**      | Deep-dive per course: animated stats cards, 6-week attendance sparkline, grade distribution bar chart, full student list table with grade badges and attendance %                                        |
+| **Analytics**          | KPIs + Recharts attendance area chart with a 90% target reference line + animated grade distribution bars + engagement heatmap + at-risk student cards                                                   |
+| **Real-Time Chat**     | Same Socket.io-backed chat as students — direct messages and course group chats, with teacher-specific layout (TeacherSidebar, TeacherBottomNav)                                                         |
+| **Settings**           | Profile edit (name, email), dark mode toggle, notification preferences, and security options                                                                                                             |
+| **Mobile Layout**      | MobileTeacherDashboard provides full feature parity on small screens                                                                                                                                     |
 
 ---
 
@@ -117,11 +124,11 @@ The platform is deployed on a **self-managed VPS** with a Node.js/Express REST A
 | **Schedule Upload**       | Upload an Excel file containing the offered courses catalogue for a semester. Preview parsed rows before committing. Confirm saves all courses to the database. Manage individual offered courses (edit/delete), clear a full semester, and view detailed upload logs |
 | **Schedule Stats**        | Aggregate stats on offered courses — total sections, unique courses, departments, and per-semester breakdowns                                                                                                                                                         |
 | **Schedules View**        | Full timetable manager: Grid view (time-slot x day table with color-coded class cards) and List view (data table). Mobile day-selector with per-day card list. Filters: semester, department, campus                                                                  |
-| **Analytics**             | 30-day platform traffic area chart, user distribution donut chart, department engagement bar chart, and a timestamped system alerts table with CRITICAL / WARNING / INFO severity levels                                                                              |
-| **Department Notes**      | Cross-department notes review and publishing control                                                                                                                                                                                                                  |
+| **Department Notes**      | Cross-department notes review panel. Admins can view uploaded PDFs (rendered via Cloudflare R2 public URL), approve or reject note submissions with feedback, and manage note repositories per department                                                             |
 | **Resources**             | University resource library with per-department filtering and upload/edit/delete per resource                                                                                                                                                                         |
+| **Analytics**             | 30-day platform traffic area chart, user distribution donut chart, department engagement bar chart, and a timestamped system alerts table with CRITICAL / WARNING / INFO severity levels                                                                              |
 | **Messenger**             | Admin broadcast messaging to students, teachers, or all users                                                                                                                                                                                                         |
-| **Settings**              | 4-tab configuration panel: General, Branding (logo, color picker, fonts), Security (session timeout, 2FA, IP whitelist, force HTTPS), API & Integrations (webhook URL, LMS/SMS/Analytics toggles)                                                                     |
+| **Settings**              | 4-tab configuration panel: General, Branding (logo, color picker, fonts), Security (session timeout, 2FA, IP whitelist, force HTTPS), API & Integrations (webhook URL, LMS/SMS/Analytics toggles)                                                                   |
 | **Maintenance**           | Server maintenance mode toggle and related controls                                                                                                                                                                                                                   |
 | **Infrastructure**        | Server and infrastructure health monitoring                                                                                                                                                                                                                           |
 
@@ -157,24 +164,25 @@ The platform is deployed on a **self-managed VPS** with a Node.js/Express REST A
 
 ### Backend
 
-| Category           | Technology                                   | Version |
-| ------------------ | -------------------------------------------- | ------- |
-| Runtime            | Node.js                                      | 20.x    |
-| Framework          | Express                                      | 4.18.x  |
-| Language           | TypeScript                                   | 5.3.x   |
-| Database           | MongoDB (via Mongoose)                       | 8.0.x   |
-| Real-Time          | Socket.io                                    | 4.8.x   |
-| Authentication     | JWT (access token + httpOnly refresh cookie) | 9.0.x   |
-| Password Hashing   | bcryptjs                                     | 2.4.x   |
-| Email (OTP)        | Nodemailer / custom SMTP                     | —       |
-| File Uploads       | Multer (teacher avatars, Excel schedules)    | 2.1.x   |
-| Excel Parsing      | XLSX (SheetJS)                               | 0.18.x  |
-| Validation         | express-validator                            | 7.0.x   |
-| Rate Limiting      | express-rate-limit                           | 8.3.x   |
-| Security Headers   | Helmet                                       | 8.1.x   |
-| Cookie Parsing     | cookie-parser                                | 1.4.x   |
-| Environment Config | dotenv                                       | 16.3.x  |
-| Dev Server         | ts-node-dev                                  | 2.0.x   |
+| Category           | Technology                                      | Version |
+| ------------------ | ----------------------------------------------- | ------- |
+| Runtime            | Node.js                                         | 20.x    |
+| Framework          | Express                                         | 4.18.x  |
+| Language           | TypeScript                                      | 5.3.x   |
+| Database           | MongoDB (via Mongoose)                          | 8.0.x   |
+| Real-Time          | Socket.io                                       | 4.8.x   |
+| Authentication     | JWT (access token + httpOnly refresh cookie)    | 9.0.x   |
+| Password Hashing   | bcryptjs                                        | 2.4.x   |
+| Email (OTP)        | Brevo (Sendinblue) API via `@getbrevo/brevo`    | —       |
+| File Uploads       | Multer (memory storage for R2, disk for avatars)| 2.1.x   |
+| Object Storage     | Cloudflare R2 via `@aws-sdk/client-s3`          | 3.x     |
+| Excel Parsing      | XLSX (SheetJS)                                  | 0.18.x  |
+| Validation         | express-validator                               | 7.0.x   |
+| Rate Limiting      | express-rate-limit                              | 8.3.x   |
+| Security Headers   | Helmet                                          | 8.1.x   |
+| Cookie Parsing     | cookie-parser                                   | 1.4.x   |
+| Environment Config | dotenv                                          | 16.3.x  |
+| Dev Server         | ts-node-dev                                     | 2.0.x   |
 
 ### Infrastructure & Deployment
 
@@ -185,10 +193,11 @@ The platform is deployed on a **self-managed VPS** with a Node.js/Express REST A
 | Reverse Proxy       | Nginx                                        |
 | SSL/TLS             | Let's Encrypt (Certbot)                      |
 | Database            | MongoDB (self-hosted or MongoDB Atlas)       |
-| Static File Serving | Nginx / Express static                       |
+| File Storage        | Cloudflare R2 (S3-compatible object storage) |
+| Teacher Photos      | VPS filesystem via Nginx / Express static    |
 | Domain              | Custom domain with DNS managed independently |
 
-> This project is **not** deployed on Vercel, Heroku, Netlify, or any PaaS. All production infrastructure is managed directly on a VPS for full control over performance, security, and costs.
+> This project is **not** deployed on Vercel, Heroku, Netlify, or any PaaS. All production infrastructure is managed directly on a VPS for full control over performance, security, and costs. PDF note files are served directly from Cloudflare R2's public CDN URL, bypassing the VPS entirely.
 
 ---
 
@@ -202,18 +211,20 @@ Client (Vite + React)
        │  HTTPS REST  ──────────────────────────────────┐
        │  WebSocket (Socket.io)                         │
        ▼                                                │
-Nginx Reverse Proxy (SSL termination)                  │
+Nginx Reverse Proxy (SSL termination)                   │
        │                                                │
        ▼                                                │
-Express API Server (Node.js + TypeScript)              │
-  ├── /api/auth        → JWT auth, OTP registration    │
-  ├── /api/student     → profile, attendance, schedule │
-  ├── /api/teacher     → courses, attendance, avatar   │
-  ├── /api/admin       → user mgmt, admin creation     │
-  ├── /api/schedule    → schedule builder              │
-  ├── /api/admin/schedule → Excel upload, offered courses
-  ├── /api/chat        → conversations, groups, DMs    │
-  └── /uploads         → static teacher photos        │
+Express API Server (Node.js + TypeScript)               │
+  ├── /api/auth          → JWT auth, OTP registration   │
+  ├── /api/student       → profile, attendance, schedule│
+  ├── /api/teacher       → courses, attendance, avatar  │
+  ├── /api/admin         → user mgmt, admin creation    │
+  ├── /api/schedule      → schedule builder             │
+  ├── /api/admin/schedule→ Excel upload, offered courses│
+  ├── /api/chat          → conversations, groups, DMs   │
+  ├── /api/student-notes → notes repositories, R2 upload│
+  ├── /api/resources     → admin resource management    │
+  └── /uploads           → teacher photos (static)      │
        │                                                │
        ▼                                                │
 MongoDB (Mongoose ODM)                                  │
@@ -228,16 +239,26 @@ MongoDB (Mongoose ODM)                                  │
   ├── Holidays                                          │
   ├── ChatGroups                                        │
   ├── Messages                                          │
+  ├── NoteRepositories                                  │
+  ├── Notes                                             │
   ├── TeacherDirectory                                  │
   └── UploadLogs                                        │
        │                                                │
        └────────────────────────────────────────────────┘
-              Socket.io namespace on same HTTP server
+             Socket.io namespace on same HTTP server
+
+             ┌──────────────────────┐
+             │   Cloudflare R2      │
+             │  (PDF Note Storage)  │
+             │  Public CDN URL      │
+             └──────────────────────┘
+               ▲ uploaded by server (via @aws-sdk/client-s3)
+               ▼ served directly to browser (no VPS hop)
 ```
 
 ### Authentication Flow
 
-1. **Student registration** — Client → `POST /api/auth/register/student/send-otp` → server generates 6-digit OTP, sends branded HTML email via SMTP, stores hashed OTP in memory with 5-minute TTL → Client submits OTP → `POST /api/auth/register/student/verify-otp` → account created, JWT access token returned + refresh token set in httpOnly cookie.
+1. **Student registration** — Client → `POST /api/auth/register/student/send-otp` → server generates 6-digit OTP, sends branded HTML email via **Brevo API**, stores hashed OTP in memory with 5-minute TTL → Client submits OTP → `POST /api/auth/register/student/verify-otp` → account created, JWT access token returned + refresh token set in httpOnly cookie.
 2. **Login (all roles)** — `POST /api/auth/login/:role` → validate credentials → issue short-lived JWT access token (15 min) + long-lived refresh token in httpOnly cookie.
 3. **Token refresh** — Axios interceptor automatically hits `POST /api/auth/refresh-token` on any 401 response, receives a new access token, retries the original request — invisible to the user.
 4. **Logout** — `POST /api/auth/logout` → refresh token cleared from DB + cookie deleted.
@@ -272,33 +293,35 @@ The schedule generator (`scheduleGenerator.ts`) uses a **backtracking search wit
 
 #### Student-Facing Wizard (5 Steps)
 
-| Step                                | What Happens                                                                                                                                                                                                                                                                                                                                    | Where              |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| **1. Course Selection**             | Student browses all offered courses for the semester (fetched from `GET /schedule/offered-courses`), grouped by `unicode`. Searches, filters by department, and selects up to **15 credits**. State is persisted to `localStorage` so students can resume later.                                                                                | Frontend           |
-| **2. Section & Teacher Preference** | For each selected course, the student sees every available section with teacher name, schedule, room, and remaining seats. Picking a section stores it as a preferred teacher hint. **Real-time conflict prevention**: if a section overlaps with an already-selected section from another course, the selection is blocked with a toast error. | Frontend           |
-| **3. Optimization Priorities**      | Student selects 1–3 optimization modes: **Preferred Teachers**, **Minimize Gaps**, **Fewer Days**. Selection order matters — the first-selected mode gets the highest weight. The UI shows numbered priority badges (1, 2, 3) and a summary bar.                                                                                                | Frontend           |
-| **4. Generated Schedules**          | Backend returns 3 diverse schedule variations. Desktop shows a 6-day timetable (SAT–THU) with sidebar details; mobile shows full variation cards. Student can switch between variations, view conflicts, and compare scores.                                                                                                                    | Backend + Frontend |
-| **5. Save & Confirm**               | Student reviews and saves. Backend atomically decrements seats, rolls back on failure, and prevents double saves.                                                                                                                                                                                                                               | Backend + Frontend |
+| Step                                | What Happens                                                                                                                                                                                                                                                                                                                                                    | Where              |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| **1. Course Selection**             | Student browses all offered courses for the semester (fetched from `GET /schedule/offered-courses`), grouped by `unicode`. Searches, filters by department, and selects up to **15 credits**. State is persisted to `localStorage` so students can resume later.                                                                                                | Frontend           |
+| **2. Section & Teacher Preference** | For each selected course, the student sees every available section with teacher name, schedule, room, and remaining seats. Picking a section stores it as a preferred teacher hint. **Real-time conflict prevention**: if a section overlaps with an already-selected section from another course, the selection is blocked with a toast error.                  | Frontend           |
+| **3. Optimization Priorities**      | Student selects 1–3 optimization modes: **Preferred Teachers**, **Minimize Gaps**, **Fewer Days**. Selection order matters — the first-selected mode gets the highest weight. The UI shows numbered priority badges (1, 2, 3) and a summary bar.                                                                                                                | Frontend           |
+| **4. Generated Schedules**          | Backend returns 3 diverse schedule variations. Desktop shows a 6-day timetable (SAT–THU) with sidebar details; mobile shows full variation cards. Student can switch between variations, view conflicts, and compare scores.                                                                                                                                    | Backend + Frontend |
+| **5. Save & Confirm**               | Student reviews and saves. Backend atomically decrements seats, rolls back on failure, and prevents double saves.                                                                                                                                                                                                                                               | Backend + Frontend |
 
 #### Algorithm Internals (7 Phases)
 
 1. **Group sections** — All `OfferedCourse` documents for the semester are grouped by `unicode` into a `Map<unicode, SectionMeta[]>`. Times are pre-parsed to minutes-since-midnight for O(1) comparison.
 
-2. **Derive preferred teachers** — The student's Step 2 section picks are resolved to teacher names, building a `Map<unicode, teacherName>`. "TBA" teachers are excluded from scoring since the actual instructor is unknown.
+2. **Derive preferred teachers** — The student's Step 2 section picks are resolved to teacher names, building a `Map<unicode, teacherName>`. `"TBA"` teachers are excluded from scoring since the actual instructor is unknown.
 
-3. **Backtracking search (conflict-free)** — A recursive function explores all one-section-per-course combinations. For each candidate section, it checks for time conflicts against every already-picked section using open-interval overlap logic (`a.start < b.end AND b.start < a.end`). Conflicting branches are pruned immediately, never explored further. Safety caps prevent runaway execution:
+3. **Teacher-top reordering** — If `"teacher"` is the first selected mode, each course's section list is **re-sorted** so the preferred teacher's section appears first. This gives the backtracking search the best chance of finding a teacher-match early, reducing explored nodes.
+
+4. **Backtracking search (conflict-free)** — A recursive function explores all one-section-per-course combinations. For each candidate section, it checks for time conflicts against every already-picked section using open-interval overlap logic (`a.start < b.end AND b.start < a.end`). Conflicting branches are pruned immediately, never explored further. Safety caps prevent runaway execution:
    - `MAX_VALID = 500` — stop collecting after 500 valid combos
    - `MAX_NODES = 200,000` — stop after 200K recursive calls
 
-4. **Fallback with pruning** — Only triggers if Phase 3 found zero conflict-free combos. This pass allows conflicts but uses **branch-and-bound pruning**: it tracks the best (lowest) conflict count found so far and skips any branch that already exceeds it. Conflicts are counted incrementally as each section is added, not recalculated at leaf nodes. Top 50 lowest-conflict combos proceed to scoring.
+5. **Fallback with branch-and-bound pruning** — Only triggers if Phase 4 found zero conflict-free combos. This pass allows conflicts but uses **branch-and-bound pruning**: it tracks the best (lowest) conflict count found so far and skips any branch that already exceeds it. Conflicts are counted **incrementally** as each section is added, not recalculated at leaf nodes. Top 50 lowest-conflict combos proceed to scoring.
 
-5. **Priority-weighted scoring** — Each combo is scored on a 0–1 scale using three normalized metrics:
+6. **Priority-weighted scoring** — Each combo is scored on a 0–1 scale using three normalized metrics:
 
    | Metric              | Formula                                 | Meaning                                                      |
    | ------------------- | --------------------------------------- | ------------------------------------------------------------ |
    | **Teacher Match**   | `matchedCourses / totalCourses`         | Fraction of courses that got the student's preferred teacher |
    | **Gap Efficiency**  | `1 - (thisGap / maxGapAcrossAllCombos)` | Lower gap = higher score. Zero gap = 1.0                     |
-   | **Day Compactness** | `1 - (daysUsed - 1) / 5`                | Fewer days = higher score. 1 day = 1.0, 6 days = 0.0         |
+   | **Day Compactness** | `1 - (daysUsed - 1) / 5`               | Fewer days = higher score. 1 day = 1.0, 6 days = 0.0        |
 
    The final score is a **weighted sum**. Weights are assigned by a triangular descending formula based on selection order — the first-selected mode gets the largest share:
 
@@ -312,11 +335,13 @@ The schedule generator (`scheduleGenerator.ts`) uses a **backtracking search wit
    | 2 modes: [A, B]    | A = 67%, B = 33%          |
    | 3 modes: [A, B, C] | A = 50%, B = 33%, C = 17% |
 
+   **Final sort order**: (1) fewest conflicts → (2) if `teacher` is top mode, highest teacher match count → (3) highest weighted score. This guarantees maximum teacher matches always win when that is the top priority.
+
    **Example**: A student selects `["days", "teacher", "gap"]` — Fewer Days gets 50% influence, Preferred Teachers gets 33%, Minimize Gaps gets 17%.
 
-6. **Pick top 3 diverse** — All combos are sorted by (1) fewest conflicts, then (2) highest score. The top 3 are picked, but a **diversity check** skips any combo that uses the exact same set of section IDs as one already picked — guaranteeing the student sees meaningfully different options.
+7. **Pick top 3 diverse** — All combos are sorted by (1) fewest conflicts, then (2) highest score. The top 3 are picked, but a **diversity check** skips any combo that uses the exact same set of section IDs as one already picked — guaranteeing the student sees meaningfully different options.
 
-7. **Build response** — Each variation is packaged with: score (0–100), days used, average gap minutes, teacher match count, full conflict list (if any), and complete section details (course code, teacher, time, room, lab flag, whether the teacher was preferred).
+8. **Build response** — Each variation is packaged with: score (0–100), days used, average gap minutes, teacher match count, full conflict list (if any), and complete section details (course code, teacher, time, room, lab flag, whether the teacher was preferred).
 
 #### Save Endpoint Safety
 
@@ -324,21 +349,53 @@ The `POST /schedule/save-sections` endpoint has four layers of protection:
 
 | Protection                   | Implementation                                                                                        |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Seats can't go negative**  | Atomic MongoDB filter: `{ _id: id, seats: { $gt: 0 } }` — check and decrement in one operation        |
+| **Seats can't go negative**  | Atomic MongoDB filter: `{ _id: id, seats: { $gt: 0 } }` — check and decrement in one operation       |
 | **No double-save**           | `ScheduleModel.findOne({ student, semester })` rejects with 409 if a record already exists            |
 | **Partial failure rollback** | If any section is full, all previously decremented seats are restored via `$inc: { seats: 1 }`        |
 | **Student record**           | On success, a `Schedule` document is created linking the student to their saved sections and semester |
 
 #### Performance
 
-| Factor            | Bound                                                                   |
-| ----------------- | ----------------------------------------------------------------------- |
-| Max valid combos  | 500                                                                     |
-| Max tree nodes    | 200,000                                                                 |
-| Time complexity   | O(S^C) worst case (S = sections/course, C = courses)                    |
-| Typical response  | < 100ms for 5–6 courses with ~10 sections each                          |
-| Fallback pruning  | Branch-and-bound skips subtrees exceeding best conflict count           |
-| Sort optimization | Conflict counts pre-computed once, not inside the O(n log n) comparator |
+| Factor            | Bound                                                        |
+| ----------------- | ------------------------------------------------------------ |
+| Max valid combos  | 500                                                          |
+| Max tree nodes    | 200,000                                                      |
+| Time complexity   | O(S^C) worst case (S = sections/course, C = courses)         |
+| Typical response  | < 100ms for 5–6 courses with ~10 sections each               |
+| Fallback pruning  | Branch-and-bound skips subtrees exceeding best conflict count |
+| Sort optimization | Conflict counts pre-computed once, not inside comparator     |
+
+---
+
+### Notes Upload & R2 Storage
+
+Student note PDF uploads use a **memory-buffer → Cloudflare R2** pipeline to avoid writing any file to the VPS disk:
+
+```
+Browser                     Express Server                  Cloudflare R2
+──────                      ──────────────                  ─────────────
+FormData (PDF)  ──POST──▶  Multer (memoryStorage)
+                            │  file.buffer in RAM
+                            ▼
+                           uploadToR2(buffer, filename)
+                            │  @aws-sdk/client-s3
+                            │  PutObjectCommand
+                            └──────────────────────────────▶ R2 bucket
+                                                             key: notes/<uuid>.pdf
+
+                            NoteModel.create({ fileUrl })
+                            ◀── Public CDN URL returned
+```
+
+- **Multer** is configured with `memoryStorage()` — PDF bytes stay in RAM, never touch disk.
+- **`uploadToR2()`** in `server/src/utils/r2.ts` uses `@aws-sdk/client-s3` with `PutObjectCommand` to push the buffer to the R2 bucket.
+- The returned **public CDN URL** (`R2_PUBLIC_URL/notes/<uuid>.pdf`) is stored in the `Note` document's `fileUrl` field.
+- **Admin rejection** calls `deleteFromR2(fileUrl)` which extracts the S3 key from the URL and issues a `DeleteObjectCommand` — the file is permanently removed from R2 and the Note document is deleted from MongoDB.
+- PDF file size limit: **50 MB** (enforced by Multer).
+- File type: **PDF only** (enforced by `pdfFilter` in `upload.middleware.ts`).
+- Notes are created with `status: "pending"` and only become visible to students after admin approval.
+
+---
 
 ### Theme System
 
@@ -376,7 +433,7 @@ Ulab_One_Portal/
 │   │   ├── notes/
 │   │   │   └── MobileNotesLibrary.tsx
 │   │   ├── student/                  # Student layout + dashboard widgets
-│   │   └── teacher/                  # Teacher layout components
+│   │   ├── teacher/                  # Teacher layout components
 │   │   └── ui/                       # shadcn/ui components (50+ primitives)
 │   ├── contexts/
 │   │   ├── RoleContext.tsx
@@ -386,6 +443,7 @@ Ulab_One_Portal/
 │   │   ├── useStudentAttendance.ts
 │   │   ├── useStudentChat.ts
 │   │   ├── useStudentDashboard.ts
+│   │   ├── useStudentNotes.ts        # Notes repos, note feed, upvote, submit, recent notes
 │   │   ├── useStudentProfile.ts
 │   │   ├── useStudentSettings.ts
 │   │   ├── useTeacherChat.ts
@@ -395,7 +453,7 @@ Ulab_One_Portal/
 │   │   ├── api.ts                    # Axios instance + JWT interceptors
 │   │   └── socket.ts                 # Socket.io client singleton
 │   └── pages/
-│       ├── auth/                     # Login + signup pages
+│       ├── auth/                     # Login + signup pages (orange theme)
 │       ├── student/                  # Student portal pages
 │       ├── teacher/                  # Teacher portal pages
 │       └── admin/                    # Admin panel pages
@@ -404,7 +462,7 @@ Ulab_One_Portal/
     ├── package.json
     ├── tsconfig.json
     ├── .env                          # Never committed
-    ├── .env.example
+    ├── .env.example                  # Template — copy to .env and fill in values
     └── src/
         ├── server.ts                 # Express app + Socket.io init + route registration
         ├── config/
@@ -423,6 +481,8 @@ Ulab_One_Portal/
         │   ├── Holiday.model.ts
         │   ├── ChatGroup.model.ts
         │   ├── Message.model.ts
+        │   ├── Note.model.ts         # Student note submissions (R2 fileUrl, voters Map)
+        │   ├── NoteRepository.model.ts # Course → notes grouping
         │   ├── TeacherDirectory.model.ts
         │   └── UploadLog.model.ts
         ├── controllers/
@@ -432,6 +492,7 @@ Ulab_One_Portal/
         │   ├── admin.controller.ts
         │   ├── schedule.controller.ts
         │   ├── scheduleUpload.controller.ts
+        │   ├── resources.controller.ts  # Notes + R2 upload/delete/approve/reject
         │   └── chat.controller.ts
         ├── routes/
         │   ├── auth.routes.ts
@@ -440,22 +501,25 @@ Ulab_One_Portal/
         │   ├── admin.routes.ts
         │   ├── schedule.routes.ts
         │   ├── scheduleUpload.routes.ts
+        │   ├── studentNotes.routes.ts  # /api/student-notes
+        │   ├── resources.routes.ts     # /api/resources (admin note management)
         │   └── chat.routes.ts
         ├── middleware/
-        │   ├── auth.middleware.ts     # protect + authorizeRole
-        │   ├── error.middleware.ts    # Global error handler
-        │   ├── upload.middleware.ts   # Multer config
+        │   ├── auth.middleware.ts      # protect + authorizeRole
+        │   ├── error.middleware.ts     # Global error handler
+        │   ├── upload.middleware.ts    # Multer: memoryStorage (PDF→R2) + diskStorage (avatar)
         │   └── validate.middleware.ts
         ├── socket/
-        │   └── chat.socket.ts        # Socket.io server with auth + online presence
-        ├── utils/
-        │   ├── apiResponse.ts        # sendResponse utility
-        │   ├── generateToken.ts      # JWT access + refresh token generation
-        │   ├── emailService.ts       # OTP email (branded HTML template)
-        │   ├── scheduleBuilder.ts    # Legacy schedule builder
-        │   └── scheduleGenerator.ts  # Backtracking + priority-weighted scoring algorithm
-        └── uploads/
-            └── teacher-photos/       # Served as static files via /uploads
+        │   └── chat.socket.ts         # Socket.io server with auth + online presence
+        └── utils/
+            ├── apiResponse.ts         # sendResponse utility
+            ├── generateToken.ts       # JWT access + refresh token generation
+            ├── emailService.ts        # OTP email (Brevo API + branded HTML template)
+            ├── otp.ts                 # OTP generation and in-memory storage
+            ├── r2.ts                  # Cloudflare R2 client (uploadToR2, deleteFromR2)
+            ├── parseScheduleXlsx.ts   # Excel schedule parser (SheetJS)
+            ├── scheduleBuilder.ts     # Legacy stub (deprecated)
+            └── scheduleGenerator.ts  # Backtracking + priority-weighted scoring algorithm
 ```
 
 ---
@@ -555,6 +619,31 @@ All endpoints return the standard response envelope:
 | GET    | `/my-schedule`     | Retrieve the student's saved schedule                            |
 | GET    | `/offered-courses` | Fetch all offered sections for the student's current semester    |
 
+### Student Notes (`/api/student-notes`) — requires JWT
+
+| Method | Endpoint                          | Auth             | Description                                                          |
+| ------ | --------------------------------- | ---------------- | -------------------------------------------------------------------- |
+| GET    | `/recent-notes`                   | Any role (JWT)   | 3 most recently approved notes (for dashboard widget)                |
+| GET    | `/repositories`                   | Any role (JWT)   | All note repositories, optionally filtered by `?department=`         |
+| GET    | `/repository/:repoId`             | Any role (JWT)   | Single repository details                                            |
+| GET    | `/repository/:repoId/notes`       | Any role (JWT)   | All approved notes for a repository, with caller's `userVote` field  |
+| PUT    | `/notes/:id/upvote`               | `student` only   | Cast or toggle an upvote/downvote (`{ delta: 1 \| -1 }`)             |
+| POST   | `/repository/:repoId/submit`      | `student` only   | Upload a PDF note (multipart/form-data) — stored in Cloudflare R2    |
+
+### Resources (`/api/resources`) — requires `admin` role
+
+| Method | Endpoint                     | Description                                        |
+| ------ | ---------------------------- | -------------------------------------------------- |
+| GET    | `/stats`                     | Aggregate stats per department (repos + notes)     |
+| GET    | `/repos`                     | All note repositories                              |
+| POST   | `/repos`                     | Create a new repository                            |
+| PUT    | `/repos/:id`                 | Update repository (courseName, courseCode, desc)   |
+| DELETE | `/repos/:id`                 | Delete repository and all its notes                |
+| GET    | `/department/:deptId`        | Department detail — courses + note counts          |
+| GET    | `/pending`                   | Paginated list of pending note submissions         |
+| POST   | `/approve/:id`               | Approve a note (increments repository noteCount)   |
+| POST   | `/reject/:id`                | Reject + delete a note (removes file from R2)      |
+
 ### Chat (`/api/chat`) — requires JWT
 
 | Method | Endpoint                             | Description                                       |
@@ -577,51 +666,80 @@ All endpoints return the standard response envelope:
 
 ## Database Models
 
-| Model              | Key Fields                                                                                                                                                | Notes                                                   |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `User`             | `name, email, password, role, refreshToken, blockedUsers`                                                                                                 | Base discriminator — never instantiated directly        |
-| `Student`          | extends User + `studentId, department, semester, phone, emailAlerts, pushNotifications, language, twoFactorEnabled, enrolledCourses`                      |                                                         |
-| `Teacher`          | extends User + `teacherId, department, assignedCourses, accentColorIndex, avatar, bio`                                                                    |                                                         |
-| `Admin`            | extends User + `permissions[]`                                                                                                                            |                                                         |
-| `Course`           | `courseCode, courseName, section, teacher, students[], slots[], semester, credits`                                                                        |                                                         |
-| `OfferedCourse`    | `courseCode, unicode, title, section, room, teacherInitials, teacherFullName, teacherTBA, isLab, days[], startTime, endTime, semester, seats, totalSeats` | Uploaded by admin from Excel; seats decremented on save |
-| `Schedule`         | `student, courses[] (OfferedCourse refs), semester, isConflictFree`                                                                                       | Created by `/save-sections`; refs are section IDs       |
-| `Attendance`       | `student, course, date, status, time`                                                                                                                     | Unique index on `(student, course, date)`               |
-| `Holiday`          | `course, date, addedBy`                                                                                                                                   | Excludes date from attendance calculations              |
-| `ChatGroup`        | `name, type, course, members[], createdBy`                                                                                                                | `type: "direct" \| "group"`                             |
-| `Message`          | `sender, group, content, readBy[]`                                                                                                                        |                                                         |
-| `TeacherDirectory` | `name, email, teacherId, department, photoUrl`                                                                                                            | Seeded from external source                             |
-| `UploadLog`        | `filename, semester, totalRows, insertedCount, skippedCount, uploadedBy`                                                                                  |                                                         |
+| Model              | Key Fields                                                                                                                                                | Notes                                                                      |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `User`             | `name, email, password, role, refreshToken, blockedUsers`                                                                                                 | Base discriminator — never instantiated directly                           |
+| `Student`          | extends User + `studentId, department, semester, phone, emailAlerts, pushNotifications, language, twoFactorEnabled, enrolledCourses`                      |                                                                            |
+| `Teacher`          | extends User + `teacherId, department, assignedCourses, accentColorIndex, avatar, bio`                                                                    |                                                                            |
+| `Admin`            | extends User + `permissions[]`                                                                                                                            |                                                                            |
+| `Course`           | `courseCode, courseName, section, teacher, students[], slots[], semester, credits`                                                                        |                                                                            |
+| `OfferedCourse`    | `courseCode, unicode, title, section, room, teacherInitials, teacherFullName, teacherTBA, isLab, days[], startTime, endTime, semester, seats, totalSeats` | Uploaded by admin from Excel; seats decremented on save                    |
+| `Schedule`         | `student, courses[] (OfferedCourse refs), semester, isConflictFree`                                                                                       | Created by `/save-sections`; refs are section IDs                          |
+| `Attendance`       | `student, course, date, status, time`                                                                                                                     | Unique index on `(student, course, date)`                                  |
+| `Holiday`          | `course, date, addedBy`                                                                                                                                   | Excludes date from attendance calculations                                 |
+| `ChatGroup`        | `name, type, course, members[], createdBy`                                                                                                                | `type: "direct" \| "group"`                                                |
+| `Message`          | `sender, group, content, readBy[]`                                                                                                                        |                                                                            |
+| `NoteRepository`   | `courseName, courseCode, department, description, noteCount`                                                                                              | Groups notes by course; `noteCount` incremented on admin approval          |
+| `Note`             | `title, description, repository, courseCode, department, fileType, fileSize, fileUrl, uploadedBy, uploaderName, status, upvotes, week, adminFeedback, voters` | `fileUrl` = Cloudflare R2 public URL; `voters` = Map<userId, 1\|-1>    |
+| `TeacherDirectory` | `name, email, teacherId, department, photoUrl`                                                                                                            | Seeded from external source                                                |
+| `UploadLog`        | `filename, semester, totalRows, insertedCount, skippedCount, uploadedBy`                                                                                  |                                                                            |
 
 ---
 
 ## Environment Variables
 
-Create `server/.env` from `server/.env.example`:
+### Backend — create `server/.env` from `server/.env.example`
 
 ```env
-# Server
-PORT=5003
+# ===== Server =====
+PORT=5000
 NODE_ENV=production
+CLIENT_URL=https://yourdomain.com,https://www.yourdomain.com
+SESSION_SECRET=your_session_secret_min_32_chars
 
-# MongoDB
-MONGO_URI=mongodb://localhost:27017/ulab_one_portal
+# ===== MongoDB =====
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<dbname>?retryWrites=true&w=majority
 
-# JWT
-JWT_SECRET=your_jwt_secret_here
-JWT_REFRESH_SECRET=your_refresh_secret_here
+# ===== JWT =====
+JWT_SECRET=your_jwt_secret_min_32_chars
+JWT_REFRESH_SECRET=your_jwt_refresh_secret_min_32_chars
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
-# Client (comma-separated for multiple origins)
-CLIENT_URL=https://yourdomain.com,https://www.yourdomain.com
+# ===== Brevo (Email & OTP) =====
+BREVO_API_KEY=your_brevo_api_key
+BREVO_SENDER_EMAIL=noreply@yourdomain.com
+BREVO_SENDER_NAME=ULAB One Portal
 
-# Email (SMTP for OTP)
-SMTP_HOST=smtp.yourprovider.com
-SMTP_PORT=587
-SMTP_USER=your_smtp_user
-SMTP_PASS=your_smtp_password
-SMTP_FROM=noreply@yourdomain.com
+# ===== Cloudinary (Image Upload — teacher avatars) =====
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+# ===== Cloudflare R2 (PDF Notes Storage) =====
+R2_ACCOUNT_ID=your_cloudflare_account_id
+R2_ACCESS_KEY_ID=your_r2_access_key_id
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+R2_BUCKET_NAME=ulab-notes
+R2_PUBLIC_URL=https://pub-xxxxxxxxxxxxxxxx.r2.dev
+```
+
+> **Required at startup:** `JWT_SECRET`, `JWT_REFRESH_SECRET`, `MONGO_URI`, `CLIENT_URL` — the server will exit immediately if any of these are missing.
+>
+> **R2 warning:** If R2 credentials are absent, the server still starts but logs a warning and all note upload requests will fail at runtime.
+
+### Frontend — create `.env.production` (already tracked)
+
+```env
+VITE_API_URL=https://api.ulaboneportal.dev/api
+VITE_SOCKET_URL=https://api.ulaboneportal.dev
+```
+
+For local development create `.env.local`:
+
+```env
+VITE_API_URL=http://localhost:5000/api
+VITE_SOCKET_URL=http://localhost:5000
 ```
 
 ---
@@ -633,7 +751,8 @@ SMTP_FROM=noreply@yourdomain.com
 - Node.js v18 or higher
 - npm v9 or higher
 - MongoDB instance (local or Atlas)
-- SMTP credentials for OTP emails
+- Brevo account for transactional OTP emails
+- Cloudflare R2 bucket for PDF note storage (optional for local dev — upload routes will fail without it)
 
 ### Installation
 
@@ -649,15 +768,15 @@ npm install
 cd server
 npm install
 
-# Configure environment
+# Configure backend environment
 cp .env.example .env
-# Edit .env with your values
+# Edit .env with your values (MongoDB URI, JWT secrets, Brevo API key, R2 credentials)
 ```
 
 ### Running in Development
 
 ```bash
-# Terminal 1 — Start backend (from project root)
+# Terminal 1 — Start backend (from server/)
 cd server && npm run dev
 
 # Terminal 2 — Start frontend (from project root)
@@ -665,7 +784,7 @@ npm run dev
 ```
 
 - Frontend: `http://localhost:8080`
-- Backend API: `http://localhost:5003`
+- Backend API: `http://localhost:5000`
 
 ### First-Time Admin Setup
 
@@ -673,10 +792,10 @@ Before the admin portal is usable, create the initial super-admin account:
 
 ```bash
 # Check if admin already exists
-GET http://localhost:5003/api/auth/admin/check-setup
+GET http://localhost:5000/api/auth/admin/check-setup
 
 # If not, create the first admin
-POST http://localhost:5003/api/auth/admin/setup
+POST http://localhost:5000/api/auth/admin/setup
 Content-Type: application/json
 
 { "name": "Admin Name", "email": "admin@ulab.edu.bd", "password": "strongpassword" }
@@ -750,7 +869,7 @@ server {
 
     # Backend API + WebSocket
     location /api {
-        proxy_pass http://localhost:5003;
+        proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -759,16 +878,26 @@ server {
     }
 
     location /socket.io {
-        proxy_pass http://localhost:5003;
+        proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+    }
+
+    # Teacher photos (served from VPS disk)
+    location /uploads {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
     }
 
     ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
 }
 ```
+
+> **Note:** PDF notes are served **directly from Cloudflare R2's public CDN URL** — they do not pass through the VPS or Nginx. Only teacher avatar photos go through `/uploads`.
 
 ### SSL — Let's Encrypt
 
@@ -780,18 +909,51 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 
 ## Security
 
-| Measure             | Implementation                                                                                 |
-| ------------------- | ---------------------------------------------------------------------------------------------- |
-| Password hashing    | bcryptjs with salt rounds (auto-applied via Mongoose `pre("save")` hook)                       |
-| JWT storage         | Access token in-memory only (never localStorage); refresh token in httpOnly cookie             |
+| Measure             | Implementation                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| Password hashing    | bcryptjs with salt rounds (auto-applied via Mongoose `pre("save")` hook)                        |
+| JWT storage         | Access token in-memory only (never localStorage); refresh token in httpOnly cookie              |
 | Rate limiting       | `express-rate-limit` on all auth endpoints (10 req / 15 min for login, 5 req / 15 min for OTP) |
-| Security headers    | `helmet` middleware applied globally                                                           |
-| CORS                | Strict origin whitelist via `CLIENT_URL` env var; supports multiple comma-separated origins    |
-| Input validation    | `express-validator` on all mutation endpoints                                                  |
-| Password not leaked | Mongoose schema hides `password` field via `select: false` and `toJSON` transform              |
-| Env secrets         | All secrets in `.env`; `.env` is gitignored                                                    |
-| Role enforcement    | `protect` + `authorizeRole` middleware on every protected route                                |
-| OTP expiry          | 5-minute TTL on registration OTPs                                                              |
+| Security headers    | `helmet` middleware applied globally                                                            |
+| CORS                | Strict origin whitelist via `CLIENT_URL` env var; supports multiple comma-separated origins     |
+| Input validation    | `express-validator` on all mutation endpoints                                                   |
+| Password not leaked | Mongoose schema hides `password` field via `select: false` and `toJSON` transform               |
+| Env secrets         | All secrets in `.env`; `.env` is gitignored                                                     |
+| Role enforcement    | `protect` + `authorizeRole` middleware on every protected route                                 |
+| OTP expiry          | 5-minute TTL on registration OTPs                                                               |
+| File path traversal | `/uploads` handler validates resolved path stays within `UPLOADS_DIR` before serving           |
+| R2 key isolation    | R2 Access Key ID / Secret only on server; clients receive public CDN URLs, never credentials   |
+
+---
+
+## Recent Changelog
+
+### Latest Commits (most recent first)
+
+| Commit    | Description                                                                                        |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| `38889e8` | **feat: migrate file storage from local filesystem to Cloudflare R2** — PDF notes no longer stored on VPS disk; `uploadToR2` / `deleteFromR2` utils added; Multer switched to `memoryStorage` |
+| `bb207a1` | fix: replace `express.static` with explicit `sendFile` for reliable PDF serving                    |
+| `f3042b4` | fix: serve `/uploads` before `helmet` to allow PDF preview and download                            |
+| `e27696e` | fix: note upload modal centering, PDF upload CORS, Axios FormData headers                          |
+| `c6e7be4` | feat(auth): add mobile header and footer to student login page                                     |
+| `02bff65` | feat: recent notes widget, fix note upload/download, fix build warnings, responsive upload dialog  |
+| `7f86305` | fix(notes): fix note upload failure and cross-origin PDF download, make upload dialog responsive   |
+| `004ca8a` | feat(dashboard): wire Recent Resources widget to real approved notes from DB                       |
+| `fed85cf` | feat(api): add `getRecentNotes` endpoint for dashboard widget                                      |
+| `7b97624` | chore(routes): register new admin and teacher routes with mobile menu provider                     |
+| `68c6e5d` | feat(student): make Quick Tasks functional with localStorage persistence                           |
+| `07a162e` | feat(admin): add mobile hamburger menu with slide-in sidebar drawer                                |
+| `b2e76a7` | feat(teacher): add Assignments page with coming soon UI                                            |
+| `ff0a573` | feat(teacher): connect dashboard to live course stats                                              |
+| `3486d30` | feat: PDF blob preview, upload confirmation popup, reject deletes file                             |
+| `fbc323b` | style: switch student auth pages to orange theme                                                   |
+| `3fe2fbd` | feat: functional admin dashboard with real DB stats                                                |
+| `f10d4c4` | feat: live schedule page from OfferedCourse DB data                                                |
+| `88f770c` | feat: one-user-one-vote system for notes using `voters` Map                                        |
+| `9fb2284` | feat: add notes repository API                                                                     |
+| `ccde5d9` | feat: improve schedule builder timetable cards                                                     |
+| `d5e7589` | feat: add schedule generation engine with backtracking algorithm                                  |
 
 ---
 
