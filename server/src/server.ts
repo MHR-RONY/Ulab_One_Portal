@@ -57,8 +57,9 @@ app.options("/uploads/*", (req, res) => {
 
 // Serve any file under /uploads (notes, teacher-photos, etc.)
 app.get("/uploads/*", (req, res) => {
-	// Extract the relative path after /uploads/
-	const relativePath = req.params[0]; // e.g. "notes/abc123.pdf"
+	// Extract the relative path after /uploads/ (Express stores the wildcard
+	// match under the "0" key; req.params isn't index-typed under strict mode).
+	const relativePath = (req.params as Record<string, string>)["0"]; // e.g. "notes/abc123.pdf"
 	if (!relativePath) {
 		res.status(400).json({ success: false, message: "No file path specified" });
 		return;
